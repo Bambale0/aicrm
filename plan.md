@@ -1,493 +1,309 @@
-"""
-CRM-AI System Architecture (Python Implementation)
-"""
+Чистая модульная структура
 
-class CRMArchitecture:
-    """
-    Основная архитектура CRM системы на Python
-    """
-    
-    def __init__(self):
-        self.tech_stack = self.define_tech_stack()
-        self.modules = self.define_modules()
-        self.workflows = self.define_workflows()
-    
-    def define_tech_stack(self):
-        """
-        Определение технологического стека Python
-        """
-        return {
-            "backend": {
-                "framework": "FastAPI 0.104+ / Django 5.0",
-                "python_version": "3.11+",
-                "async_support": "Yes",
-                "api_docs": "Swagger/OpenAPI 3.0"
-            },
-            "frontend": {
-                "framework": "React 18 + TypeScript",
-                "python_integration": "Jinja2 templates (optional)",
-                "build_tool": "Vite"
-            },
-            "database": {
-                "main": "PostgreSQL 15",
-                "orm": "SQLAlchemy 2.0 + Alembic",
-                "cache": "Redis 7",
-                "async_orm": "SQLModel / Tortoise-ORM"
-            },
-            "ai_ml": {
-                "nlp": "spaCy, Transformers",
-                "llm_integration": "OpenRouter API, OpenAI, Anthropic",
-                "ml_framework": "scikit-learn, PyTorch",
-                "async_ai": "aiohttp for API calls"
-            },
-            "messaging": {
-                "telegram": "python-telegram-bot 20+",
-                "email": "aiosmtplib, email-validator",
-                "sms": "Twilio API",
-                "websockets": "WebSockets + Redis Pub/Sub"
-            },
-            "infrastructure": {
-                "containerization": "Docker + Docker Compose",
-                "reverse_proxy": "Nginx",
-                "monitoring": "Prometheus + Grafana",
-                "task_queue": "Celery + Redis/RabbitMQ",
-                "background_jobs": "APScheduler"
-            }
-        }
-    
-    def define_modules(self):
-        """
-        Определение основных модулей системы
-        """
-        return {
-            "core_modules": {
-                "auth_module": PythonAuthModule(),
-                "customer_module": PythonCustomerModule(),
-                "order_module": PythonOrderModule(),
-                "production_module": PythonProductionModule(),
-                "communication_module": PythonCommunicationModule(),
-                "ai_module": PythonAIModule(),
-                "task_module": PythonTaskModule()
-            },
-            "integration_modules": {
-                "telegram_bot": PythonTelegramBot(),
-                "avito_integration": PythonAvitoIntegration(),
-                "email_service": PythonEmailService(),
-                "phone_system": PythonPhoneSystem()
-            }
-        }
+Современный стек технологий (FastAPI, SQLAlchemy 2.0, Pydantic)
 
-class PythonAuthModule:
-    """Модуль аутентификации на Python"""
-    
-    def __init__(self):
-        self.security_config = {
-            "jwt_algorithm": "HS256",
-            "password_hashing": "bcrypt 4.0+",
-            "token_expiry": "24 hours",
-            "refresh_tokens": True
-        }
-    
-    async def authenticate_user(self, credentials):
-        """Асинхронная аутентификация пользователя"""
-        pass
-    
-    def create_access_token(self, user_data):
-        """Создание JWT токена"""
-        pass
+Полноценная аутентификация и безопасность
 
-class PythonCustomerModule:
-    """Модуль управления клиентами"""
-    
-    def __init__(self):
-        self.customer_model = CustomerSQLModel()
-        self.validation_schema = CustomerPydanticModel()
-    
-    async def create_customer(self, customer_data):
-        """Создание нового клиента"""
-        pass
-    
-    async def get_customer_stats(self, customer_id):
-        """Получение статистики клиента"""
-        pass
+Хорошая документация API
 
-class PythonOrderModule:
-    """Модуль управления заказами"""
-    
-    def __init__(self):
-        self.order_states = {
-            "pending": "Ожидает обработки",
-            "in_design": "В дизайне", 
-            "in_production": "В производстве",
-            "ready": "Готов",
-            "delivered": "Доставлен",
-            "cancelled": "Отменен"
-        }
-    
-    async def create_order(self, order_data):
-        """Создание заказа с автоматическими расчетами"""
-        pass
-    
-    async def update_order_status(self, order_id, new_status):
-        """Обновление статуса заказа"""
-        pass
+Поддержка разработки и продакшена
 
-class PythonProductionModule:
-    """Модуль контроля производства"""
-    
-    def __init__(self):
-        self.production_steps = []
-        self.workflow_manager = ProductionWorkflow()
-    
-    async def create_production_steps(self, order_id):
-        """Автоматическое создание этапов производства"""
-        pass
-    
-    async def track_progress(self, order_id):
-        """Отслеживание прогресса производства"""
-        pass
+🚀 Рекомендации по улучшению:
+1. Оптимизация структуры проекта
+python
+# Рекомендуемая структура
+src/aicrm/
+├── core/
+│   ├── config.py          # Конфигурация приложения
+│   ├── database.py        # Настройки БД
+│   ├── security.py        # JWT, хеширование
+│   └── dependencies.py    # FastAPI зависимости
+├── models/
+│   ├── base.py           # Базовая модель
+│   ├── user.py           # Пользователи
+│   ├── customer.py       # Клиенты
+│   ├── order.py          # Заказы
+│   └── production.py     # Производство
+├── schemas/
+│   ├── auth.py           # Схемы аутентификации
+│   ├── customer.py       # Схемы клиентов
+│   └── order.py          # Схемы заказов
+├── api/
+│   ├── v1/               # Version 1 API
+│   │   ├── endpoints/
+│   │   │   ├── auth.py
+│   │   │   ├── customers.py
+│   │   │   └── orders.py
+│   │   └── __init__.py
+│   └── deps.py           # Зависимости API
+├── services/
+│   ├── auth.py           # Сервис аутентификации
+│   ├── customer.py       # Сервис клиентов
+│   ├── order.py          # Сервис заказов
+│   └── ai.py            # AI сервис
+├── utils/
+│   ├── security.py       # Утилиты безопасности
+│   ├── validators.py     # Кастомные валидаторы
+│   └── helpers.py        # Вспомогательные функции
+└── tests/
+    ├── conftest.py       # Фикстуры pytest
+    ├── test_api/
+    ├── test_services/
+    └── test_models/
+2. Улучшенная конфигурация
+python
+# core/config.py
+from pydantic_settings import BaseSettings
+from typing import Optional
 
-class PythonCommunicationModule:
-    """Модуль многоканальных коммуникаций"""
+class Settings(BaseSettings):
+    # Database
+    DATABASE_URL: str
+    TEST_DATABASE_URL: Optional[str] = None
     
-    def __init__(self):
-        self.channels = ["telegram", "avito", "email", "phone", "website"]
-        self.message_processor = MessageProcessor()
+    # Security
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    async def handle_incoming_message(self, channel, message):
-        """Обработка входящих сообщений"""
-        pass
+    # Redis
+    REDIS_URL: str = "redis://localhost:6379"
     
-    async def send_response(self, channel, recipient, response):
-        """Отправка ответа через выбранный канал"""
-        pass
+    # AI Services
+    OPENAI_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
+    
+    # Monitoring
+    SENTRY_DSN: Optional[str] = None
+    LOG_LEVEL: str = "INFO"
+    
+    class Config:
+        env_file = ".env"
 
-class PythonAIModule:
-    """AI модуль с интеграцией LLM"""
+settings = Settings()
+3. Расширенные модели данных
+python
+# models/order.py
+from sqlalchemy import Column, Integer, String, DateTime, Decimal, Text, Enum, JSON
+from sqlalchemy.orm import relationship
+from .base import Base
+import enum
+
+class OrderStatus(enum.Enum):
+    PENDING = "pending"
+    IN_DESIGN = "in_design"
+    IN_PRODUCTION = "in_production"
+    READY = "ready"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+class Order(Base):
+    __tablename__ = "orders"
     
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"))
+    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
+    total_amount = Column(Decimal(10, 2))
+    items = Column(JSON)  # Детали заказа
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    customer = relationship("Customer", back_populates="orders")
+    production_steps = relationship("ProductionStep", back_populates="order")
+    communications = relationship("Communication", back_populates="order")
+4. AI Module Enhancement
+python
+# services/ai.py
+import httpx
+from enum import Enum
+from typing import Dict, Any, Optional
+from core.config import settings
+
+class AIIntent(Enum):
+    ORDER = "order"
+    QUESTION = "question"
+    COMPLAINT = "complaint"
+    OTHER = "other"
+
+class AIService:
     def __init__(self):
-        self.llm_providers = {
-            "openrouter": OpenRouterClient(),
+        self.providers = {
             "openai": OpenAIClient(),
+            "openrouter": OpenRouterClient(),
             "anthropic": AnthropicClient()
         }
-        self.intent_analyzer = IntentAnalyzer()
     
-    async def analyze_intent(self, message):
-        """Анализ намерения сообщения"""
-        pass
-    
-    async def generate_response(self, intent, context):
-        """Генерация AI ответа"""
-        pass
-
-class PythonTaskModule:
-    """Модуль управления задачами"""
-    
-    def __init__(self):
-        self.task_priorities = ["low", "medium", "high"]
-        self.kanban_board = KanbanManager()
-    
-    async def create_task(self, task_data):
-        """Создание задачи"""
-        pass
-    
-    async def assign_task(self, task_id, user_id):
-        """Назначение задачи исполнителю"""
-        pass
-
-# БЛОК-СХЕМА ПОТОКА ДАННЫХ
-class DataFlow:
-    """
-    Блок-схема потоков данных в системе
-    """
-    
-    def incoming_message_flow(self):
-        """
-        Поток обработки входящих сообщений
-        """
-        flow = """
-        Входящее сообщение → 
-        Определение канала (Telegram/Avito/Email) → 
-        Нормализация сообщения → 
-        AI анализ намерения → 
-        Классификация намерения:
-            - Заказ: Создание заказа
-            - Вопрос: Поиск в БЗ  
-            - Жалоба: Эскалация менеджеру
-            - Другое: Стандартный ответ →
-        Генерация ответа AI →
-        Отправка ответа →
-        Логирование взаимодействия
-        """
-        return flow
-    
-    def order_creation_flow(self):
-        """
-        Поток создания заказа
-        """
-        flow = """
-        Запрос на создание заказа →
-        Валидация данных (Pydantic) →
-        Расчет стоимости →
-        Создание записи в PostgreSQL →
-        Автоматическое создание этапов производства →
-        Создание задач для сотрудников →
-        Отправка уведомлений (WebSocket) →
-        Обновление статистики клиента
-        """
-        return flow
-    
-    def production_workflow(self):
-        """
-        Поток производственного процесса
-        """
-        flow = """
-        Заказ переходит в статус "in_production" →
-        Создание этапов производства:
-            - Подготовка материалов
-            - Печать
-            - Пост-обработка
-            - Контроль качества →
-        Назначение ответственных →
-        Отслеживание прогресса по этапам →
-        Автоматические уведомления при завершении этапов →
-        Обновление статуса заказа
-        """
-        return flow
-
-# АРХИТЕКТУРА БАЗЫ ДАННЫХ
-class DatabaseSchema:
-    """
-    Схема базы данных на SQLAlchemy
-    """
-    
-    def __init__(self):
-        self.models = self.define_models()
-    
-    def define_models(self):
-        return {
-            "User": {
-                "id": "Integer, Primary Key",
-                "email": "String, Unique",
-                "hashed_password": "String",
-                "role": "String",
-                "created_at": "DateTime"
-            },
-            "Customer": {
-                "id": "Integer, Primary Key", 
-                "name": "String",
-                "contact_info": "JSON",
-                "total_orders": "Integer",
-                "total_spent": "Decimal"
-            },
-            "Order": {
-                "id": "Integer, Primary Key",
-                "customer_id": "Integer, ForeignKey",
-                "status": "String",
-                "total_amount": "Decimal", 
-                "created_at": "DateTime",
-                "production_steps": "Relationship"
-            },
-            "ProductionStep": {
-                "id": "Integer, Primary Key",
-                "order_id": "Integer, ForeignKey", 
-                "step_type": "String",
-                "status": "String",
-                "assigned_to": "Integer, ForeignKey",
-                "deadline": "DateTime"
-            },
-            "Communication": {
-                "id": "Integer, Primary Key",
-                "channel": "String",
-                "message_content": "Text",
-                "direction": "String",
-                "customer_id": "Integer, ForeignKey",
-                "ai_response_id": "Integer, ForeignKey"
-            },
-            "Task": {
-                "id": "Integer, Primary Key",
-                "title": "String", 
-                "description": "Text",
-                "priority": "String",
-                "status": "String",
-                "assigned_to": "Integer, ForeignKey"
-            }
-        }
-
-# КОНФИГУРАЦИЯ БЕЗОПАСНОСТИ
-class SecurityConfig:
-    """
-    Конфигурация безопасности Python системы
-    """
-    
-    def __init__(self):
-        self.settings = {
-            "authentication": {
-                "jwt_secret_key": "128-char secret",
-                "algorithm": "HS256",
-                "access_token_expire_minutes": 1440,
-                "password_hasher": "bcrypt"
-            },
-            "rate_limiting": {
-                "global_requests": "100/15min",
-                "auth_requests": "5/15min", 
-                "ip_whitelist": [],
-                "redis_backend": "Yes"
-            },
-            "validation": {
-                "input_validation": "Pydantic models",
-                "sql_injection_protection": "SQLAlchemy ORM",
-                "xss_protection": "Jinja2 autoescape"
-            },
-            "cors": {
-                "allowed_origins": ["https://domain.com"],
-                "allowed_methods": ["GET", "POST", "PUT", "DELETE"],
-                "allowed_headers": ["*"]
-            }
-        }
-
-# МОНИТОРИНГ И ЛОГИРОВАНИЕ
-class MonitoringSystem:
-    """
-    Система мониторинга и логирования
-    """
-    
-    def __init__(self):
-        self.metrics = self.define_metrics()
-        self.logging_config = self.setup_logging()
-    
-    def define_metrics(self):
-        return {
-            "performance": {
-                "response_time": "< 100ms target",
-                "error_rate": "< 0.1%", 
-                "uptime": "> 99.5%",
-                "throughput": "requests/second"
-            },
-            "business": {
-                "conversion_rate": "messages to orders",
-                "customer_satisfaction": "NPS score",
-                "order_completion_time": "average days"
-            }
-        }
-    
-    def setup_logging(self):
-        return {
-            "library": "structlog + JSON formatting",
-            "levels": ["DEBUG", "INFO", "WARNING", "ERROR"],
-            "handlers": ["file", "console", "elasticsearch"],
-            "correlation_ids": "Yes for request tracing"
-        }
-
-# ТЕСТИРОВАНИЕ
-class TestingStrategy:
-    """
-    Стратегия тестирования Python системы
-    """
-    
-    def __init__(self):
-        self.test_pyramid = self.define_test_pyramid()
-    
-    def define_test_pyramid(self):
-        return {
-            "unit_tests": {
-                "framework": "pytest",
-                "coverage": "> 90%",
-                "mock_library": "pytest-mock",
-                "async_tests": "pytest-asyncio"
-            },
-            "integration_tests": {
-                "database": "testcontainers",
-                "api": "pytest + FastAPI TestClient", 
-                "redis": "fakeredis"
-            },
-            "e2e_tests": {
-                "framework": "Playwright",
-                "scenarios": "critical user journeys",
-                "browsers": "Chromium, Firefox, WebKit"
-            }
-        }
-
-# ДЕПЛОЙ И ИНФРАСТРУКТУРА
-class DeploymentArchitecture:
-    """
-    Архитектура деплоя и инфраструктуры
-    """
-    
-    def __init__(self):
-        self.components = self.define_infrastructure()
-    
-    def define_infrastructure(self):
-        return {
-            "containerization": {
-                "dockerfiles": ["backend", "frontend", "nginx"],
-                "docker_compose": "orchestration",
-                "multi_stage_builds": "Yes"
-            },
-            "reverse_proxy": {
-                "nginx": "SSL termination, load balancing",
-                "static_files": "frontend assets",
-                "api_routing": "proxy to FastAPI"
-            },
-            "monitoring_stack": {
-                "prometheus": "metrics collection",
-                "grafana": "dashboards", 
-                "loki": "logs aggregation"
-            },
-            "scaling": {
-                "horizontal": "multiple backend instances",
-                "database": "connection pooling",
-                "cache": "Redis cluster",
-                "background_tasks": "Celery workers"
-            }
-        }
-# Пример асинхронного обработчика сообщений
-async def process_incoming_message(message_data: MessageSchema):
-    # Анализ намерения
-    intent = await ai_module.analyze_intent(message_data.content)
-    
-    # Создание заказа если нужно
-    if intent == "order":
-        order = await order_module.create_auto_order(message_data)
+    async def analyze_intent(self, message: str) -> AIIntent:
+        """Анализ намерения сообщения с использованием AI"""
+        prompt = f"""
+        Проанализируй намерение пользователя в следующем сообщении:
+        "{message}"
         
-    # Генерация ответа
-    response = await ai_module.generate_response(intent, message_data.context)
+        Возможные варианты:
+        - order: пользователь хочет сделать заказ
+        - question: пользователь задает вопрос
+        - complaint: пользователь жалуется
+        - other: другое
+        
+        Верни только одно слово (order/question/complaint/other)
+        """
+        
+        response = await self.providers["openrouter"].complete(prompt)
+        return AIIntent(response.strip().lower())
     
-    # Отправка ответа
-    await communication_module.send_response(
-        channel=message_data.channel,
-        recipient=message_data.customer_id,
-        response=response
-    )
-# ГЛАВНАЯ ФУНКЦИЯ ДЕМОНСТРАЦИИ
-def main():
-    """
-    Демонстрация полной архитектуры Python CRM системы
-    """
-    crm_system = CRMArchitecture()
-    
-    print("=== PYTHON CRM-AI СИСТЕМА ===")
-    print("\n1. ТЕХНОЛОГИЧЕСКИЙ СТЕК:")
-    for category, tech in crm_system.tech_stack.items():
-        print(f"   {category.upper()}: {tech}")
-    
-    print("\n2. ОСНОВНЫЕ МОДУЛИ:")
-    for module_type, modules in crm_system.modules.items():
-        print(f"   {module_type}:")
-        for module_name in modules.keys():
-            print(f"     - {module_name}")
-    
-    print("\n3. ПОТОКИ ДАННЫХ:")
-    flow = DataFlow()
-    print("   Входящие сообщения:", flow.incoming_message_flow())
-    print("   Создание заказов:", flow.order_creation_flow())
-    print("   Производство:", flow.production_workflow())
-    
-    print("\n4. МЕТРИКИ КАЧЕСТВА:")
-    monitoring = MonitoringSystem()
-    for metric_type, metrics in monitoring.metrics.items():
-        print(f"   {metric_type}: {metrics}")
+    async def generate_response(self, intent: AIIntent, context: Dict[str, Any]) -> str:
+        """Генерация контекстного ответа"""
+        templates = {
+            AIIntent.ORDER: "Отлично! Я помогу вам оформить заказ...",
+            AIIntent.QUESTION: "Спасибо за вопрос! Вот что я могу рассказать...",
+            AIIntent.COMPLAINT: "Приношу извинения за неудобства. Наш менеджер свяжется с вами...",
+            AIIntent.OTHER: "Благодарю за обращение! Чем еще могу помочь?"
+        }
+        return templates.get(intent, "Благодарю за обращение!")
+5. Production Workflow Service
+python
+# services/production.py
+from sqlalchemy.orm import Session
+from models.order import Order, OrderStatus
+from models.production import ProductionStep, StepStatus
+from typing import List
 
-if __name__ == "__main__":
-    main()
+class ProductionService:
+    def __init__(self, db: Session):
+        self.db = db
+    
+    async def create_production_workflow(self, order_id: int) -> List[ProductionStep]:
+        """Автоматическое создание workflow производства"""
+        order = self.db.query(Order).filter(Order.id == order_id).first()
+        if not order:
+            raise ValueError("Order not found")
+        
+        # Стандартные этапы для печати на одежде
+        steps_config = [
+            {"name": "Подготовка макета", "duration_hours": 24},
+            {"name": "Подготовка материалов", "duration_hours": 12},
+            {"name": "Печать", "duration_hours": 48},
+            {"name": "Пост-обработка", "duration_hours": 24},
+            {"name": "Контроль качества", "duration_hours": 6},
+        ]
+        
+        steps = []
+        for i, config in enumerate(steps_config):
+            step = ProductionStep(
+                order_id=order_id,
+                name=config["name"],
+                sequence_number=i + 1,
+                status=StepStatus.PENDING,
+                estimated_hours=config["duration_hours"]
+            )
+            self.db.add(step)
+            steps.append(step)
+        
+        self.db.commit()
+        return steps
+    
+    async def update_progress(self, order_id: int) -> Dict[str, Any]:
+        """Обновление прогресса производства"""
+        steps = self.db.query(ProductionStep).filter(
+            ProductionStep.order_id == order_id
+        ).all()
+        
+        total_steps = len(steps)
+        completed_steps = len([s for s in steps if s.status == StepStatus.COMPLETED])
+        progress = (completed_steps / total_steps) * 100 if total_steps > 0 else 0
+        
+        return {
+            "total_steps": total_steps,
+            "completed_steps": completed_steps,
+            "progress": round(progress, 2),
+            "current_step": next((s for s in steps if s.status == StepStatus.IN_PROGRESS), None)
+        }
+6. Enhanced API Endpoints
+python
+# api/v1/endpoints/orders.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+
+from core.database import get_db
+from services.order import OrderService
+from services.production import ProductionService
+from schemas.order import OrderCreate, OrderResponse, OrderUpdate
+
+router = APIRouter()
+
+@router.post("/", response_model=OrderResponse)
+async def create_order(
+    order_data: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Создание заказа с автоматическим workflow"""
+    order_service = OrderService(db)
+    production_service = ProductionService(db)
+    
+    # Создание заказа
+    order = await order_service.create_order(order_data, current_user.id)
+    
+    # Автоматическое создание производственного workflow
+    await production_service.create_production_workflow(order.id)
+    
+    return order
+
+@router.get("/{order_id}/production-progress")
+async def get_production_progress(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Получение прогресса производства заказа"""
+    production_service = ProductionService(db)
+    progress = await production_service.update_progress(order_id)
+    return progress
+7. Docker Optimization
+dockerfile
+# Многоступенчатый Dockerfile
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --user -r requirements.txt
+
+FROM python:3.11-slim as runtime
+
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+COPY . .
+
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONPATH=/app
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.aicrm.main:app", "--host", "0.0.0.0", "--port", "8000"]
+8. Monitoring & Logging
+python
+# utils/logging.py
+import structlog
+import logging
+
+def setup_logging():
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.processors.JSONRenderer()
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
