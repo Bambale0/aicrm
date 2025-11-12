@@ -382,25 +382,47 @@ class AvitoCommunicationHandler:
                 # Можно добавить специальную обработку для каждого типа триггера
                 break
 
-    async def get_chat_history(self, chat_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Получение истории чата (заглушка для будущего API)"""
+    async def get_chat_history(self, chat_id: str, limit: int = 50, use_api: bool = False) -> List[Dict[str, Any]]:
+        """Получение истории чата из Avito API или базы данных"""
         try:
-            # Пока что получаем из базы данных
-            communications = self.db.query(Communication).filter(
-                Communication.channel == "avito",
-                Communication.extra_data.contains({"chat_id": chat_id})
-            ).order_by(Communication.created_at.desc()).limit(limit).all()
+            if use_api:
+                # Получаем историю из Avito API
+                async with AvitoService() as avito_service:
+                    api_messages = await avito_service.get_avito_messages(chat_id, limit=limit)
 
-            return [
-                {
-                    "id": comm.id,
-                    "direction": comm.direction,
-                    "message": comm.message_content,
-                    "timestamp": comm.created_at.isoformat(),
-                    "intent": comm.intent
-                }
-                for comm in communications
-            ]
+                    # Синхронизируем с базой данных
+                    await self._sync_messages_from_api(chat_id, api_messages)
+
+                    # Возвращаем данные из API
+                    return [
+                        {
+                            "id": msg.get("id"),
+                            "direction": "inbound" if msg.get("direction") == "inbound" else "outbound",
+                            "message": msg.get("content", {}).get("text", ""),
+                            "timestamp": msg.get("created"),
+                            "intent": None,  # API не предоставляет intent
+                            "from_api": True
+                        }
+                        for msg in api_messages.get("messages", [])
+                    ]
+            else:
+                # Получаем из базы данных
+                communications = self.db.query(Communication).filter(
+                    Communication.channel == "avito",
+                    Communication.extra_data.contains({"chat_id": chat_id})
+                ).order_by(Communication.created_at.desc()).limit(limit).all()
+
+                return [
+                    {
+                        "id": comm.id,
+                        "direction": comm.direction,
+                        "message": comm.message_content,
+                        "timestamp": comm.created_at.isoformat(),
+                        "intent": comm.intent,
+                        "from_api": False
+                    }
+                    for comm in communications
+                ]
 
         except Exception as e:
             logger.error(f"Ошибка получения истории чата {chat_id}: {e}")
@@ -436,3 +458,63 @@ class AvitoCommunicationHandler:
         except Exception as e:
             logger.error(f"Ошибка отметки чата {chat_id} как прочитанного: {e}")
             return False
+
+    async def _sync_messages_from_api(self, chat_id: str, api_messages: Dict[str, Any]):
+        """Синхронизация сообщений из Avito API с базой данных"""
+        try:
+            messages = api_messages.get("messages", [])
+
+            for msg_data in messages:
+                message_id = msg_data.get("id")
+                if not message_id:
+                    continue
+
+                # Проверяем, существует ли уже сообщение в базе
+                existing = self.db.query(Communication).filter(
+                    Communication.extra_data.contains({"avito_message_id": message_id})
+                ).first()
+
+                if existing:
+                    continue  # Сообщение уже есть
+
+                # Создаем новое сообщение
+                direction = "inbound" if msg_data.get("direction") == "inbound" else "outbound"
+                content = msg_data.get("content", {}).get("text", "")
+                created_at = msg_data.get("created")
+
+                # Находим клиента по chat_id
+                customer = None
+                chat_settings = self.db.query(AvitoChatSettings).filter(
+                    AvitoChatSettings.chat_id == chat_id
+                ).first()
+                if chat_settings:
+                    customer = chat_settings.customer
+
+                communication = Communication(
+                    channel="avito",
+                    direction=direction,
+                    message_content=content,
+                    customer_id=customer.id if customer else None,
+                    extra_data={
+                        "chat_id": chat_id,
+                        "avito_message_id": message_id,
+                        "from_api_sync": True
+                    }
+                )
+
+                # Устанавливаем время создания если есть
+                if created_at:
+                    from datetime import datetime
+                    try:
+                        communication.created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    except:
+                        pass  # Оставляем дефолтное время
+
+                self.db.add(communication)
+
+            self.db.commit()
+            logger.info(f"Синхронизировано {len(messages)} сообщений для чата {chat_id}")
+
+        except Exception as e:
+            logger.error(f"Ошибка синхронизации сообщений из API для чата {chat_id}: {e}")
+            self.db.rollback()

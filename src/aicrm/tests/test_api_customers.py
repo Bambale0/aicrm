@@ -55,8 +55,11 @@ class TestCustomerAPI:
         mock_db = MagicMock()
         mock_current_user = MagicMock()
 
-        # Поскольку это интеграционный тест с моками, просто проверим логику
-        assert True  # Заглушка - в реальном проекте нужно настроить FastAPI TestClient
+        # Проверяем, что сервис был вызван с правильными параметрами
+        mock_customer_service.create_customer.assert_called_once()
+        args, kwargs = mock_customer_service.create_customer.call_args
+        customer_data = kwargs.get('customer_data', args[0] if args else None)
+        assert customer_data is not None
 
     def test_customer_crud_operations(self, mock_customer_service, mock_auth):
         """Тест основных CRUD операций с моками"""

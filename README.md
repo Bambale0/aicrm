@@ -25,17 +25,105 @@ AI CRM System - это полнофункциональная CRM система
 
 ### Технологический стек
 
-| Компонент | Технология | Версия | Назначение |
-|-----------|------------|--------|------------|
-| **Backend** | FastAPI | 0.104+ | REST API, асинхронная обработка |
-| **ORM** | SQLAlchemy | 2.0+ | Работа с базой данных |
-| **База данных** | PostgreSQL/SQLite | - | Хранение данных |
-| **Аутентификация** | JWT | - | Безопасность API |
-| **Валидация** | Pydantic | 2.0+ | Схемы данных |
-| **ИИ** | OpenAI API | 1.0+ | Генерация текста |
-| **Avito API** | Avito REST API | v1/v2 | Интеграция с Avito |
-| **Логирование** | Structlog | 23.0+ | Структурированные логи |
-| **Контейнеризация** | Docker | - | Деплой и масштабирование |
+#### 🎯 **Core Backend Technologies**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Web Framework** | **FastAPI** | `0.104.1+` | REST API, асинхронная обработка | - Async/await нативная поддержка<br>- Автоматическая генерация OpenAPI/Swagger<br>- Зависимости через Depends()<br>- Pydantic для валидации |
+| **ORM** | **SQLAlchemy** | `2.0.23+` | Работа с базой данных | - Асинхронные операции<br>- Миграции через Alembic<br>- Connection pooling<br>- Комплексные запросы |
+| **База данных** | **PostgreSQL** | `15+` | Основная БД | - ACID транзакции<br>- JSONB для гибких данных<br>- Полнотекстовый поиск<br>- Репликация |
+| **База данных (dev)** | **SQLite** | `3.40+` | Разработка/тестирование | - Файловая БД<br>- Нулевая конфигурация<br>- ACID транзакции |
+
+#### 🔐 **Security & Authentication**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Аутентификация** | **JWT (PyJWT)** | `2.8.0+` | Токены доступа | - HS256 алгоритм<br>- Access/Refresh tokens<br>- Token expiration<br>- Secure headers |
+| **Пароли** | **bcrypt** | `4.1.2+` | Хэширование паролей | - Salted hashing<br>- Adaptive complexity<br>- Timing attack protection |
+| **CORS** | **FastAPI CORS** | - | Cross-Origin защита | - Configurable origins<br>- Methods & headers<br>- Credentials support |
+
+#### 🤖 **AI & Machine Learning**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **AI Client** | **OpenRouter** | `v1` | Унифицированный AI API | - 100+ моделей<br>- Load balancing<br>- Fallback стратегии<br>- Cost optimization |
+| **AI Client** | **OpenAI** | `1.3.0+` | GPT модели | - GPT-4, GPT-3.5<br>- Embeddings<br>- Function calling |
+| **AI Client** | **HuggingFace** | `0.19.0+` | Open-source модели | - Inference API<br>- Local models<br>- Custom pipelines |
+| **Intent Analysis** | **Custom ML** | - | Классификация намерений | - Rule-based + ML<br>- Confidence scoring<br>- Context awareness |
+
+#### 📢 **External Integrations**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Avito API** | **Avito REST API** | `v1/v2/v3` | Интеграция с Avito | - OAuth 2.0<br>- Items management<br>- Statistics<br>- Messenger API |
+| **Avito Messenger** | **Avito Messenger API** | `v1` | Чат интеграция | - Real-time messaging<br>- Webhook support<br>- Chat management<br>- AI responses |
+
+#### 🛠 **Development & Testing**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Тестирование** | **pytest** | `7.4.0+` | Unit/Integration тесты | - Async support<br>- Fixtures<br>- Parametrization<br>- Coverage reports |
+| **Тестирование** | **pytest-asyncio** | `0.21.0+` | Async тесты | - Async fixtures<br>- Event loop management |
+| **Тестирование** | **httpx** | `0.25.0+` | HTTP клиент для тестов | - Async HTTP calls<br>- Test client<br>- Mock responses |
+| **Моки** | **unittest.mock** | - | Моки и стабы | - MagicMock<br>- patch decorators<br>- AsyncMock |
+
+#### 📊 **Monitoring & Observability**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Логирование** | **structlog** | `23.2.0+` | Структурированные логи | - JSON format<br>- Context binding<br>- Multiple outputs<br>- Performance |
+| **Метрики** | **prometheus-client** | `0.19.0+` | Метрики Prometheus | - Counters, Gauges<br>- Histograms<br>- Custom metrics<br>- Exposition |
+| **Трейсинг** | **OpenTelemetry** | `1.21.0+` | Распределенная трассировка | - Auto instrumentation<br>- Custom spans<br>- Context propagation |
+
+#### 🐳 **DevOps & Deployment**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Контейнеризация** | **Docker** | `24.0+` | Контейнеры | - Multi-stage builds<br>- Non-root user<br>- Security scanning<br>- Compose |
+| **WSGI/ASGI** | **uvicorn** | `0.24.0+` | ASGI сервер | - High performance<br>- Auto reload<br>- Workers<br>- SSL support |
+| **Process Manager** | **gunicorn** | `21.2.0+` | Production server | - Worker processes<br>- Load balancing<br>- Logging<br>- Monitoring |
+
+#### 📦 **Data Validation & Serialization**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Валидация** | **Pydantic** | `2.5.0+` | Схемы данных | - Type hints<br>- Validation<br>- Serialization<br>- JSON Schema |
+| **Валидация** | **email-validator** | `2.1.0+` | Email валидация | - RFC compliance<br>- MX checks<br>- Disposable detection |
+| **Парсинг** | **python-multipart** | `0.0.6+` | Form data | - File uploads<br>- Form parsing<br>- Streaming |
+
+#### 🔧 **Utilities & Helpers**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **HTTP Client** | **httpx** | `0.25.0+` | HTTP запросы | - Async/sync<br>- Connection pooling<br>- Timeouts<br>- SSL |
+| **Даты/Время** | **python-dateutil** | `2.8.2+` | Работа с датами | - Parsing<br>- Timezones<br>- Calculations |
+| **UUID** | **python-ulid** | `2.0.0+` | Уникальные ID | - ULID format<br>- Time-based<br>- Lexicographically sortable |
+| **Конфиг** | **python-dotenv** | `1.0.0+` | Переменные окружения | - .env files<br>- Validation<br>- Type casting |
+
+#### 📋 **Code Quality**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Линтер** | **ruff** | `0.1.0+` | Код анализ | - Fast Python linter<br>- Import sorting<br>- Auto-fixes<br>- Rule configuration |
+| **Форматтер** | **black** | `23.0+` | Код форматирование | - Opinionated formatting<br>- Line length 88<br>- Consistent style |
+| **Type Checker** | **mypy** | `1.7.0+` | Типизация | - Static type checking<br>- Strict mode<br>- Plugin support |
+| **Security** | **bandit** | `1.7.0+` | Безопасность кода | - Security issues<br>- CWE mapping<br>- Severity levels |
+
+#### 🔄 **Background Tasks & Queues**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Background Tasks** | **FastAPI BackgroundTasks** | - | Простые задачи | - Fire-and-forget<br>- Dependency injection<br>- Error handling |
+| **Task Queue** | **Celery** | `5.3.0+` | Очереди задач | - Distributed tasks<br>- Scheduling<br>- Monitoring<br>- Result backend |
+| **Message Broker** | **Redis** | `7.0+` | Кэш и брокер | - Pub/Sub<br>- Key-value store<br>- Persistence<br>- Clustering |
+
+#### 📊 **Database Tools**
+
+| Компонент | Технология | Версия | Назначение | Детали |
+|-----------|------------|--------|------------|---------|
+| **Миграции** | **alembic** | `1.12.0+` | Схема БД | - Version control<br>- Auto-generation<br>- Rollbacks<br>- Multiple heads |
+| **Фабрика** | **factory-boy** | `3.3.0+` | Тестовые данные | - Model factories<br>- Faker integration<br>- Sequences<br>- Traits |
+| **Fixtures** | **pytest-fixtures** | - | Тестовые фикстуры | - Database fixtures<br>- API client fixtures<br>- Mock fixtures |
 
 ### Структура проекта
 

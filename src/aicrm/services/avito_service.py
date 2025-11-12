@@ -15,17 +15,30 @@ logger = get_logger(__name__)
 
 class AvitoAuthError(Exception):
     """Ошибка авторизации Avito"""
-    pass
+
+    def __init__(self, message: str = "Ошибка авторизации Avito", details: dict = None):
+        super().__init__(message)
+        self.message = message
+        self.details = details or {}
 
 
 class AvitoAPIError(Exception):
     """Ошибка API Avito"""
-    pass
+
+    def __init__(self, message: str = "Ошибка API Avito", status_code: int = None, response_data: dict = None):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+        self.response_data = response_data or {}
 
 
 class AvitoRateLimitError(Exception):
     """Превышен лимит запросов Avito"""
-    pass
+
+    def __init__(self, message: str = "Превышен лимит запросов Avito", retry_after: int = None):
+        super().__init__(message)
+        self.message = message
+        self.retry_after = retry_after  # секунды до следующего запроса
 
 
 class AvitoClient:

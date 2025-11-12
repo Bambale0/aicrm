@@ -323,6 +323,83 @@ async def health_check():
     return {"status": "ok", "service": "avito_integration"}
 
 
+async def _count_unread_messages(chat_id: str, db: Session) -> int:
+    """Подсчет непрочитанных сообщений в чате"""
+    try:
+        from ...models.communication import Communication
+
+        # Считаем входящие сообщения, которые не отмечены как прочитанные
+        unread_count = db.query(Communication).filter(
+            Communication.channel == "avito",
+            Communication.direction == "inbound",
+            Communication.extra_data.contains({"chat_id": chat_id}),
+            ~Communication.extra_data.contains({"read": True})  # Не содержит read: true
+        ).count()
+
+        return unread_count
+
+    except Exception as e:
+        logger.error(f"Ошибка подсчета непрочитанных сообщений для чата {chat_id}: {e}")
+        return 0
+
+
+async def _calculate_average_response_time(db: Session) -> Optional[float]:
+    """Расчет среднего времени ответа на сообщения"""
+    try:
+        from ...models.communication import Communication
+        from sqlalchemy import func
+
+        # Получаем все пары входящее-исходящее сообщение в одном чате
+        # Группируем по чату и находим время между первым входящим и первым исходящим после него
+
+        # Это сложный запрос - получаем все сообщения, отсортированные по времени
+        messages = db.query(Communication).filter(
+            Communication.channel == "avito"
+        ).order_by(Communication.created_at).all()
+
+        response_times = []
+
+        # Группируем сообщения по чату
+        chat_messages = {}
+        for msg in messages:
+            chat_id = msg.extra_data.get("chat_id") if msg.extra_data else None
+            if chat_id:
+                if chat_id not in chat_messages:
+                    chat_messages[chat_id] = []
+                chat_messages[chat_id].append(msg)
+
+        # Для каждого чата рассчитываем время ответа
+        for chat_id, msgs in chat_messages.items():
+            # Сортируем сообщения чата по времени
+            msgs.sort(key=lambda x: x.created_at)
+
+            # Ищем пары: входящее -> исходящее
+            i = 0
+            while i < len(msgs) - 1:
+                if msgs[i].direction == "inbound":
+                    # Ищем следующее исходящее сообщение
+                    for j in range(i + 1, len(msgs)):
+                        if msgs[j].direction == "outbound":
+                            # Рассчитываем время ответа в секундах
+                            response_time = (msgs[j].created_at - msgs[i].created_at).total_seconds()
+                            if response_time > 0 and response_time < 86400:  # Менее 24 часов
+                                response_times.append(response_time)
+                            break
+                    i = j  # Пропускаем до следующего входящего
+                else:
+                    i += 1
+
+        if response_times:
+            # Возвращаем среднее время в минутах
+            return sum(response_times) / len(response_times) / 60
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Ошибка расчета среднего времени ответа: {e}")
+        return None
+
+
 # Messenger endpoints
 
 @router.get("/messenger/v1/accounts/{user_id}/chats", response_model=List[AvitoChatInfo])
@@ -357,7 +434,7 @@ async def get_chats(user_id: int, limit: int = 50, offset: int = 0, db: Session 
                 "last_message_at": chat.last_message_at.isoformat() if chat.last_message_at else None,
                 "message_count": chat.message_count,
                 "ai_enabled": chat.ai_enabled,
-                "unread_count": 0  # TODO: Реализовать подсчет непрочитанных
+                "unread_count": await _count_unread_messages(chat.chat_id, db)
             })
 
         return result
@@ -498,12 +575,44 @@ async def send_message(user_id: int, chat_id: str, request: AvitoSendMessageRequ
 
         if request.use_ai:
             # Используем AI для генерации ответа
-            # Это можно реализовать через AI сервис
             logger.info(f"Генерация AI ответа для чата {chat_id}")
-            # TODO: Реализовать генерацию AI ответа
-            response_text = f"AI ответ на: {request.message[:50]}..."
+
+            # Получаем историю чата для контекста
+            chat_history = await handler.get_chat_history(chat_id, limit=10)
+
+            # Получаем настройки чата для параметров AI
+            chat_settings = await handler.get_chat_settings(chat_id)
+            ai_model = chat_settings.ai_model if chat_settings else None
+            ai_temperature = chat_settings.ai_temperature if chat_settings else 0.7
+
+            # Генерируем AI ответ
+            from ...services.ai.intent_service import AIIntentService
+            ai_service = AIIntentService()
+
+            # Получаем контекст клиента
+            customer_context = {}
+            if chat_settings and chat_settings.customer_id:
+                from ...models.customer import Customer
+                customer = db.query(Customer).filter(Customer.id == chat_settings.customer_id).first()
+                if customer:
+                    customer_context = {
+                        "customer_name": customer.name,
+                        "order_count": customer.total_orders,
+                        "preferences": customer.preferences or {}
+                    }
+
+            # Генерируем ответ на основе истории и контекста
+            ai_result = await ai_service.process_customer_message(
+                request.message,
+                customer_context
+            )
+            response_text = ai_result["response"]
+
+            # Помечаем как AI-generated
+            ai_generated = True
         else:
             response_text = request.message
+            ai_generated = False
 
         # Отправка сообщения (пока что заглушка)
         success = await handler.send_message(chat_id, response_text)
@@ -555,8 +664,8 @@ async def get_messenger_stats(db: Session = Depends(get_db)):
             Communication.extra_data.contains({"ai_generated": True})
         ).count()
 
-        # Среднее время ответа (заглушка)
-        avg_response_time = None  # TODO: Реализовать расчет среднего времени ответа
+        # Расчет среднего времени ответа
+        avg_response_time = await _calculate_average_response_time(db)
 
         return {
             "total_chats": total_chats,
