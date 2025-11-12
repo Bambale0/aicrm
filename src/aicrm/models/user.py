@@ -23,7 +23,7 @@ class User(BaseModel):
     role = Column(String, default="user")  # admin, manager, user
 
     # Связи
-    tasks = relationship("Task", back_populates="assigned_to_user")
+    tasks = relationship("Task", foreign_keys="[Task.assigned_to]", back_populates="assigned_to_user")
     production_steps = relationship("ProductionStep", back_populates="assigned_to_user")
 
     @staticmethod

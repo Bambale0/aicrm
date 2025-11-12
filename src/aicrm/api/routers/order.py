@@ -59,7 +59,7 @@ async def create_order(
     db.refresh(order)
 
     # Автоматическое создание производственного workflow
-    await production_service.create_production_workflow(order.id)
+    production_service.create_production_workflow(order.id)
 
     # Обновляем заказ после создания workflow
     db.refresh(order)
@@ -220,7 +220,7 @@ async def get_production_progress(
             detail=f"Заказ с ID {order_id} не найден"
         )
 
-    progress = await production_service.update_progress(order_id)
+    progress = production_service.update_progress(order_id)
     return ProductionProgressResponse(**progress)
 
 
@@ -236,7 +236,7 @@ async def start_production_step(
     Начать выполнение этапа производства
     """
     try:
-        step = await production_service.start_step(step_id, user_id)
+        step = production_service.start_step(step_id, user_id)
         return {"message": f"Этап '{step.name}' успешно запущен", "step_id": step.id}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -254,7 +254,7 @@ async def complete_production_step(
     Завершить выполнение этапа производства
     """
     try:
-        step = await production_service.complete_step(
+        step = production_service.complete_step(
             step_id,
             step_data.actual_hours,
             step_data.notes
@@ -272,7 +272,7 @@ async def get_overdue_production_steps(
     """
     Получение списка просроченных этапов производства
     """
-    overdue_steps = await production_service.get_overdue_steps()
+    overdue_steps = production_service.get_overdue_steps()
     return {"overdue_steps": overdue_steps, "count": len(overdue_steps)}
 
 

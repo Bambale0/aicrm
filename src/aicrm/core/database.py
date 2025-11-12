@@ -1,38 +1,59 @@
 """
 Настройка базы данных
 """
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from ..core.config import settings
 
 # Используем URL из настроек
 DATABASE_URL = settings.database_url
-# Для SQLite используем aiosqlite драйвер
-if DATABASE_URL.startswith("sqlite") and "aiosqlite" not in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
-# Для PostgreSQL в продакшене используем asyncpg
-elif not settings.debug and DATABASE_URL.startswith("postgresql"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql+psycopg2", "postgresql+asyncpg")
 
-engine = create_async_engine(
+# Для SQLite используем обычный sqlite3 драйвер
+if DATABASE_URL.startswith("sqlite"):
+    DATABASE_URL = DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite://")
+
+engine = create_engine(
     DATABASE_URL,
     echo=settings.debug,
     poolclass=StaticPool if settings.debug else None,
+    connect_args={"check_same_thread": False} if settings.debug else {},
 )
 
-AsyncSessionLocal = sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
+# Асинхронная версия для API тестов
+async_engine = create_async_engine(
+    DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://") if DATABASE_URL.startswith("sqlite") else DATABASE_URL,
+    echo=settings.debug,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=async_engine,
 )
 
 
-async def get_db() -> AsyncSession:
+def get_db() -> Session:
     """Получение сессии базы данных"""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+async def get_async_db() -> AsyncSession:
+    """Получение асинхронной сессии базы данных"""
+    db = AsyncSessionLocal()
+    try:
+        yield db
+    finally:
+        await db.close()

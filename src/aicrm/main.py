@@ -6,9 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
-from .core.database import engine
+from .core.database import engine, SessionLocal
 from .models import Base
-from .api.routers import auth, customer, ai, order
+from .api.routers import auth, customer, ai, order, avito, task
 from .utils.logging import get_logger
 
 
@@ -16,13 +16,11 @@ from .utils.logging import get_logger
 async def lifespan(app: FastAPI):
     """Управление жизненным циклом приложения"""
     # Создание таблиц базы данных
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    Base.metadata.create_all(bind=engine)
 
     yield
 
-    # Очистка ресурсов при завершении
-    await engine.dispose()
+    # Очистка ресурсов (синхронный engine не нуждается в dispose)
 
 
 app = FastAPI(
@@ -102,8 +100,16 @@ app = FastAPI(
             "description": "Управление клиентами: CRUD операции, поиск, статистика"
         },
         {
+            "name": "Tasks",
+            "description": "Управление задачами: CRUD операции, завершение задач"
+        },
+        {
             "name": "Auth",
             "description": "Аутентификация и авторизация пользователей"
+        },
+        {
+            "name": "avito",
+            "description": "Интеграция с Avito: управление объявлениями, статистика, продвижение"
         }
     ],
     servers=[
@@ -132,6 +138,8 @@ app.include_router(auth.router)
 app.include_router(customer.router)
 app.include_router(order.router, prefix="/orders", tags=["Orders"])
 app.include_router(ai.router, prefix="/ai", tags=["AI"])
+app.include_router(avito.router)
+app.include_router(task.router)
 
 
 @app.get("/")

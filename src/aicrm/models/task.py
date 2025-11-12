@@ -28,6 +28,7 @@ class Task(BaseModel):
 
     # Связи
     assigned_to_user = relationship("User", foreign_keys=[assigned_to], back_populates="tasks")
+    created_by_user = relationship("User", foreign_keys=[created_by])
 
     @property
     def priority_display(self) -> str:

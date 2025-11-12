@@ -12,3 +12,4 @@ PORT=${PORT:-8000}
 
 # Run the FastAPI application with uvicorn
 python3 -c "from aicrm.main import app; import uvicorn; uvicorn.run(app, host='${HOST}', port=${PORT})"
+    

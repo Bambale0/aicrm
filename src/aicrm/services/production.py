@@ -20,7 +20,7 @@ class ProductionService:
     def __init__(self, db: Session):
         self.db = db
 
-    async def create_production_workflow(self, order_id: int) -> List[ProductionStep]:
+    def create_production_workflow(self, order_id: int) -> List[ProductionStep]:
         """
         Автоматическое создание workflow производства для заказа
         """
@@ -59,7 +59,7 @@ class ProductionService:
         logger.info(f"Создан workflow производства для заказа {order_id} с {len(steps)} этапами")
         return steps
 
-    async def update_progress(self, order_id: int) -> Dict[str, Any]:
+    def update_progress(self, order_id: int) -> Dict[str, Any]:
         """
         Обновление и расчет прогресса производства заказа
         """
@@ -118,7 +118,7 @@ class ProductionService:
             ]
         }
 
-    async def start_step(self, step_id: int, user_id: int = None) -> ProductionStep:
+    def start_step(self, step_id: int, user_id: int = None) -> ProductionStep:
         """
         Начать выполнение этапа производства
         """
@@ -137,7 +137,7 @@ class ProductionService:
         logger.info(f"Начат этап '{step.name}' для заказа {step.order_id}")
         return step
 
-    async def complete_step(self, step_id: int, actual_hours: float = None, notes: str = None) -> ProductionStep:
+    def complete_step(self, step_id: int, actual_hours: float = None, notes: str = None) -> ProductionStep:
         """
         Завершить выполнение этапа производства
         """
@@ -152,15 +152,15 @@ class ProductionService:
         self.db.commit()
 
         # Проверяем, нужно ли запустить следующий этап
-        await self._check_and_start_next_step(step.order_id)
+        self._check_and_start_next_step(step.order_id)
 
         # Проверяем, завершен ли весь заказ
-        await self._check_order_completion(step.order_id)
+        self._check_order_completion(step.order_id)
 
         logger.info(f"Завершен этап '{step.name}' для заказа {step.order_id}")
         return step
 
-    async def _check_and_start_next_step(self, order_id: int):
+    def _check_and_start_next_step(self, order_id: int):
         """
         Проверить и автоматически запустить следующий этап
         """
@@ -177,7 +177,7 @@ class ProductionService:
             self.db.commit()
             logger.info(f"Автоматически запущен следующий этап '{next_step.name}' для заказа {order_id}")
 
-    async def _check_order_completion(self, order_id: int):
+    def _check_order_completion(self, order_id: int):
         """
         Проверить, завершен ли весь заказ
         """
@@ -196,7 +196,7 @@ class ProductionService:
             self.db.commit()
             logger.info(f"Заказ {order_id} автоматически переведен в статус 'Готов'")
 
-    async def get_overdue_steps(self) -> List[Dict[str, Any]]:
+    def get_overdue_steps(self) -> List[Dict[str, Any]]:
         """
         Получить список просроченных этапов
         """
@@ -221,7 +221,7 @@ class ProductionService:
 
         return result
 
-    async def reassign_step(self, step_id: int, user_id: int) -> ProductionStep:
+    def reassign_step(self, step_id: int, user_id: int) -> ProductionStep:
         """
         Переназначить этап другому исполнителю
         """

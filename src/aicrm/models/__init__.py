@@ -8,6 +8,7 @@ from .order import Order
 from .production_step import ProductionStep
 from .communication import Communication
 from .task import Task
+from .avito_chat import AvitoChatSettings
 
 __all__ = [
     "Base",
@@ -17,5 +18,6 @@ __all__ = [
     "Order",
     "ProductionStep",
     "Communication",
-    "Task"
+    "Task",
+    "AvitoChatSettings"
 ]

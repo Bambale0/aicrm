@@ -40,7 +40,7 @@ class ProductionStep(BaseModel):
 
     # Связи
     order = relationship("Order", back_populates="production_steps")
-    assigned_user = relationship("User", backref="assigned_production_steps")
+    assigned_to_user = relationship("User", back_populates="production_steps")
 
     @property
     def is_overdue(self) -> bool:

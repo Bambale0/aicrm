@@ -17,6 +17,7 @@ class Communication(BaseModel):
     message_content = Column(Text, nullable=False)
     message_type = Column(String, default="text")  # text, image, file, voice
     customer_id = Column(Integer, ForeignKey("customers.id"))
+    order_id = Column(Integer, ForeignKey("orders.id"))  # Связанный заказ (опционально)
     user_id = Column(Integer, ForeignKey("users.id"))  # Кто обработал/отправил
     ai_response_id = Column(String)  # ID ответа от AI
     extra_data = Column(JSON)  # Дополнительные данные (файлы, изображения и т.д.)
