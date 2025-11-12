@@ -139,20 +139,35 @@ class AvitoCommunicationHandler:
             logger.error(f"Ошибка обработки сообщения Avito: {e}")
             return {"success": False, "error": str(e)}
 
-    async def send_message(self, recipient: str, message: str) -> bool:
+    async def send_message(self, chat_id: str, message: str) -> bool:
         """
         Отправка сообщения через Avito API
-
-        Пока что это заглушка, так как Avito API не предоставляет
-        прямой возможности отправки сообщений через REST API.
-        Для полноценной интеграции потребуется использовать Webhooks
-        или другие механизмы.
         """
-        logger.info(f"Отправка сообщения в Avito чат {recipient}: {message[:100]}...")
-
-        # TODO: Реализовать отправку через Avito Messenger API
-        # Пока что логируем и возвращаем успех
-        return True
+        try:
+            async with AvitoService() as avito_service:
+                result = await avito_service.send_avito_message(chat_id, message)
+                
+                # Сохраняем исходящее сообщение в базу
+                communication = Communication(
+                    channel="avito",
+                    direction="outbound",
+                    message_content=message,
+                    customer_id=None,  # Будет установлено позже через связь с чатом
+                    extra_data={
+                        "chat_id": chat_id,
+                        "ai_generated": False,
+                        "avito_message_id": result.get("message_id")
+                    }
+                )
+                self.db.add(communication)
+                self.db.commit()
+                
+                logger.info(f"Сообщение отправлено в чат {chat_id}: {message[:100]}...")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Ошибка отправки сообщения в чат {chat_id}: {e}")
+            return False
 
     async def _find_or_create_customer(self, avito_user_id: str, chat_id: str) -> Optional[Customer]:
         """Поиск существующего клиента или создание нового"""
@@ -392,7 +407,32 @@ class AvitoCommunicationHandler:
             return []
 
     async def mark_messages_read(self, chat_id: str, message_ids: List[str]) -> bool:
-        """Отметка сообщений как прочитанные (заглушка)"""
-        logger.info(f"Отметка сообщений как прочитанные в чате {chat_id}")
-        # TODO: Реализовать через Avito API
-        return True
+        """Отметка сообщений как прочитанные через Avito API"""
+        try:
+            async with AvitoService() as avito_service:
+                # Для Avito используется отметка всего чата как прочитанного
+                result = await avito_service.mark_avito_chat_read(chat_id)
+                
+                # Обновляем статус сообщений в базе
+                if result.get("success", False):
+                    # Помечаем сообщения как прочитанные в нашей базе
+                    communications = self.db.query(Communication).filter(
+                        Communication.channel == "avito",
+                        Communication.extra_data.contains({"chat_id": chat_id}),
+                        Communication.direction == "inbound"
+                    ).all()
+                    
+                    for comm in communications:
+                        if not comm.extra_data:
+                            comm.extra_data = {}
+                        comm.extra_data["read"] = True
+                    
+                    self.db.commit()
+                    logger.info(f"Чат {chat_id} отмечен как прочитанный в Avito")
+                    return True
+                
+                return False
+                
+        except Exception as e:
+            logger.error(f"Ошибка отметки чата {chat_id} как прочитанного: {e}")
+            return False

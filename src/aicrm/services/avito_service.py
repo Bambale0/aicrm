@@ -263,6 +263,179 @@ class AvitoClient:
             json=data
         )
 
+    # Messenger API методы
+
+    async def get_chats(
+        self,
+        item_ids: Optional[str] = None,
+        unread_only: Optional[bool] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """Получение списка чатов"""
+        params = {
+            "limit": limit,
+            "offset": offset
+        }
+        if item_ids:
+            params["itemIds"] = item_ids
+        if unread_only is not None:
+            params["unreadOnly"] = str(unread_only).lower()
+
+        return await self._make_request(
+            "GET",
+            f"/messenger/v1/accounts/{self.user_id}/chats",
+            params=params
+        )
+
+    async def get_chat_by_id(self, chat_id: str) -> Dict[str, Any]:
+        """Получение информации по чату"""
+        return await self._make_request(
+            "GET",
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}"
+        )
+
+    async def get_messages(
+        self,
+        chat_id: str,
+        limit: int = 100,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """Получение списка сообщений (v1)"""
+        params = {
+            "limit": limit,
+            "offset": offset
+        }
+
+        return await self._make_request(
+            "GET",
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages/",
+            params=params
+        )
+
+    async def get_messages_v2(
+        self,
+        chat_id: str,
+        limit: int = 100,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """Получение списка сообщений (v2)"""
+        params = {
+            "limit": limit,
+            "offset": offset
+        }
+
+        return await self._make_request(
+            "GET",
+            f"/messenger/v2/accounts/{self.user_id}/chats/{chat_id}/messages/",
+            params=params
+        )
+
+    async def send_message(
+        self,
+        chat_id: str,
+        message: str
+    ) -> Dict[str, Any]:
+        """Отправка сообщения"""
+        data = {
+            "message": {
+                "text": message
+            }
+        }
+
+        return await self._make_request(
+            "POST",
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages",
+            json=data
+        )
+
+    async def mark_chat_read(self, chat_id: str) -> Dict[str, Any]:
+        """Отметка чата как прочитанного"""
+        return await self._make_request(
+            "POST",
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/read"
+        )
+
+    async def delete_message(
+        self,
+        chat_id: str,
+        message_id: str
+    ) -> Dict[str, Any]:
+        """Удаление сообщения"""
+        return await self._make_request(
+            "POST",
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages/{message_id}"
+        )
+
+    async def add_to_blacklist(
+        self,
+        user_id: str,
+        reason: Optional[str] = None
+    ) -> None:
+        """Добавление пользователя в черный список"""
+        data = {"userId": user_id}
+        if reason:
+            data["reason"] = reason
+
+        await self._make_request(
+            "POST",
+            f"/messenger/v1/accounts/{self.user_id}/blacklist",
+            json=data
+        )
+
+    async def subscribe_webhook(
+        self,
+        url: str,
+        events: List[str] = None
+    ) -> Dict[str, Any]:
+        """Подписка на webhook уведомления"""
+        if events is None:
+            events = ["message"]
+
+        data = {
+            "url": url,
+            "events": events
+        }
+
+        return await self._make_request(
+            "POST",
+            "/messenger/v1/webhook",
+            json=data
+        )
+
+    async def unsubscribe_webhook(
+        self,
+        url: str
+    ) -> Dict[str, Any]:
+        """Отписка от webhook уведомлений"""
+        data = {"url": url}
+
+        return await self._make_request(
+            "POST",
+            "/messenger/v1/webhook/unsubscribe",
+            json=data
+        )
+
+    async def subscribe_webhook_v2(
+        self,
+        url: str,
+        events: List[str] = None
+    ) -> Dict[str, Any]:
+        """Подписка на webhook уведомления (v2)"""
+        if events is None:
+            events = ["message"]
+
+        data = {
+            "url": url,
+            "events": events
+        }
+
+        return await self._make_request(
+            "POST",
+            "/messenger/v2/webhook",
+            json=data
+        )
+
 
 class AvitoService:
     """
@@ -406,4 +579,160 @@ class AvitoService:
             return result
         except Exception as e:
             logger.error(f"Ошибка обновления цены для {item_id}: {e}")
+            raise
+
+    # Messenger API бизнес-методы
+
+    async def get_avito_chats(
+        self,
+        item_ids: Optional[str] = None,
+        unread_only: Optional[bool] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """Получение списка чатов из Avito"""
+        try:
+            return await self.client.get_chats(item_ids, unread_only, limit, offset)
+        except Exception as e:
+            logger.error(f"Ошибка получения списка чатов: {e}")
+            raise
+
+    async def get_avito_chat_info(self, chat_id: str) -> Dict[str, Any]:
+        """Получение информации о чате из Avito"""
+        try:
+            return await self.client.get_chat_by_id(chat_id)
+        except Exception as e:
+            logger.error(f"Ошибка получения информации о чате {chat_id}: {e}")
+            raise
+
+    async def get_avito_messages(
+        self,
+        chat_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        use_v2: bool = True
+    ) -> Dict[str, Any]:
+        """Получение сообщений из чата Avito"""
+        try:
+            if use_v2:
+                return await self.client.get_messages_v2(chat_id, limit, offset)
+            else:
+                return await self.client.get_messages(chat_id, limit, offset)
+        except Exception as e:
+            logger.error(f"Ошибка получения сообщений чата {chat_id}: {e}")
+            raise
+
+    async def send_avito_message(self, chat_id: str, message: str) -> Dict[str, Any]:
+        """Отправка сообщения в чат Avito"""
+        try:
+            result = await self.client.send_message(chat_id, message)
+            logger.info(f"Сообщение отправлено в чат {chat_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка отправки сообщения в чат {chat_id}: {e}")
+            raise
+
+    async def mark_avito_chat_read(self, chat_id: str) -> Dict[str, Any]:
+        """Отметка чата как прочитанного в Avito"""
+        try:
+            result = await self.client.mark_chat_read(chat_id)
+            logger.info(f"Чат {chat_id} отмечен как прочитанный")
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка отметки чата {chat_id} как прочитанного: {e}")
+            raise
+
+    async def delete_avito_message(self, chat_id: str, message_id: str) -> Dict[str, Any]:
+        """Удаление сообщения в Avito"""
+        try:
+            result = await self.client.delete_message(chat_id, message_id)
+            logger.info(f"Сообщение {message_id} удалено из чата {chat_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка удаления сообщения {message_id} из чата {chat_id}: {e}")
+            raise
+
+    async def subscribe_avito_webhook(
+        self,
+        webhook_url: str,
+        events: List[str] = None,
+        use_v2: bool = False
+    ) -> Dict[str, Any]:
+        """Подписка на webhook уведомления Avito"""
+        try:
+            if use_v2:
+                result = await self.client.subscribe_webhook_v2(webhook_url, events)
+            else:
+                result = await self.client.subscribe_webhook(webhook_url, events)
+            
+            logger.info(f"Подписка на webhook создана: {webhook_url}")
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка создания подписки на webhook {webhook_url}: {e}")
+            raise
+
+    async def unsubscribe_avito_webhook(self, webhook_url: str) -> Dict[str, Any]:
+        """Отписка от webhook уведомлений Avito"""
+        try:
+            result = await self.client.unsubscribe_webhook(webhook_url)
+            logger.info(f"Подписка на webhook отменена: {webhook_url}")
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка отмены подписки на webhook {webhook_url}: {e}")
+            raise
+
+    async def add_user_to_blacklist(self, user_id: str, reason: Optional[str] = None) -> None:
+        """Добавление пользователя в черный список Avito"""
+        try:
+            await self.client.add_to_blacklist(user_id, reason)
+            logger.info(f"Пользователь {user_id} добавлен в черный список")
+        except Exception as e:
+            logger.error(f"Ошибка добавления пользователя {user_id} в черный список: {e}")
+            raise
+
+    async def sync_avito_chats_with_db(self, db_session, limit: int = 100) -> Dict[str, Any]:
+        """Синхронизация чатов из Avito с базой данных"""
+        try:
+            from ..models.avito_chat import AvitoChatSettings
+            from ..models.customer import Customer
+
+            # Получаем чаты из Avito
+            avito_chats = await self.get_avito_chats(limit=limit)
+            synced_count = 0
+            created_count = 0
+
+            if "chats" in avito_chats:
+                for chat_data in avito_chats["chats"]:
+                    chat_id = chat_data.get("id")
+                    if not chat_id:
+                        continue
+
+                    # Проверяем существование чата в базе
+                    existing_chat = db_session.query(AvitoChatSettings).filter(
+                        AvitoChatSettings.chat_id == chat_id
+                    ).first()
+
+                    if not existing_chat:
+                        # Создаем новый чат
+                        chat_settings = AvitoChatSettings(
+                            chat_id=chat_id,
+                            ai_enabled=True,
+                            notifications_enabled=True
+                        )
+                        db_session.add(chat_settings)
+                        created_count += 1
+                    
+                    synced_count += 1
+
+                db_session.commit()
+                logger.info(f"Синхронизировано {synced_count} чатов, создано {created_count} новых")
+
+            return {
+                "synced_chats": synced_count,
+                "created_chats": created_count,
+                "total_chats": len(avito_chats.get("chats", []))
+            }
+
+        except Exception as e:
+            logger.error(f"Ошибка синхронизации чатов: {e}")
             raise

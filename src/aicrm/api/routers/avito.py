@@ -4,7 +4,7 @@ API роутер для интеграции с Avito
 from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ...core.database import get_db
 from ...services.avito_service import AvitoService, AvitoAPIError, AvitoRateLimitError, AvitoAuthError
@@ -325,8 +325,8 @@ async def health_check():
 
 # Messenger endpoints
 
-@router.get("/messenger/chats", response_model=List[AvitoChatInfo])
-async def get_chats(limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
+@router.get("/messenger/v1/accounts/{user_id}/chats", response_model=List[AvitoChatInfo])
+async def get_chats(user_id: int, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
     """
     Получение списка чатов с Avito
     """
@@ -337,7 +337,7 @@ async def get_chats(limit: int = 50, offset: int = 0, db: Session = Depends(get_
 
         # Получаем настройки чатов с информацией о клиентах
         chats_query = db.query(AvitoChatSettings).options(
-            db.joinedload(AvitoChatSettings.customer)
+            joinedload(AvitoChatSettings.customer)
         ).order_by(AvitoChatSettings.last_message_at.desc().nulls_last())
 
         chats = chats_query.offset(offset).limit(limit).all()
@@ -367,8 +367,8 @@ async def get_chats(limit: int = 50, offset: int = 0, db: Session = Depends(get_
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.get("/messenger/chats/{chat_id}/settings", response_model=AvitoChatSettings)
-async def get_chat_settings(chat_id: str, db: Session = Depends(get_db)):
+@router.get("/messenger/v1/accounts/{user_id}/chats/{chat_id}", response_model=AvitoChatSettings)
+async def get_chat_settings(user_id: int, chat_id: str, db: Session = Depends(get_db)):
     """
     Получение настроек чата
     """
@@ -401,8 +401,8 @@ async def get_chat_settings(chat_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.put("/messenger/chats/{chat_id}/settings", response_model=AvitoChatSettings)
-async def update_chat_settings(chat_id: str, settings: AvitoChatSettingsUpdate, db: Session = Depends(get_db)):
+@router.put("/messenger/v1/accounts/{user_id}/chats/{chat_id}", response_model=AvitoChatSettings)
+async def update_chat_settings(user_id: int, chat_id: str, settings: AvitoChatSettingsUpdate, db: Session = Depends(get_db)):
     """
     Обновление настроек чата
     """
@@ -456,8 +456,8 @@ async def toggle_chat_ai(chat_id: str, enabled: bool, db: Session = Depends(get_
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.get("/messenger/chats/{chat_id}/messages", response_model=List[AvitoChatMessage])
-async def get_chat_messages(chat_id: str, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
+@router.get("/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages", response_model=List[AvitoChatMessage])
+async def get_chat_messages(user_id: int, chat_id: str, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
     """
     Получение истории сообщений чата
     """
@@ -488,8 +488,8 @@ async def get_chat_messages(chat_id: str, limit: int = 50, offset: int = 0, db: 
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.post("/messenger/chats/{chat_id}/messages")
-async def send_message(chat_id: str, request: AvitoSendMessageRequest, db: Session = Depends(get_db)):
+@router.post("/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages")
+async def send_message(user_id: int, chat_id: str, request: AvitoSendMessageRequest, db: Session = Depends(get_db)):
     """
     Отправка сообщения в чат
     """

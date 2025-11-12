@@ -314,3 +314,79 @@ class AvitoMessengerStats(BaseModel):
     total_messages: int = Field(..., description="Общее количество сообщений")
     ai_messages: int = Field(..., description="Сообщений от AI")
     avg_response_time: Optional[float] = Field(None, description="Среднее время ответа (секунды)")
+
+# Схемы для Messenger API
+
+class AvitoChat(BaseModel):
+    """Чат из Avito API"""
+    id: str = Field(..., description="ID чата")
+    user_id: str = Field(..., description="ID пользователя")
+    item_id: Optional[int] = Field(None, description="ID объявления")
+    created: str = Field(..., description="Время создания")
+    updated: str = Field(..., description="Время обновления")
+    unread_count: int = Field(0, description="Количество непрочитанных сообщений")
+    last_message: Optional[Dict[str, Any]] = Field(None, description="Последнее сообщение")
+
+class AvitoMessage(BaseModel):
+    """Сообщение из Avito API"""
+    id: str = Field(..., description="ID сообщения")
+    type: str = Field(..., description="Тип сообщения")
+    text: Optional[str] = Field(None, description="Текст сообщения")
+    created: str = Field(..., description="Время создания")
+    author_id: str = Field(..., description="ID автора")
+    author_role: str = Field(..., description="Роль автора")
+
+class AvitoChatsResponse(BaseModel):
+    """Ответ со списком чатов"""
+    chats: List[AvitoChat] = Field(..., description="Список чатов")
+    total: int = Field(..., description="Общее количество чатов")
+    limit: int = Field(..., description="Лимит")
+    offset: int = Field(..., description="Смещение")
+
+class AvitoMessagesResponse(BaseModel):
+    """Ответ со списком сообщений"""
+    messages: List[AvitoMessage] = Field(..., description="Список сообщений")
+    total: int = Field(..., description="Общее количество сообщений")
+    limit: int = Field(..., description="Лимит")
+    offset: int = Field(..., description="Смещение")
+
+class AvitoSendMessageRequest(BaseModel):
+    """Запрос на отправку сообщения в Avito"""
+    message: str = Field(..., min_length=1, max_length=1000, description="Текст сообщения")
+
+class AvitoSendMessageResponse(BaseModel):
+    """Ответ на отправку сообщения"""
+    message_id: str = Field(..., description="ID отправленного сообщения")
+    success: bool = Field(True, description="Успешность операции")
+
+class AvitoWebhookSubscribeRequest(BaseModel):
+    """Запрос на подписку webhook"""
+    url: str = Field(..., description="URL для webhook уведомлений")
+    events: List[str] = Field(["message"], description="События для подписки")
+
+class AvitoWebhookUnsubscribeRequest(BaseModel):
+    """Запрос на отписку webhook"""
+    url: str = Field(..., description="URL для отписки")
+
+class AvitoWebhookResponse(BaseModel):
+    """Ответ webhook операций"""
+    success: bool = Field(..., description="Успешность операции")
+    webhook_id: Optional[str] = Field(None, description="ID webhook подписки")
+
+class AvitoWebhookEvent(BaseModel):
+    """Событие webhook от Avito"""
+    event: str = Field(..., description="Тип события")
+    timestamp: str = Field(..., description="Время события")
+    payload: Dict[str, Any] = Field(..., description="Данные события")
+
+class AvitoSyncChatsRequest(BaseModel):
+    """Запрос на синхронизацию чатов"""
+    limit: int = Field(100, ge=1, le=1000, description="Лимит чатов для синхронизации")
+    force_sync: bool = Field(False, description="Принудительная синхронизация")
+
+class AvitoSyncChatsResponse(BaseModel):
+    """Ответ на синхронизацию чатов"""
+    synced_chats: int = Field(..., description="Количество синхронизированных чатов")
+    created_chats: int = Field(..., description="Количество созданных чатов")
+    total_chats: int = Field(..., description="Общее количество чатов в Avito")
+    success: bool = Field(True, description="Успешность операции")

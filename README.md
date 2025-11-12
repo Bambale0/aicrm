@@ -119,8 +119,10 @@ src/aicrm/
 - **Управление объявлениями**: получение списка, информации, обновление цен
 - **Статистика**: просмотры, контакты, звонки, аналитика по периодам
 - **Продвижение**: применение VAS услуг, управление пакетами
-- **Коммуникации**: обработка сообщений из Avito, автоматические ответы
+- **Messenger API**: Полная интеграция с Avito Messenger API v1/v2
+- **Коммуникации**: обработка сообщений из Avito, автоматические AI ответы
 - **Оптимизация**: AI-powered анализ эффективности, рекомендации по ценам
+- **Webhook поддержка**: Обработка входящих сообщений и уведомлений
 
 ### ✅ Управление задачами (Task Module)
 - Канбан доска
@@ -476,7 +478,208 @@ curl -X POST "http://localhost:8000/avito/messages/incoming" \
   }'
 ```
 
-### 📦 Управление заказами
+### � Avito Messenger API
+
+#### Получение списка чатов
+```bash
+curl "http://localhost:8000/avito/messenger/v1/accounts/123/chats"
+```
+
+**Ответ:**
+```json
+[
+  {
+    "chat_id": "chat_123",
+    "customer_name": "Иван Петров",
+    "customer_email": "ivan@example.com",
+    "last_message": "Здравствуйте, сколько стоит печать?",
+    "last_message_at": "2025-11-12T14:32:39.308046",
+    "message_count": 5,
+    "ai_enabled": true,
+    "unread_count": 0
+  }
+]
+```
+
+#### Получение информации о чате
+```bash
+curl "http://localhost:8000/avito/messenger/v1/accounts/123/chats/chat_123"
+```
+
+**Ответ:**
+```json
+{
+  "id": 1,
+  "chat_id": "chat_123",
+  "customer_id": 1,
+  "ai_enabled": true,
+  "ai_model": "deepseek/deepseek-coder:33b-instruct",
+  "ai_temperature": 70,
+  "notifications_enabled": true,
+  "message_count": 5,
+  "last_message_at": "2025-11-12T14:32:39.308046",
+  "last_ai_response_at": null,
+  "created_at": "2025-11-12T14:32:39.291383",
+  "updated_at": "2025-11-12T14:32:48.115000"
+}
+```
+
+#### Обновление настроек чата
+```bash
+curl -X PUT "http://localhost:8000/avito/messenger/v1/accounts/123/chats/chat_123" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ai_enabled": false,
+    "notifications_enabled": true,
+    "ai_temperature": 80
+  }'
+```
+
+#### Получение истории сообщений чата
+```bash
+curl "http://localhost:8000/avito/messenger/v1/accounts/123/chats/chat_123/messages?limit=20&offset=0"
+```
+
+**Ответ:**
+```json
+[
+  {
+    "id": 10,
+    "chat_id": "chat_123",
+    "direction": "incoming",
+    "message_content": "Здравствуйте, сколько стоит печать на футболках?",
+    "intent": "pricing_inquiry",
+    "ai_generated": false,
+    "created_at": "2025-11-12T14:30:00.000000"
+  },
+  {
+    "id": 11,
+    "chat_id": "chat_123",
+    "direction": "outgoing",
+    "message_content": "Здравствуйте! Стоимость печати зависит от тиража и сложности дизайна...",
+    "intent": "response",
+    "ai_generated": true,
+    "created_at": "2025-11-12T14:30:15.000000"
+  }
+]
+```
+
+#### Отправка сообщения в чат
+```bash
+curl -X POST "http://localhost:8000/avito/messenger/v1/accounts/123/chats/chat_123/messages" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Здравствуйте! Мы можем напечатать логотип на футболках. Стоимость от 150 руб/шт при тираже от 50 шт.",
+    "use_ai": false
+  }'
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "message": "Сообщение отправлено"
+}
+```
+
+#### Отправка AI-сгенерированного сообщения
+```bash
+curl -X POST "http://localhost:8000/avito/messenger/v1/accounts/123/chats/chat_123/messages" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Расскажите подробнее о вашем заказе",
+    "use_ai": true
+  }'
+```
+
+#### Получение статистики мессенджера
+```bash
+curl "http://localhost:8000/avito/messenger/stats"
+```
+
+**Ответ:**
+```json
+{
+  "total_chats": 15,
+  "active_chats": 8,
+  "ai_enabled_chats": 12,
+  "total_messages": 245,
+  "ai_messages": 89,
+  "avg_response_time": null
+}
+```
+
+#### Включение/выключение AI для чата
+```bash
+curl -X POST "http://localhost:8000/avito/messenger/chats/chat_123/toggle-ai" \
+  -H "Content-Type: application/json" \
+  -d 'true'
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "ai_enabled": true
+}
+```
+
+### 🔗 Webhook интеграция
+
+#### Настройка webhook для получения уведомлений
+```bash
+curl -X POST "https://api.avito.ru/messenger/v1/webhook" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-domain.com/avito/webhook"
+  }'
+```
+
+#### Обработка webhook уведомлений
+```python
+# Пример обработчика webhook
+@app.post("/avito/webhook")
+async def handle_avito_webhook(webhook_data: dict):
+    """
+    Обработка уведомлений от Avito
+    """
+    event_type = webhook_data.get("type")
+
+    if event_type == "message":
+        # Новое сообщение в чате
+        await process_new_message(webhook_data["payload"])
+    elif event_type == "chat_read":
+        # Чат прочитан
+        await mark_chat_as_read(webhook_data["payload"])
+
+    return {"status": "ok"}
+```
+
+### 📊 Мониторинг Avito интеграции
+
+#### Проверка здоровья всех компонентов
+```bash
+# Общая проверка здоровья
+curl "http://localhost:8000/health"
+
+# Проверка здоровья Avito интеграции
+curl "http://localhost:8000/avito/health"
+
+# Проверка подключения к Avito API
+curl "http://localhost:8000/avito/status"
+```
+
+#### Метрики производительности
+```bash
+# Статистика API запросов
+curl "http://localhost:8000/metrics/avito"
+
+# Логи интеграции
+tail -f logs/avito_integration.log
+```
+
+### �📦 Управление заказами
 
 #### Создание заказа (с автоматическим workflow)
 ```bash
