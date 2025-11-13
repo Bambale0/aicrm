@@ -7,6 +7,7 @@ from sqlalchemy import func
 
 from ..models.customer import Customer
 from ..models.order import Order
+from .automation.automation_service import AutomationService
 
 
 class CustomerService:
@@ -19,6 +20,17 @@ class CustomerService:
         db.add(customer)
         db.commit()
         db.refresh(customer)
+        return customer
+
+    @staticmethod
+    async def create_customer_with_automation(db: Session, customer_data: dict) -> Customer:
+        """Создание нового клиента с запуском автоматизации"""
+        customer = CustomerService.create_customer(db, customer_data)
+
+        # Запускаем автоматизацию
+        automation_service = AutomationService(db)
+        await automation_service.on_customer_created(customer.id)
+
         return customer
 
     @staticmethod

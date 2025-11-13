@@ -22,7 +22,7 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     """Схема создания задачи"""
-    pass
+    # Наследует все поля от TaskBase
 
 
 class TaskUpdate(BaseModel):

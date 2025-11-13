@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .core.database import engine, SessionLocal
 from .models import Base
-from .api.routers import auth, customer, ai, order, avito, task
+from .api.routers import auth, customer, ai, order, avito, task, automation
 from .utils.logging import get_logger
 
 
@@ -110,6 +110,10 @@ app = FastAPI(
         {
             "name": "avito",
             "description": "Интеграция с Avito: управление объявлениями, статистика, продвижение"
+        },
+        {
+            "name": "automation",
+            "description": "Автоматизация бизнес-процессов: триггеры, роботы, стадии"
         }
     ],
     servers=[
@@ -140,6 +144,7 @@ app.include_router(order.router, prefix="/orders", tags=["Orders"])
 app.include_router(ai.router, prefix="/ai", tags=["AI"])
 app.include_router(avito.router)
 app.include_router(task.router)
+app.include_router(automation.router)
 
 
 @app.get("/")
@@ -157,7 +162,7 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "main:app",
+        "aicrm.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.debug,

@@ -26,6 +26,7 @@ class AvitoChatSettings(BaseModel):
 
     # Статистика чата
     message_count = Column(Integer, default=0, nullable=False)
+    unread_count = Column(Integer, default=0, nullable=False, index=True)  # Количество непрочитанных сообщений
     last_message_at = Column(DateTime, nullable=True)
     last_ai_response_at = Column(DateTime, nullable=True)
 

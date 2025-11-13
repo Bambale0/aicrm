@@ -5,30 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-red.svg)](https://sqlalchemy.org)
-[![Coverage](https://img.shields.io/badge/Coverage-31%25-orange.svg)](https://coverage.readthedocs.io/)
-[![Tests](https://img.shields.io/badge/Tests-30%2B%20passed-green.svg)](https://pytest.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-## 🎯 ТЕКУЩЕЕ СОСТОЯНИЕ ПРОЕКТА (13 ноября 2025)
-
-### ✅ **ПРОЕКТ ГОТОВ К ПРОДАКШЕНУ**
-
-- **Функциональность**: 100% основных задач реализовано
-- **Качество кода**: 31% покрытие тестами, чистая архитектура
-- **Интеграции**: OpenRouter AI + Avito Messenger API
-- **Документация**: Полная документация API и инструкции по настройке
-- **Тестирование**: 30+ успешных unit-тестов для основных сервисов
-
-### 📊 КЛЮЧЕВЫЕ ДОСТИЖЕНИЯ
-
-- ✅ **Avito Messenger API** с AI генерацией ответов
-- ✅ **Полный набор CRUD операций** для клиентов, заказов, задач
-- ✅ **Производственный workflow** с автоматическим созданием этапов
-- ✅ **Комплексная система тестирования** (30 тестов, все проходят)
-- ✅ **Полная интеграция с внешними сервисами** (OpenRouter AI, Avito API)
-- ✅ **Учет использования AI токенов** с месячной статистикой
-- ✅ **Webhook поддержка** для Avito Messenger
-- ✅ **Rate limiting и кэширование** для Avito API
 
 ## ⚡ Быстрый старт
 
@@ -71,7 +48,11 @@ AI CRM System - это полнофункциональная CRM система
 - **📊 Аналитика**: Отчеты о заказах, просрочках, эффективности производства
 - **💬 Многоканальные коммуникации**: Telegram, Email, Website, Avito
 - **📢 Avito интеграция**: Программное управление объявлениями, статистика, продвижение, оптимизация цен
-- **📈 Мониторинг**: Структурированное логирование, метрики, health checks
+- **🤖 Автоматизация бизнес-процессов**: Триггеры, роботы, стадии в стиле Bitrix24
+- **�️ CRUD управление**: Полное управление процессами, стадиями, триггерами и роботами через API
+- **🧠 ИИ-генерация**: Автоматическое создание цепочек автоматизации на основе описаний
+- **📊 ИИ-анализ**: Оптимизация и предложения по улучшению автоматизации
+- **� Мониторинг**: Структурированное логирование, метрики, health checks
 - **🔒 Безопасность**: JWT аутентификация, валидация данных, защита API
 
 ## 🏗️ Архитектура
@@ -181,47 +162,139 @@ AI CRM System - это полнофункциональная CRM система
 ### Структура проекта
 
 ```
-src/aicrm/
-├── core/                    # Конфигурация и инфраструктура
-│   ├── config.py           # Основные настройки
-│   ├── ai_config.py        # Конфигурация ИИ
-│   ├── database.py         # Настройки БД
-│   └── dependencies.py     # FastAPI зависимости
-├── models/                 # SQLAlchemy модели
-│   ├── base.py            # Базовая модель
-│   ├── user.py            # Пользователи
-│   ├── customer.py        # Клиенты
-│   ├── order.py           # Заказы с enum статусов
-│   ├── production_step.py # Этапы производства
-│   ├── communication.py   # Коммуникации
-│   └── ai_usage.py        # Учет использования AI токенов
-├── services/              # Бизнес-логика
-│   ├── ai/               # ИИ сервисы
-│   │   ├── client.py     # Унифицированный AI клиент
-│   │   └── intent_service.py # Анализ намерений
-│   ├── ai_usage_service.py # Сервис учета AI токенов
-│   ├── avito_service.py  # Сервис Avito API
-│   ├── avito_handler.py  # Обработчик Avito коммуникаций
-│   ├── production.py     # Управление производством
-│   ├── communication_service.py # Коммуникации
-│   └── auth.py           # Аутентификация
-├── api/                  # REST API
-│   ├── routers/          # Маршруты
-│   │   ├── ai.py        # AI эндпоинты
-│   │   ├── avito.py     # Avito API эндпоинты
-│   │   ├── order.py     # API заказов
-│   │   ├── customer.py  # API клиентов
-│   │   └── auth.py      # API аутентификации
-│   └── schemas/          # Pydantic схемы
-│       ├── ai.py        # Схемы ИИ
-│       ├── avito.py     # Схемы Avito API
-│       ├── order.py     # Схемы заказов
-│       └── customer.py  # Схемы клиентов
-├── tests/               # Тесты
-│   ├── test_avito.py    # Тесты Avito интеграции
-│   └── ...             # Другие тесты
-└── utils/               # Утилиты
-    └── logging.py       # Настройка логирования
+aicrm/
+├── src/                           # Исходный код приложения
+│   ├── aicrm/                     # Основной пакет приложения
+│   │   ├── __init__.py           # Инициализация пакета
+│   │   ├── main.py               # Точка входа FastAPI приложения
+│   │   ├── .env                  # Переменные окружения (пример)
+│   │   │
+│   │   ├── core/                 # Ядро приложения - конфигурация и инфраструктура
+│   │   │   ├── __init__.py       # Инициализация core модуля
+│   │   │   ├── config.py         # Основная конфигурация приложения (CORS, debug, etc.)
+│   │   │   ├── ai_config.py      # Конфигурация AI провайдеров (OpenRouter, OpenAI, etc.)
+│   │   │   ├── database.py       # Настройка базы данных (SQLAlchemy engine, session)
+│   │   │   └── __pycache__/      # Кэшированные байт-коды Python
+│   │   │
+│   │   ├── models/               # SQLAlchemy модели данных
+│   │   │   ├── __init__.py       # Импорт всех моделей
+│   │   │   ├── base.py           # Базовая модель с общими полями (id, timestamps)
+│   │   │   ├── user.py           # Модель пользователя (auth, roles)
+│   │   │   ├── customer.py       # Модель клиента (CRM данные, статистика)
+│   │   │   ├── order.py          # Модель заказа (статусы, workflow)
+│   │   │   ├── task.py           # Модель задачи (Kanban, приоритеты)
+│   │   │   ├── production_step.py # Модель этапов производства (workflow)
+│   │   │   ├── communication.py  # Модель коммуникаций (email, chat, etc.)
+│   │   │   ├── ai_usage.py       # Модель учета использования AI токенов
+│   │   │   ├── automation.py     # Модели автоматизации (процессы, триггеры, роботы)
+│   │   │   ├── avito_chat.py     # Модель чатов Avito Messenger
+│   │   │   └── __pycache__/      # Кэшированные байт-коды
+│   │   │
+│   │   ├── api/                  # REST API слой
+│   │   │   ├── __init__.py       # Инициализация API модуля
+│   │   │   ├── routers/          # API маршруты (эндпоинты)
+│   │   │   │   ├── __init__.py   # Импорт всех роутеров
+│   │   │   │   ├── auth.py       # Эндпоинты аутентификации (login, register)
+│   │   │   │   ├── customer.py   # CRUD операции с клиентами
+│   │   │   │   ├── order.py      # Управление заказами и производством
+│   │   │   │   ├── task.py       # Управление задачами
+│   │   │   │   ├── ai.py         # AI функции (анализ, генерация, чат)
+│   │   │   │   ├── avito.py      # Интеграция с Avito API
+│   │   │   │   ├── automation.py # Автоматизация бизнес-процессов
+│   │   │   │   └── __pycache__/  # Кэшированные байт-коды
+│   │   │   │
+│   │   │   └── schemas/          # Pydantic схемы валидации
+│   │   │       ├── __init__.py   # Импорт схем
+│   │   │       ├── auth.py       # Схемы аутентификации (User, Token)
+│   │   │       ├── customer.py   # Схемы клиентов (Customer, CustomerCreate)
+│   │   │       ├── order.py      # Схемы заказов (Order, ProductionStep)
+│   │   │       ├── task.py       # Схемы задач (Task, TaskCreate)
+│   │   │       ├── ai.py         # Схемы AI (AIAnalysisRequest, AIChatResponse)
+│   │   │       ├── avito.py      # Схемы Avito API (AvitoItem, AvitoStats)
+│   │   │       ├── automation.py # Схемы автоматизации (Process, Trigger, Robot)
+│   │   │       └── __pycache__/  # Кэшированные байт-коды
+│   │   │
+│   │   ├── services/             # Бизнес-логика и сервисы
+│   │   │   ├── __init__.py       # Импорт сервисов
+│   │   │   ├── auth.py           # Сервис аутентификации (JWT, пароли)
+│   │   │   ├── customer.py       # Сервис управления клиентами
+│   │   │   ├── task.py           # Сервис управления задачами
+│   │   │   ├── production.py     # Сервис управления производством
+│   │   │   ├── communication_service.py # Сервис коммуникаций
+│   │   │   ├── rate_limiter.py   # Rate limiting для API
+│   │   │   ├── ai_usage_service.py # Учет использования AI токенов
+│   │   │   │
+│   │   │   ├── ai/               # AI сервисы
+│   │   │   │   ├── __init__.py   # Инициализация AI модуля
+│   │   │   │   ├── client.py     # Унифицированный AI клиент (OpenRouter, OpenAI, etc.)
+│   │   │   │   ├── intent_service.py # Анализ намерений сообщений
+│   │   │   │   └── __pycache__/  # Кэшированные байт-коды
+│   │   │   │
+│   │   │   ├── automation/       # Автоматизация бизнес-процессов
+│   │   │   │   ├── __init__.py   # Инициализация модуля автоматизации
+│   │   │   │   ├── automation_service.py # Основной сервис автоматизации
+│   │   │   │   ├── robot_service.py # Сервис управления роботами
+│   │   │   │   ├── trigger_service.py # Сервис управления триггерами
+│   │   │   │   └── __pycache__/  # Кэшированные байт-коды
+│   │   │   │
+│   │   │   ├── avito_background_tasks.py # Фоновые задачи Avito
+│   │   │   ├── avito_handler.py  # Обработчик Avito коммуникаций
+│   │   │   ├── avito_service.py  # Сервис Avito API
+│   │   │   └── __pycache__/      # Кэшированные байт-коды
+│   │   │
+│   │   ├── config/               # Конфигурационные файлы
+│   │   │   └── openrouter_models.py # Список моделей OpenRouter
+│   │   │
+│   │   ├── tests/                # Тесты приложения
+│   │   │   ├── __init__.py       # Инициализация тестового пакета
+│   │   │   ├── conftest.py       # Конфигурация pytest (fixtures, setup)
+│   │   │   ├── test_api_ai.py    # Тесты AI API эндпоинтов
+│   │   │   ├── test_api_auth.py  # Тесты аутентификации
+│   │   │   ├── test_api_avito.py # Тесты Avito интеграции
+│   │   │   ├── test_api_customers.py # Тесты API клиентов
+│   │   │   ├── test_api_orders.py # Тесты API заказов
+│   │   │   ├── test_api_tasks.py # Тесты API задач
+│   │   │   ├── test_automation.py # Тесты автоматизации
+│   │   │   ├── test_avito_messenger.py # Тесты Avito Messenger
+│   │   │   ├── test_avito.py     # Тесты Avito API
+│   │   │   ├── test_core_services.py # Тесты основных сервисов
+│   │   │   ├── test_customer_service.py # Тесты сервиса клиентов
+│   │   │   ├── test_models.py    # Тесты моделей данных
+│   │   │   ├── test_production_service.py # Тесты сервиса производства
+│   │   │   ├── test_schemas.py   # Тесты Pydantic схем
+│   │   │   ├── test_task_service.py # Тесты сервиса задач
+│   │   │   └── __pycache__/      # Кэшированные байт-коды
+│   │   │
+│   │   ├── utils/                # Утилиты и вспомогательные функции
+│   │   │   ├── __init__.py       # Инициализация utils модуля
+│   │   │   ├── logging.py        # Настройка структурированного логирования
+│   │   │   └── __pycache__/      # Кэшированные байт-коды
+│   │   │
+│   │   └── __pycache__/          # Кэшированные байт-коды основного пакета
+│   │
+│   ├── __init__.py               # Инициализация src пакета
+│   ├── test.db                   # SQLite база данных для тестирования
+│   └── __pycache__/              # Кэшированные байт-коды
+│
+├── pyproject.toml                # Конфигурация проекта (зависимости, инструменты)
+├── pyrightconfig.json            # Конфигурация Pyright (type checker)
+├── .pylintrc                     # Конфигурация Pylint (линтер)
+├── .env                          # Переменные окружения (пример)
+├── .gitignore                    # Исключаемые из git файлы
+├── .coverage                     # Отчет о покрытии тестами
+├── =8.2.0                        # Версия Python (файл маркер)
+├── README.md                     # Документация проекта
+├── start.sh                      # Скрипт запуска приложения
+├── stop.sh                       # Скрипт остановки приложения
+├── todo.md                       # Список задач
+├── TODO.md                       # Дополнительный список задач
+├── Dockerfile                    # Конфигурация Docker образа
+├── .github/                      # GitHub конфигурации
+│   └── workflows/                # GitHub Actions CI/CD
+│       └── pylint.yml            # Конфигурация линтера в CI
+├── htmlcov/                      # HTML отчеты о покрытии тестами
+├── .pytest_cache/                # Кэш pytest
+└── UNKNOWN.egg-info/             # Метаданные пакета (генерируется pip)
 ```
 
 ## Основные модули
@@ -388,6 +461,196 @@ AVITO_USER_ID=your_numeric_user_id
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 - **Avito API**: http://localhost:8000/docs#/avito
+
+## 🧪 Тестирование API через curl
+
+### Запуск приложения
+```bash
+cd /root/aicrm
+./start.sh
+```
+
+### Проверка здоровья
+```bash
+# Корневой эндпоинт
+curl http://localhost:8000/
+# {"message":"AI CRM System API","version":"0.1.0"}
+
+# Health check
+curl http://localhost:8000/health
+# {"status":"healthy"}
+```
+
+### Аутентификация
+```bash
+# Регистрация пользователя (если пользователь не существует)
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "testpass123", "full_name": "Test User"}'
+
+# Вход в систему
+curl -X POST http://localhost:8000/auth/login/json \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "testpass123"}'
+# {"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...","token_type":"bearer"}
+
+# Используйте полученный токен в заголовке Authorization для защищенных эндпоинтов
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+### Управление клиентами
+```bash
+# Создание клиента
+curl -X POST http://localhost:8000/customers/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"name": "Test Customer", "email": "customer@example.com", "phone": "+1234567890"}'
+
+# Получение списка клиентов
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/customers/
+
+# Получение конкретного клиента
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/customers/1
+
+# Получение статистики клиента
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/customers/1/stats
+
+# Поиск клиентов
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/customers/search/?q=test"
+```
+
+### Управление заказами
+```bash
+# Создание заказа (автоматически создает workflow производства)
+curl -X POST http://localhost:8000/orders/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "customer_id": 1,
+    "items": [{"product_type": "t-shirt", "quantity": 10, "size": "M", "color": "black"}],
+    "requirements": "Test order",
+    "source": "website"
+  }'
+
+# Получение списка заказов
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/orders/
+
+# Получение конкретного заказа
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/orders/1
+
+# Получение прогресса производства
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/orders/1/production-progress
+
+# Запуск этапа производства
+curl -X POST http://localhost:8000/orders/1/production-steps/1/start \
+  -H "Authorization: Bearer $TOKEN"
+
+# Завершение этапа производства
+curl -X POST http://localhost:8000/orders/1/production-steps/1/complete \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"actual_hours": 2.5, "notes": "Completed successfully"}'
+
+# Получение просроченных этапов
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/orders/production/overdue
+```
+
+### Управление задачами
+```bash
+# Создание задачи
+curl -X POST http://localhost:8000/tasks/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "title": "Test Task",
+    "description": "This is a test task",
+    "priority": "high",
+    "related_order_id": 1
+  }'
+
+# Получение списка задач
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/tasks/
+
+# Получение конкретной задачи
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/tasks/1
+
+# Завершение задачи
+curl -X POST http://localhost:8000/tasks/1/complete \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### ИИ функции
+```bash
+# Получение списка моделей
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/ai/models
+
+# Анализ намерения сообщения
+curl -X POST http://localhost:8000/ai/analyze-intent \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"message": "I want to order 5 black t-shirts with my logo"}'
+
+# Прямой чат с AI
+curl -X POST http://localhost:8000/ai/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello, how can I help you?"}],
+    "model": "deepseek/deepseek-chat-v3.1"
+  }'
+
+# Статистика использования токенов за месяц
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/ai/usage/monthly
+
+# История использования токенов
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/ai/usage/history?days=7"
+```
+
+### Автоматизация бизнес-процессов
+```bash
+# Создание процесса автоматизации
+curl -X POST http://localhost:8000/automation/processes/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "name": "Test Process",
+    "description": "Test automation process",
+    "entity_type": "customer"
+  }'
+
+# Получение списка процессов
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/automation/processes/
+
+# ИИ-генерация цепочки автоматизации
+curl -X POST http://localhost:8000/automation/ai/generate-chain \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "description": "Когда создается новый клиент, отправить приветственное email",
+    "entity_type": "customer"
+  }'
+```
+
+### Avito интеграция
+```bash
+# Проверка здоровья Avito интеграции
+curl http://localhost:8000/avito/health
+# {"status":"ok","service":"avito_integration"}
+
+# Получение активных объявлений (требует настройки Avito API ключей)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/avito/items
+
+# Получение производительности объявления
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/avito/items/123/performance
+
+# Получение цен на VAS услуги
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/avito/items/123/vas-prices
+```
+
+### Остановка приложения
+```bash
+./stop.sh
+```
 
 ## 📖 Использование API
 
@@ -996,6 +1259,265 @@ curl -X POST "http://localhost:8000/customers/" \
 #### Поиск клиентов
 ```bash
 curl "http://localhost:8000/customers/search/?query=петров&page=1&per_page=10"
+```
+
+### 🤖 Автоматизация бизнес-процессов
+
+#### Инициирование события автоматизации
+```bash
+curl -X POST "http://localhost:8000/automation/events/customer/customer_created" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "entity_id": 1,
+    "event_data": {
+      "customer_name": "Иван Петров",
+      "customer_email": "ivan@example.com"
+    }
+  }'
+```
+
+**Ответ:**
+```json
+{
+  "message": "Automation event processed",
+  "result": {
+    "entity_type": "customer",
+    "entity_id": 1,
+    "event_type": "customer_created",
+    "triggers_found": 2,
+    "robots_executed": 3
+  }
+}
+```
+
+#### Перемещение сущности на стадию
+```bash
+curl -X POST "http://localhost:8000/automation/move-to-stage/customer/1/2"
+```
+
+**Ответ:**
+```json
+{
+  "message": "Entity moved to stage 2",
+  "result": {
+    "success": true,
+    "stage_id": 2,
+    "robots_executed": 1
+  }
+}
+```
+
+#### Специфические события автоматизации
+
+##### Создание клиента
+```bash
+curl -X POST "http://localhost:8000/automation/customers/1/created"
+```
+
+##### Изменение статуса заказа
+```bash
+curl -X POST "http://localhost:8000/automation/orders/1/status-changed" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "old_status": "pending",
+    "new_status": "in_progress"
+  }'
+```
+
+##### Завершение задачи
+```bash
+curl -X POST "http://localhost:8000/automation/tasks/1/completed"
+```
+
+##### Приближение дедлайна задачи
+```bash
+curl -X POST "http://localhost:8000/automation/tasks/1/deadline-approaching" \
+  -H "Content-Type: application/json" \
+  -d '{"hours_left": 2}'
+```
+
+##### Получение сообщения
+```bash
+curl -X POST "http://localhost:8000/automation/communications/1/message-received" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "entity_type": "customer",
+    "entity_id": 1
+  }'
+```
+
+#### CRUD управление процессами автоматизации
+
+##### Создание процесса
+```bash
+curl -X POST "http://localhost:8000/automation/processes/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Продажа полиграфии",
+    "description": "Автоматизация процесса продаж печатной продукции",
+    "entity_type": "order"
+  }'
+```
+
+##### Получение списка процессов
+```bash
+curl "http://localhost:8000/automation/processes/?entity_type=order"
+```
+
+##### Создание стадии
+```bash
+curl -X POST "http://localhost:8000/automation/stages/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Новая заявка",
+    "description": "Первичная обработка заявки",
+    "entity_type": "order",
+    "process_id": 1,
+    "order_index": 0,
+    "color": "#FFEB3B"
+  }'
+```
+
+##### Создание триггера
+```bash
+curl -X POST "http://localhost:8000/automation/triggers/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Заказ создан",
+    "description": "Срабатывает при создании нового заказа",
+    "entity_type": "order",
+    "event_type": "order_created",
+    "target_stage_id": 1
+  }'
+```
+
+##### Создание робота
+```bash
+curl -X POST "http://localhost:8000/automation/robots/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Отправка подтверждения",
+    "description": "Отправляет email подтверждение заказа",
+    "entity_type": "order",
+    "stage_id": 1,
+    "actions": [
+      {
+        "action_type": "send_email",
+        "execution_order": 1,
+        "config": {
+          "template": "order_confirmation",
+          "recipient_field": "customer_email"
+        }
+      }
+    ]
+  }'
+```
+
+#### ИИ-генерация цепочек автоматизации
+
+##### Генерация процесса на основе описания
+```bash
+curl -X POST "http://localhost:8000/automation/ai/generate-chain" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Когда создается новый клиент, отправить приветственное email, создать задачу менеджеру и переместить в стадию 'Новый лид'",
+    "entity_type": "customer",
+    "complexity_level": "medium"
+  }'
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "message": "Automation chain generated and applied successfully",
+  "generated_process": {
+    "name": "Customer Onboarding Process",
+    "description": "Автоматизация процесса подключения новых клиентов",
+    "entity_type": "customer",
+    "stages": [...],
+    "triggers": [...],
+    "robots": [...]
+  },
+  "applied_changes": {
+    "processes_created": 1,
+    "stages_created": 3,
+    "triggers_created": 2,
+    "robots_created": 4
+  }
+}
+```
+
+##### ИИ-оптимизация существующего процесса
+```bash
+curl -X POST "http://localhost:8000/automation/ai/optimize-chain/1?optimization_goal=performance"
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "message": "Automation chain optimized for performance",
+  "optimizations_applied": [
+    {
+      "type": "remove_step",
+      "description": "Удален ненужный этап проверки"
+    },
+    {
+      "type": "add_trigger",
+      "description": "Добавлен триггер для автоматического перехода"
+    }
+  ],
+  "performance_improvements": {
+    "estimated_time_savings": "2.5 часов",
+    "bottleneck_eliminated": true
+  }
+}
+```
+
+##### ИИ-анализ и предложения по улучшению
+```bash
+curl -X POST "http://localhost:8000/automation/ai/suggest-improvements?analysis_period_days=30"
+```
+
+**Ответ:**
+```json
+{
+  "analysis_period": {
+    "days": 30,
+    "entity_type": "all"
+  },
+  "total_processes": 5,
+  "active_triggers": 12,
+  "executed_robots": 245,
+  "success_rate": 0.87,
+  "bottlenecks": [
+    {
+      "type": "performance",
+      "description": "Медленная обработка заказов в пиковые часы",
+      "impact": "high"
+    }
+  ],
+  "suggestions": [
+    {
+      "type": "optimization",
+      "title": "Параллельная обработка этапов",
+      "description": "Разделить последовательные этапы на параллельные потоки",
+      "impact_level": "high",
+      "implementation_complexity": "medium",
+      "estimated_benefit": "Сокращение времени обработки на 40%",
+      "suggested_actions": [
+        "Создать дополнительные стадии для параллельной обработки",
+        "Настроить триггеры для одновременного запуска"
+      ]
+    }
+  ],
+  "performance_metrics": {
+    "avg_execution_time": "45 минут",
+    "failure_rate": "13%",
+    "most_used_process": "Order Processing"
+  }
+}
 ```
 
 ## 🔍 Мониторинг и отладка

@@ -81,7 +81,7 @@ class AIIntentService:
             """
         }
 
-    async def analyze_intent(self, message: str, context: Dict[str, Any] = None) -> IntentType:
+    async def analyze_intent(self, message: str, context: Dict[str, Any] = None, model: str = None) -> IntentType:
         """Анализ намерения сообщения пользователя с помощью AI"""
         prompt = self.intent_prompts["intent_analysis"].format(message=message)
 
@@ -92,6 +92,7 @@ class AIIntentService:
 
         response = await self.ai_client.chat_completion(
             messages=messages,
+            model=model,
             temperature=0.1  # Низкая температура для последовательной классификации
         )
 
@@ -107,7 +108,8 @@ class AIIntentService:
         self,
         intent: IntentType,
         message: str,
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
+        model: str = None
     ) -> str:
         """Генерация контекстно-зависимого ответа на основе намерения"""
         context = context or {}
@@ -132,6 +134,7 @@ class AIIntentService:
 
         return await self.ai_client.chat_completion(
             messages=messages,
+            model=model,
             temperature=0.7
         )
 

@@ -18,7 +18,7 @@ class CustomerBase(BaseModel):
 
 class CustomerCreate(CustomerBase):
     """Схема создания клиента"""
-    pass
+    # Наследует все поля от CustomerBase
 
 
 class CustomerUpdate(BaseModel):

@@ -379,6 +379,35 @@ class AvitoWebhookEvent(BaseModel):
     timestamp: str = Field(..., description="Время события")
     payload: Dict[str, Any] = Field(..., description="Данные события")
 
+
+class AvitoWebhookMessagePayload(BaseModel):
+    """Payload для webhook события нового сообщения"""
+    chat_id: str = Field(..., description="ID чата")
+    message_id: str = Field(..., description="ID сообщения")
+    user_id: str = Field(..., description="ID пользователя")
+    item_id: Optional[int] = Field(None, description="ID объявления")
+    text: str = Field(..., description="Текст сообщения")
+    timestamp: str = Field(..., description="Время сообщения")
+    author_role: str = Field(..., description="Роль автора (buyer/seller)")
+
+
+class AvitoWebhookStatusPayload(BaseModel):
+    """Payload для webhook события изменения статуса"""
+    chat_id: str = Field(..., description="ID чата")
+    status: str = Field(..., description="Новый статус чата")
+    timestamp: str = Field(..., description="Время изменения")
+
+
+class AvitoWebhookRequest(BaseModel):
+    """Входящий webhook запрос от Avito"""
+    events: List[AvitoWebhookEvent] = Field(..., description="Список событий")
+
+
+class AvitoWebhookResponse(BaseModel):
+    """Ответ на webhook запрос"""
+    status: str = Field("ok", description="Статус обработки")
+    processed_events: int = Field(..., description="Количество обработанных событий")
+
 class AvitoSyncChatsRequest(BaseModel):
     """Запрос на синхронизацию чатов"""
     limit: int = Field(100, ge=1, le=1000, description="Лимит чатов для синхронизации")

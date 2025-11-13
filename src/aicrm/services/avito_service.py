@@ -5,10 +5,13 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, date, timedelta
 import httpx
 import logging
+import json
+import redis.asyncio as redis
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from ..core.config import settings
 from ..utils.logging import get_logger
+from .rate_limiter import get_avito_rate_limiter
 
 logger = get_logger(__name__)
 
@@ -20,6 +23,7 @@ class AvitoAuthError(Exception):
         super().__init__(message)
         self.message = message
         self.details = details or {}
+        self.error_type = "auth"
 
 
 class AvitoAPIError(Exception):
@@ -30,6 +34,28 @@ class AvitoAPIError(Exception):
         self.message = message
         self.status_code = status_code
         self.response_data = response_data or {}
+        self.error_type = "api"
+
+        # Классификация ошибок по статус кодам
+        if status_code:
+            if status_code == 400:
+                self.error_subtype = "bad_request"
+            elif status_code == 401:
+                self.error_subtype = "unauthorized"
+            elif status_code == 403:
+                self.error_subtype = "forbidden"
+            elif status_code == 404:
+                self.error_subtype = "not_found"
+            elif status_code == 422:
+                self.error_subtype = "validation_error"
+            elif status_code == 429:
+                self.error_subtype = "rate_limit"
+            elif status_code >= 500:
+                self.error_subtype = "server_error"
+            else:
+                self.error_subtype = "unknown"
+        else:
+            self.error_subtype = "unknown"
 
 
 class AvitoRateLimitError(Exception):
@@ -39,6 +65,37 @@ class AvitoRateLimitError(Exception):
         super().__init__(message)
         self.message = message
         self.retry_after = retry_after  # секунды до следующего запроса
+        self.error_type = "rate_limit"
+
+
+class AvitoNetworkError(Exception):
+    """Сетевая ошибка при работе с Avito API"""
+
+    def __init__(self, message: str = "Сетевая ошибка Avito API", original_error: Exception = None):
+        super().__init__(message)
+        self.message = message
+        self.original_error = original_error
+        self.error_type = "network"
+
+
+class AvitoTimeoutError(Exception):
+    """Таймаут при работе с Avito API"""
+
+    def __init__(self, message: str = "Таймаут Avito API", timeout_seconds: int = None):
+        super().__init__(message)
+        self.message = message
+        self.timeout_seconds = timeout_seconds
+        self.error_type = "timeout"
+
+
+class AvitoValidationError(Exception):
+    """Ошибка валидации данных Avito"""
+
+    def __init__(self, message: str = "Ошибка валидации данных Avito", field_errors: dict = None):
+        super().__init__(message)
+        self.message = message
+        self.field_errors = field_errors or {}
+        self.error_type = "validation"
 
 
 class AvitoClient:
@@ -119,9 +176,22 @@ class AvitoClient:
         self,
         method: str,
         endpoint: str,
+        operation_type: str = "read",
         **kwargs
     ) -> Dict[str, Any]:
-        """Выполнение HTTP запроса с обработкой ошибок"""
+        """Выполнение HTTP запроса с обработкой ошибок и rate limiting"""
+        # Проверка rate limit перед запросом
+        rate_limiter = await get_avito_rate_limiter()
+        allowed, remaining, reset_time = await rate_limiter.check_rate_limit(
+            operation_type, str(self.user_id)
+        )
+
+        if not allowed:
+            raise AvitoRateLimitError(
+                f"Превышен лимит запросов Avito для операции {operation_type}. "
+                f"Осталось {remaining} запросов, сброс через {reset_time:.0f} сек."
+            )
+
         token = await self._ensure_token()
 
         headers = kwargs.get('headers', {})
@@ -132,7 +202,7 @@ class AvitoClient:
             response = await self.http_client.request(method, endpoint, **kwargs)
             response.raise_for_status()
 
-            # Проверка на rate limit
+            # Проверка на rate limit со стороны Avito
             if response.status_code == 429:
                 raise AvitoRateLimitError("Превышен лимит запросов Avito")
 
@@ -149,13 +219,51 @@ class AvitoClient:
                 response.raise_for_status()
                 return response.json() if response.content else {}
             elif e.response.status_code == 429:
-                raise AvitoRateLimitError("Превышен лимит запросов Avito")
+                # Извлекаем информацию о rate limit из заголовков
+                retry_after = e.response.headers.get('Retry-After')
+                raise AvitoRateLimitError(
+                    f"Превышен лимит запросов Avito для {endpoint}",
+                    retry_after=int(retry_after) if retry_after else None
+                )
+            elif e.response.status_code == 422:
+                # Ошибка валидации данных
+                try:
+                    error_data = e.response.json()
+                    raise AvitoValidationError(
+                        f"Ошибка валидации данных: {error_data.get('message', 'Неверный формат данных')}",
+                        field_errors=error_data.get('errors', {})
+                    )
+                except:
+                    raise AvitoValidationError(f"Ошибка валидации данных: {e.response.text}")
+            elif e.response.status_code >= 500:
+                # Серверная ошибка Avito
+                raise AvitoAPIError(
+                    f"Серверная ошибка Avito: {e.response.status_code}",
+                    status_code=e.response.status_code,
+                    response_data={"error": "server_error"}
+                )
             else:
-                raise AvitoAPIError(f"API ошибка: {e.response.status_code} - {e.response.text}")
-        except httpx.TimeoutException:
-            raise AvitoAPIError("Таймаут запроса к Avito API")
+                # Другие ошибки API
+                try:
+                    error_data = e.response.json()
+                    raise AvitoAPIError(
+                        f"API ошибка {e.response.status_code}: {error_data.get('message', e.response.text)}",
+                        status_code=e.response.status_code,
+                        response_data=error_data
+                    )
+                except:
+                    raise AvitoAPIError(
+                        f"API ошибка {e.response.status_code}: {e.response.text}",
+                        status_code=e.response.status_code
+                    )
+        except httpx.TimeoutException as e:
+            raise AvitoTimeoutError(f"Таймаут запроса к Avito API: {endpoint}", timeout_seconds=30)
+        except httpx.ConnectError as e:
+            raise AvitoNetworkError(f"Ошибка подключения к Avito API: {endpoint}", original_error=e)
+        except httpx.RequestError as e:
+            raise AvitoNetworkError(f"Ошибка сети при запросе к Avito API: {endpoint}", original_error=e)
         except Exception as e:
-            raise AvitoAPIError(f"Неизвестная ошибка: {str(e)}")
+            raise AvitoAPIError(f"Неизвестная ошибка при запросе к {endpoint}: {str(e)}")
 
     # Методы API
 
@@ -164,6 +272,7 @@ class AvitoClient:
         response = await self._make_request(
             "GET",
             "/core/v1/items",
+            operation_type="read",
             params=params
         )
         return response.get("resources", [])
@@ -172,7 +281,8 @@ class AvitoClient:
         """Получение информации об объявлении"""
         return await self._make_request(
             "GET",
-            f"/core/v1/accounts/{self.user_id}/items/{item_id}/"
+            f"/core/v1/accounts/{self.user_id}/items/{item_id}/",
+            operation_type="read"
         )
 
     async def get_item_stats(
@@ -198,6 +308,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             f"/stats/v1/accounts/{self.user_id}/items",
+            operation_type="read",
             json=data
         )
 
@@ -225,6 +336,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             f"/stats/v2/accounts/{self.user_id}/items",
+            operation_type="read",
             json=data
         )
 
@@ -233,6 +345,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             f"/core/v1/accounts/{self.user_id}/vas/prices",
+            operation_type="read",
             json={"itemIds": item_ids}
         )
 
@@ -245,6 +358,7 @@ class AvitoClient:
         return await self._make_request(
             "PUT",
             f"/core/v2/items/{item_id}/vas/",
+            operation_type="write",
             json=data
         )
 
@@ -253,6 +367,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             f"/core/v1/items/{item_id}/update_price",
+            operation_type="write",
             json={"price": price}
         )
 
@@ -273,6 +388,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             f"/core/v1/accounts/{self.user_id}/calls/stats/",
+            operation_type="read",
             json=data
         )
 
@@ -298,6 +414,7 @@ class AvitoClient:
         return await self._make_request(
             "GET",
             f"/messenger/v1/accounts/{self.user_id}/chats",
+            operation_type="read",
             params=params
         )
 
@@ -305,7 +422,8 @@ class AvitoClient:
         """Получение информации по чату"""
         return await self._make_request(
             "GET",
-            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}"
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}",
+            operation_type="read"
         )
 
     async def get_messages(
@@ -323,6 +441,7 @@ class AvitoClient:
         return await self._make_request(
             "GET",
             f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages/",
+            operation_type="read",
             params=params
         )
 
@@ -341,6 +460,7 @@ class AvitoClient:
         return await self._make_request(
             "GET",
             f"/messenger/v2/accounts/{self.user_id}/chats/{chat_id}/messages/",
+            operation_type="read",
             params=params
         )
 
@@ -359,6 +479,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages",
+            operation_type="write",
             json=data
         )
 
@@ -366,7 +487,8 @@ class AvitoClient:
         """Отметка чата как прочитанного"""
         return await self._make_request(
             "POST",
-            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/read"
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/read",
+            operation_type="write"
         )
 
     async def delete_message(
@@ -377,7 +499,8 @@ class AvitoClient:
         """Удаление сообщения"""
         return await self._make_request(
             "POST",
-            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages/{message_id}"
+            f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages/{message_id}",
+            operation_type="write"
         )
 
     async def add_to_blacklist(
@@ -393,6 +516,7 @@ class AvitoClient:
         await self._make_request(
             "POST",
             f"/messenger/v1/accounts/{self.user_id}/blacklist",
+            operation_type="write",
             json=data
         )
 
@@ -413,6 +537,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             "/messenger/v1/webhook",
+            operation_type="write",
             json=data
         )
 
@@ -426,6 +551,7 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             "/messenger/v1/webhook/unsubscribe",
+            operation_type="write",
             json=data
         )
 
@@ -446,8 +572,59 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             "/messenger/v2/webhook",
+            operation_type="write",
             json=data
         )
+
+
+class AvitoCache:
+    """
+    Кэширование данных Avito API в Redis
+    """
+
+    def __init__(self):
+        self.redis_url = settings.redis_url or "redis://localhost:6379"
+        self.redis_client = None
+
+    async def _get_redis(self) -> redis.Redis:
+        """Получение Redis клиента"""
+        if self.redis_client is None:
+            self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
+        return self.redis_client
+
+    async def get_cached(self, key: str) -> Optional[Dict[str, Any]]:
+        """Получение данных из кэша"""
+        try:
+            redis_client = await self._get_redis()
+            cached_data = await redis_client.get(key)
+            if cached_data:
+                logger.debug(f"Cache hit for key: {key}")
+                return json.loads(cached_data)
+            logger.debug(f"Cache miss for key: {key}")
+            return None
+        except Exception as e:
+            logger.warning(f"Ошибка чтения из кэша {key}: {e}")
+            return None
+
+    async def set_cached(self, key: str, data: Dict[str, Any], ttl_seconds: int) -> None:
+        """Сохранение данных в кэш"""
+        try:
+            redis_client = await self._get_redis()
+            await redis_client.setex(key, ttl_seconds, json.dumps(data))
+            logger.debug(f"Cached data for key: {key} (TTL: {ttl_seconds}s)")
+        except Exception as e:
+            logger.warning(f"Ошибка записи в кэш {key}: {e}")
+
+    async def invalidate_pattern(self, pattern: str) -> None:
+        """Инвалидация кэша по паттерну"""
+        try:
+            redis_client = await self._get_redis()
+            keys = await redis_client.keys(pattern)
+            if keys:
+                await redis_client.delete(*keys)
+                logger.info(f"Invalidated {len(keys)} cache keys matching pattern: {pattern}")
+        except Exception as e:
+            logger.warning(f"Ошибка инвалидации кэша {pattern}: {e}")
 
 
 class AvitoService:
@@ -457,6 +634,7 @@ class AvitoService:
 
     def __init__(self):
         self.client = AvitoClient()
+        self.cache = AvitoCache()
 
     async def __aenter__(self):
         await self.client.__aenter__()
@@ -465,14 +643,36 @@ class AvitoService:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def get_active_items(self) -> List[Dict[str, Any]]:
-        """Получение активных объявлений"""
+    async def get_active_items(self, use_cache_fallback: bool = True) -> List[Dict[str, Any]]:
+        """Получение активных объявлений с кэшированием и graceful degradation"""
+        cache_key = f"avito:active_items:{self.client.user_id}"
+
+        # Проверяем кэш
+        cached_data = await self.cache.get_cached(cache_key)
+        if cached_data:
+            logger.info(f"Возвращены активные объявления из кэша ({len(cached_data)} шт.)")
+            return cached_data
+
         try:
             items = await self.client.get_items(status="active", per_page=100)
-            logger.info(f"Получено {len(items)} активных объявлений")
+            logger.info(f"Получено {len(items)} активных объявлений из API")
+
+            # Кэшируем на 5 минут
+            await self.cache.set_cached(cache_key, items, ttl_seconds=300)
             return items
+        except (AvitoNetworkError, AvitoTimeoutError, AvitoAPIError) as e:
+            if use_cache_fallback and isinstance(e, (AvitoNetworkError, AvitoTimeoutError)) or (isinstance(e, AvitoAPIError) and e.error_subtype == "server_error"):
+                # Graceful degradation: возвращаем пустой список с предупреждением
+                logger.warning(f"Avito API недоступен ({e.error_type}), возвращаем пустой список для graceful degradation")
+                return []
+            else:
+                logger.error(f"Ошибка получения объявлений: {e}")
+                raise
         except Exception as e:
-            logger.error(f"Ошибка получения объявлений: {e}")
+            logger.error(f"Неожиданная ошибка получения объявлений: {e}")
+            if use_cache_fallback:
+                logger.warning("Возвращаем пустой список из-за неожиданной ошибки")
+                return []
             raise
 
     async def get_item_performance(
@@ -480,7 +680,15 @@ class AvitoService:
         item_id: int,
         days: int = 30
     ) -> Dict[str, Any]:
-        """Получение производительности объявления"""
+        """Получение производительности объявления с кэшированием"""
+        cache_key = f"avito:item_performance:{item_id}:{days}"
+
+        # Проверяем кэш
+        cached_data = await self.cache.get_cached(cache_key)
+        if cached_data:
+            logger.info(f"Возвращена производительность объявления {item_id} из кэша")
+            return cached_data
+
         try:
             date_to = date.today()
             date_from = date_to - timedelta(days=days)
@@ -502,7 +710,7 @@ class AvitoService:
             # Информация об объявлении
             item_info = await self.client.get_item_info(item_id)
 
-            return {
+            result = {
                 "item_id": item_id,
                 "title": item_info.get("title"),
                 "status": item_info.get("status"),
@@ -511,6 +719,12 @@ class AvitoService:
                 "calls": calls_stats.get("result", {}),
                 "vas_active": item_info.get("vas", [])
             }
+
+            # Кэшируем на 10 минут
+            await self.cache.set_cached(cache_key, result, ttl_seconds=600)
+            logger.info(f"Производительность объявления {item_id} сохранена в кэш")
+
+            return result
 
         except Exception as e:
             logger.error(f"Ошибка получения статистики объявления {item_id}: {e}")
@@ -561,7 +775,7 @@ class AvitoService:
         service_slug: str,
         stickers: List[int] = None
     ) -> Dict[str, Any]:
-        """Применение услуги продвижения"""
+        """Применение услуги продвижения с инвалидацией кэша"""
         try:
             result = await self.client.apply_vas(
                 item_id=item_id,
@@ -570,6 +784,11 @@ class AvitoService:
             )
 
             logger.info(f"Применена услуга {service_slug} к объявлению {item_id}")
+
+            # Инвалидируем кэш производительности объявления
+            await self.cache.invalidate_pattern(f"avito:item_performance:{item_id}:*")
+            logger.info(f"Кэш производительности объявления {item_id} инвалидирован")
+
             return result
 
         except Exception as e:
@@ -577,18 +796,38 @@ class AvitoService:
             raise
 
     async def get_promotion_options(self, item_ids: List[int]) -> List[Dict[str, Any]]:
-        """Получение доступных услуг продвижения"""
+        """Получение доступных услуг продвижения с кэшированием"""
+        # Создаем ключ на основе отсортированных item_ids для консистентности
+        sorted_ids = sorted(item_ids)
+        cache_key = f"avito:vas_prices:{':'.join(map(str, sorted_ids))}"
+
+        # Проверяем кэш
+        cached_data = await self.cache.get_cached(cache_key)
+        if cached_data:
+            logger.info(f"Возвращены цены VAS из кэша для {len(item_ids)} объявлений")
+            return cached_data
+
         try:
-            return await self.client.get_vas_prices(item_ids)
+            prices = await self.client.get_vas_prices(item_ids)
+            logger.info(f"Получены цены VAS из API для {len(item_ids)} объявлений")
+
+            # Кэшируем на 30 минут
+            await self.cache.set_cached(cache_key, prices, ttl_seconds=1800)
+            return prices
         except Exception as e:
             logger.error(f"Ошибка получения цен VAS для {item_ids}: {e}")
             raise
 
     async def update_item_price(self, item_id: int, new_price: int) -> Dict[str, Any]:
-        """Обновление цены объявления"""
+        """Обновление цены объявления с инвалидацией кэша"""
         try:
             result = await self.client.update_price(item_id, new_price)
             logger.info(f"Цена объявления {item_id} обновлена на {new_price}")
+
+            # Инвалидируем кэш производительности объявления
+            await self.cache.invalidate_pattern(f"avito:item_performance:{item_id}:*")
+            logger.info(f"Кэш производительности объявления {item_id} инвалидирован")
+
             return result
         except Exception as e:
             logger.error(f"Ошибка обновления цены для {item_id}: {e}")
