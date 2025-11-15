@@ -1,7 +1,7 @@
 """
 Модель клиента
 """
-from sqlalchemy import Column, String, Integer, Numeric, JSON, Text
+from sqlalchemy import Column, String, Integer, Numeric, JSON, Text, Boolean
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -21,11 +21,13 @@ class Customer(BaseModel):
     total_spent = Column(Numeric(10, 2), default=0.00)
     loyalty_level = Column(String, default="bronze")  # bronze, silver, gold, platinum
     notes = Column(String)
+    is_deleted = Column(Boolean, default=False)  # Soft delete flag
 
     # Связи
     orders = relationship("Order", back_populates="customer")
     communications = relationship("Communication", back_populates="customer")
     avito_chat_settings = relationship("AvitoChatSettings", back_populates="customer")
+    telegram_chats = relationship("TelegramChat", back_populates="customer")
 
     def update_stats(self):
         """Обновление статистики клиента"""

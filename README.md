@@ -7,6 +7,61 @@
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0+-red.svg)](https://sqlalchemy.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+## 🚨 ВАЖНАЯ ИНФОРМАЦИЯ: ПРОБЛЕМА ЛОГИНА РЕШЕНА
+
+### ✅ Проблема авторизации устранена
+
+**Симптомы проблемы:**
+- Страница логина загружалась корректно
+- При вводе логина возникала ошибка `ERR_CONNECTION_REFUSED`
+- В консоли браузера: `POST http://localhost/api/auth/login/json net::ERR_CONNECTION_REFUSED`
+
+**Причина:**
+Неправильная конфигурация API URL в React приложении:
+- В `frontend/.env` был указан `REACT_APP_API_URL=http://localhost:8000`
+- В `frontend/src/services/api.ts` использовался неправильный способ доступа к переменным окружения: `(window as any).REACT_APP_API_URL`
+
+**Решение:**
+1. **Исправлена конфигурация переменных окружения:**
+   ```env
+   REACT_APP_API_URL=https://dev.chillcreative.ru/api
+   ```
+
+2. **Исправлен код доступа к переменным окружения:**
+   ```typescript
+   // Было:
+   const API_BASE_URL = (window as any).REACT_APP_API_URL || 'http://localhost/api';
+
+   // Стало:
+   const API_BASE_URL = (import.meta as any).env?.REACT_APP_API_URL || 'https://dev.chillcreative.ru/api';
+   ```
+
+3. **Пересобрано React приложение** с новыми настройками
+
+**Результат:**
+- ✅ Frontend теперь корректно обращается к API по адресу `https://dev.chillcreative.ru/api`
+- ✅ Авторизация работает без ошибок
+- ✅ Все API эндпоинты доступны и функционируют
+
+### 🔑 Текущие учетные данные для входа
+
+**Администратор системы:**
+- **Email:** `iloveigor@chillcreative.ru`
+- **Пароль:** `25896311Aaa`
+- **Роль:** Администратор (superuser)
+
+**Тестовый пользователь:**
+- **Email:** `test@example.com`
+- **Пароль:** `testpass123`
+- **Роль:** Пользователь
+
+### 🌐 Доступ к системе
+
+- **Продакшн Frontend:** https://dev.chillcreative.ru
+- **API Backend:** https://dev.chillcreative.ru/api
+- **Swagger Docs:** https://dev.chillcreative.ru/api/docs
+- **Health Check:** https://dev.chillcreative.ru/api/health
+
 ## ⚡ Быстрый старт
 
 ### 1. Настройка API ключей
@@ -26,16 +81,90 @@ export AVITO_CLIENT_SECRET="your_client_secret"
 export AVITO_USER_ID="12345678"
 ```
 
-### 2. Запуск
+### 2. Запуск системы
 ```bash
 cd /root/aicrm
+
+# Сделать скрипты исполняемыми (один раз)
+chmod +x start.sh stop.sh status.sh
+
+# Запустить все компоненты системы
 ./start.sh
 ```
 
-### 3. Проверка
-- **API**: http://localhost:8000
-- **Swagger**: http://localhost:8000/docs
-- **Health**: http://localhost:8000/health
+### 3. Проверка статуса
+```bash
+# Проверить статус всех компонентов
+./status.sh
+```
+
+### 4. Доступ к системе
+- **Frontend (React)**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **Swagger Docs**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
+
+### 5. Остановка системы
+```bash
+# Корректно остановить все компоненты
+./stop.sh
+```
+
+## 📊 Управление системой
+
+### Скрипты управления
+
+| Скрипт | Назначение | Описание |
+|--------|------------|----------|
+| `./start.sh` | 🚀 Запуск системы | Запускает все компоненты: PostgreSQL, Redis, Backend, Frontend, Nginx |
+| `./stop.sh` | 🛑 Остановка системы | Корректно останавливает все компоненты с сохранением PID |
+| `./status.sh` | 📊 Статус системы | Показывает состояние всех компонентов и доступные URL |
+| `./test-nginx.sh` | 🧪 Тест nginx | Проверяет работу nginx проксирования и редиректов |
+
+### Что запускает start.sh:
+1. **PostgreSQL** - база данных (если не запущена)
+2. **Redis** - кэш и брокер сообщений (если не запущен)
+3. **Backend (FastAPI)** - API сервер на порту 8000
+4. **Frontend (React)** - веб-интерфейс на порту 3000
+5. **Nginx** - веб-сервер для проксирования (если настроен)
+
+### Nginx конфигурация:
+Nginx настроен для умного проксирования:
+- **API запросы** (`/api/*`, `/docs`, `/health`, `/ai/*`, `/auth/*`, `/customers/*`, `/orders/*`, `/tasks/*`, `/avito/*`, `/automation/*`, `/telegram/*`, `/email/*`) → Backend (порт 8000)
+- **Telegram webhook** (`/telegram/webhook`) → Backend с оптимизацией для быстрых ответов
+- **Все остальные запросы** → Frontend (порт 3000) с поддержкой React Router
+- **HTTP → HTTPS** редирект для безопасности
+- **CORS headers** для API запросов
+- **Кэширование** статических файлов
+
+### Мониторинг компонентов:
+```bash
+# Регулярная проверка статуса
+./status.sh
+
+# Тестирование nginx конфигурации
+./test-nginx.sh
+
+# Просмотр логов (в отдельных терминалах)
+tail -f /var/log/nginx/aicrm_access.log       # Nginx access логи
+tail -f /var/log/nginx/aicrm_error.log        # Nginx error логи
+tail -f /var/log/postgresql/postgresql-*.log  # PostgreSQL логи
+tail -f /var/log/redis/redis-server.log       # Redis логи
+# Backend логи выводятся в консоль при запуске
+# Frontend логи в терминале React dev server
+```
+
+### Резервное копирование:
+```bash
+# База данных
+pg_dump -U postgres aicrm_db > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Конфигурационные файлы
+tar -czf config_backup_$(date +%Y%m%d).tar.gz src/.env start.sh stop.sh
+
+# Nginx конфигурация
+sudo cp /etc/nginx/sites-available/aicrm nginx_backup_$(date +%Y%m%d).conf
+```
 
 ## 📋 Описание
 
@@ -47,7 +176,9 @@ AI CRM System - это полнофункциональная CRM система
 - **🏭 Производственный workflow**: Автоматическое создание этапов производства, отслеживание прогресса
 - **📊 Аналитика**: Отчеты о заказах, просрочках, эффективности производства
 - **💬 Многоканальные коммуникации**: Telegram, Email, Website, Avito
-- **📢 Avito интеграция**: Программное управление объявлениями, статистика, продвижение, оптимизация цен
+- **🤖 Telegram бот**: AI-консультант для приема заказов и ответов на вопросы
+- **� Email сервис**: Отправка шаблонных email, SMTP интеграция, фоновые задачи
+- **�📢 Avito интеграция**: Программное управление объявлениями, статистика, продвижение, оптимизация цен
 - **🤖 Автоматизация бизнес-процессов**: Триггеры, роботы, стадии в стиле Bitrix24
 - **�️ CRUD управление**: Полное управление процессами, стадиями, триггерами и роботами через API
 - **🧠 ИИ-генерация**: Автоматическое создание цепочек автоматизации на основе описаний
@@ -159,143 +290,378 @@ AI CRM System - это полнофункциональная CRM система
 | **Фабрика** | **factory-boy** | `3.3.0+` | Тестовые данные | - Model factories<br>- Faker integration<br>- Sequences<br>- Traits |
 | **Fixtures** | **pytest-fixtures** | - | Тестовые фикстуры | - Database fixtures<br>- API client fixtures<br>- Mock fixtures |
 
-### Структура проекта
+### 🏗️ Детальная структура проекта
+
+### 📁 Корневая директория проекта
 
 ```
 aicrm/
-├── src/                           # Исходный код приложения
-│   ├── aicrm/                     # Основной пакет приложения
-│   │   ├── __init__.py           # Инициализация пакета
-│   │   ├── main.py               # Точка входа FastAPI приложения
-│   │   ├── .env                  # Переменные окружения (пример)
-│   │   │
-│   │   ├── core/                 # Ядро приложения - конфигурация и инфраструктура
-│   │   │   ├── __init__.py       # Инициализация core модуля
-│   │   │   ├── config.py         # Основная конфигурация приложения (CORS, debug, etc.)
-│   │   │   ├── ai_config.py      # Конфигурация AI провайдеров (OpenRouter, OpenAI, etc.)
-│   │   │   ├── database.py       # Настройка базы данных (SQLAlchemy engine, session)
-│   │   │   └── __pycache__/      # Кэшированные байт-коды Python
-│   │   │
-│   │   ├── models/               # SQLAlchemy модели данных
-│   │   │   ├── __init__.py       # Импорт всех моделей
-│   │   │   ├── base.py           # Базовая модель с общими полями (id, timestamps)
-│   │   │   ├── user.py           # Модель пользователя (auth, roles)
-│   │   │   ├── customer.py       # Модель клиента (CRM данные, статистика)
-│   │   │   ├── order.py          # Модель заказа (статусы, workflow)
-│   │   │   ├── task.py           # Модель задачи (Kanban, приоритеты)
-│   │   │   ├── production_step.py # Модель этапов производства (workflow)
-│   │   │   ├── communication.py  # Модель коммуникаций (email, chat, etc.)
-│   │   │   ├── ai_usage.py       # Модель учета использования AI токенов
-│   │   │   ├── automation.py     # Модели автоматизации (процессы, триггеры, роботы)
-│   │   │   ├── avito_chat.py     # Модель чатов Avito Messenger
-│   │   │   └── __pycache__/      # Кэшированные байт-коды
-│   │   │
-│   │   ├── api/                  # REST API слой
-│   │   │   ├── __init__.py       # Инициализация API модуля
-│   │   │   ├── routers/          # API маршруты (эндпоинты)
-│   │   │   │   ├── __init__.py   # Импорт всех роутеров
-│   │   │   │   ├── auth.py       # Эндпоинты аутентификации (login, register)
-│   │   │   │   ├── customer.py   # CRUD операции с клиентами
-│   │   │   │   ├── order.py      # Управление заказами и производством
-│   │   │   │   ├── task.py       # Управление задачами
-│   │   │   │   ├── ai.py         # AI функции (анализ, генерация, чат)
-│   │   │   │   ├── avito.py      # Интеграция с Avito API
-│   │   │   │   ├── automation.py # Автоматизация бизнес-процессов
-│   │   │   │   └── __pycache__/  # Кэшированные байт-коды
-│   │   │   │
-│   │   │   └── schemas/          # Pydantic схемы валидации
-│   │   │       ├── __init__.py   # Импорт схем
-│   │   │       ├── auth.py       # Схемы аутентификации (User, Token)
-│   │   │       ├── customer.py   # Схемы клиентов (Customer, CustomerCreate)
-│   │   │       ├── order.py      # Схемы заказов (Order, ProductionStep)
-│   │   │       ├── task.py       # Схемы задач (Task, TaskCreate)
-│   │   │       ├── ai.py         # Схемы AI (AIAnalysisRequest, AIChatResponse)
-│   │   │       ├── avito.py      # Схемы Avito API (AvitoItem, AvitoStats)
-│   │   │       ├── automation.py # Схемы автоматизации (Process, Trigger, Robot)
-│   │   │       └── __pycache__/  # Кэшированные байт-коды
-│   │   │
-│   │   ├── services/             # Бизнес-логика и сервисы
-│   │   │   ├── __init__.py       # Импорт сервисов
-│   │   │   ├── auth.py           # Сервис аутентификации (JWT, пароли)
-│   │   │   ├── customer.py       # Сервис управления клиентами
-│   │   │   ├── task.py           # Сервис управления задачами
-│   │   │   ├── production.py     # Сервис управления производством
-│   │   │   ├── communication_service.py # Сервис коммуникаций
-│   │   │   ├── rate_limiter.py   # Rate limiting для API
-│   │   │   ├── ai_usage_service.py # Учет использования AI токенов
-│   │   │   │
-│   │   │   ├── ai/               # AI сервисы
-│   │   │   │   ├── __init__.py   # Инициализация AI модуля
-│   │   │   │   ├── client.py     # Унифицированный AI клиент (OpenRouter, OpenAI, etc.)
-│   │   │   │   ├── intent_service.py # Анализ намерений сообщений
-│   │   │   │   └── __pycache__/  # Кэшированные байт-коды
-│   │   │   │
-│   │   │   ├── automation/       # Автоматизация бизнес-процессов
-│   │   │   │   ├── __init__.py   # Инициализация модуля автоматизации
-│   │   │   │   ├── automation_service.py # Основной сервис автоматизации
-│   │   │   │   ├── robot_service.py # Сервис управления роботами
-│   │   │   │   ├── trigger_service.py # Сервис управления триггерами
-│   │   │   │   └── __pycache__/  # Кэшированные байт-коды
-│   │   │   │
-│   │   │   ├── avito_background_tasks.py # Фоновые задачи Avito
-│   │   │   ├── avito_handler.py  # Обработчик Avito коммуникаций
-│   │   │   ├── avito_service.py  # Сервис Avito API
-│   │   │   └── __pycache__/      # Кэшированные байт-коды
-│   │   │
-│   │   ├── config/               # Конфигурационные файлы
-│   │   │   └── openrouter_models.py # Список моделей OpenRouter
-│   │   │
-│   │   ├── tests/                # Тесты приложения
-│   │   │   ├── __init__.py       # Инициализация тестового пакета
-│   │   │   ├── conftest.py       # Конфигурация pytest (fixtures, setup)
-│   │   │   ├── test_api_ai.py    # Тесты AI API эндпоинтов
-│   │   │   ├── test_api_auth.py  # Тесты аутентификации
-│   │   │   ├── test_api_avito.py # Тесты Avito интеграции
-│   │   │   ├── test_api_customers.py # Тесты API клиентов
-│   │   │   ├── test_api_orders.py # Тесты API заказов
-│   │   │   ├── test_api_tasks.py # Тесты API задач
-│   │   │   ├── test_automation.py # Тесты автоматизации
-│   │   │   ├── test_avito_messenger.py # Тесты Avito Messenger
-│   │   │   ├── test_avito.py     # Тесты Avito API
-│   │   │   ├── test_core_services.py # Тесты основных сервисов
-│   │   │   ├── test_customer_service.py # Тесты сервиса клиентов
-│   │   │   ├── test_models.py    # Тесты моделей данных
-│   │   │   ├── test_production_service.py # Тесты сервиса производства
-│   │   │   ├── test_schemas.py   # Тесты Pydantic схем
-│   │   │   ├── test_task_service.py # Тесты сервиса задач
-│   │   │   └── __pycache__/      # Кэшированные байт-коды
-│   │   │
-│   │   ├── utils/                # Утилиты и вспомогательные функции
-│   │   │   ├── __init__.py       # Инициализация utils модуля
-│   │   │   ├── logging.py        # Настройка структурированного логирования
-│   │   │   └── __pycache__/      # Кэшированные байт-коды
-│   │   │
-│   │   └── __pycache__/          # Кэшированные байт-коды основного пакета
-│   │
-│   ├── __init__.py               # Инициализация src пакета
-│   ├── test.db                   # SQLite база данных для тестирования
-│   └── __pycache__/              # Кэшированные байт-коды
-│
-├── pyproject.toml                # Конфигурация проекта (зависимости, инструменты)
-├── pyrightconfig.json            # Конфигурация Pyright (type checker)
-├── .pylintrc                     # Конфигурация Pylint (линтер)
-├── .env                          # Переменные окружения (пример)
-├── .gitignore                    # Исключаемые из git файлы
-├── .coverage                     # Отчет о покрытии тестами
-├── =8.2.0                        # Версия Python (файл маркер)
-├── README.md                     # Документация проекта
-├── start.sh                      # Скрипт запуска приложения
-├── stop.sh                       # Скрипт остановки приложения
-├── todo.md                       # Список задач
-├── TODO.md                       # Дополнительный список задач
-├── Dockerfile                    # Конфигурация Docker образа
-├── .github/                      # GitHub конфигурации
-│   └── workflows/                # GitHub Actions CI/CD
-│       └── pylint.yml            # Конфигурация линтера в CI
-├── htmlcov/                      # HTML отчеты о покрытии тестами
-├── .pytest_cache/                # Кэш pytest
-└── UNKNOWN.egg-info/             # Метаданные пакета (генерируется pip)
+├── 📄 README.md                     # Документация проекта (этот файл)
+├── 📄 pyproject.toml                # Конфигурация проекта (зависимости, инструменты, метаданные)
+├── 📄 pyrightconfig.json            # Конфигурация Pyright (статический анализ типов)
+├── 📄 .pylintrc                     # Конфигурация Pylint (линтер кода)
+├── 📄 .env                          # Переменные окружения (пример, не коммитится)
+├── 📄 .gitignore                    # Исключаемые из git файлы
+├── 📄 .coverage                     # Отчет о покрытии тестами
+├── 📄 =8.2.0                        # Маркер версии Python
+├── 📄 start.sh                      # Скрипт запуска всех компонентов системы
+├── 📄 stop.sh                       # Скрипт корректной остановки системы
+├── 📄 status.sh                     # Скрипт проверки статуса компонентов
+├── 📄 test-nginx.sh                 # Скрипт тестирования nginx конфигурации
+├── 📄 create_admin_user.py          # Скрипт создания администратора
+├── 📄 todo.md                       # Список текущих задач
+├── 📄 TODO.md                       # Дополнительный список задач
+├── 📄 Dockerfile                    # Конфигурация Docker образа
+├── 📄 nginx.conf                    # Конфигурация nginx прокси
+├── 📁 .github/                      # GitHub конфигурации
+│   └── 📁 workflows/                # GitHub Actions CI/CD
+│       └── 📄 pylint.yml            # Конфигурация автоматического линтинга
+├── 📁 htmlcov/                      # HTML отчеты о покрытии тестами
+├── 📁 .pytest_cache/                # Кэш pytest
+├── 📁 UNKNOWN.egg-info/             # Метаданные пакета (генерируется pip)
+└── 📁 src/                          # Исходный код приложения
 ```
+
+### 📁 Директория исходного кода (src/)
+
+```
+src/
+├── 📄 __init__.py                   # Инициализация пакета src
+├── 📄 test.db                       # SQLite база данных для тестирования
+├── 📁 __pycache__/                  # Кэшированные байт-коды Python
+└── 📁 aicrm/                        # Основной пакет приложения
+    ├── 📄 __init__.py               # Инициализация основного пакета
+    ├── 📄 main.py                   # 🚀 Точка входа FastAPI приложения
+    │                               #   - Создание FastAPI приложения
+    │                               #   - Подключение CORS middleware
+    │                               #   - Монтирование статических файлов
+    │                               #   - Подключение всех роутеров
+    │                               #   - Запуск сервера через uvicorn
+    │
+    ├── 📁 core/                     # 🏗️ Ядро приложения - конфигурация и инфраструктура
+    │   ├── 📄 __init__.py           # Инициализация core модуля
+    │   ├── 📄 config.py             # ⚙️ Основная конфигурация приложения
+    │   │                           #   - CORS настройки
+    │   │                           #   - Debug режим
+    │   │                           #   - Rate limiting
+    │   │                           #   - Безопасность (CORS origins, headers)
+    │   ├── 📄 ai_config.py          # 🤖 Конфигурация AI провайдеров
+    │   │                           #   - OpenRouter API ключи
+    │   │                           #   - OpenAI API ключи
+    │   │                           #   - HuggingFace ключи
+    │   │                           #   - Настройки моделей по умолчанию
+    │   ├── 📄 database.py           # 🗄️ Настройка базы данных
+    │   │                           #   - SQLAlchemy engine создание
+    │   │                           #   - Async session factory
+    │   │                           #   - Connection pooling
+    │   │                           #   - Миграции через Alembic
+    │   └── 📁 __pycache__/          # Кэшированные байт-коды
+    │
+    ├── 📁 models/                   # 📊 SQLAlchemy модели данных
+    │   ├── 📄 __init__.py           # Импорт всех моделей для удобства
+    │   ├── 📄 base.py               # 🏗️ Базовая модель с общими полями
+    │   │                           #   - id (UUID, primary key)
+    │   │                           #   - created_at, updated_at (timestamps)
+    │   │                           #   - is_deleted (soft delete)
+    │   ├── 📄 user.py               # 👤 Модель пользователя
+    │   │                           #   - email, hashed_password
+    │   │                           #   - full_name, role, is_active
+    │   │                           #   - is_superuser (права администратора)
+    │   ├── 📄 customer.py           # 🏢 Модель клиента (CRM)
+    │   │                           #   - name, email, phone, company
+    │   │                           #   - address, contact_info
+    │   │                           #   - total_orders, total_spent
+    │   │                           #   - loyalty_level, preferences
+    │   ├── 📄 order.py              # 📦 Модель заказа
+    │   │                           #   - customer_id, status
+    │   │                           #   - items (JSON), total_amount
+    │   │                           #   - requirements, deadline, source
+    │   ├── 📄 task.py               # ✅ Модель задачи (Kanban)
+    │   │                           #   - title, description, priority
+    │   │                           #   - status, assigned_to, created_by
+    │   │                           #   - due_date, completed_at
+    │   │                           #   - tags, related_order_id
+    │   ├── 📄 production_step.py    # 🏭 Модель этапов производства
+    │   │                           #   - order_id, name, description
+    │   │                           #   - sequence_number, status
+    │   │                           #   - estimated_hours, actual_hours
+    │   │                           #   - started_at, completed_at
+    │   │                           #   - assigned_user_id, notes
+    │   ├── 📄 communication.py      # 💬 Модель коммуникаций
+    │   │                           #   - channel (telegram, email, phone)
+    │   │                           #   - direction (incoming/outgoing)
+    │   │                           #   - message_content, message_type
+    │   │                           #   - customer_id, order_id, user_id
+    │   │                           #   - ai_response_id, sentiment, intent
+    │   ├── 📄 ai_usage.py           # 🤖 Модель учета AI токенов
+    │   │                           #   - model_used, endpoint
+    │   │                           #   - total_tokens, prompt_tokens, completion_tokens
+    │   │                           #   - request_id, month_year (для агрегации)
+    │   ├── 📄 automation.py         # ⚙️ Модели автоматизации
+    │   │                           #   - Process: name, description, entity_type
+    │   │                           #   - Stage: process_id, name, order_index, color
+    │   │                           #   - Trigger: event_type, target_stage_id
+    │   │                           #   - Robot: stage_id, actions (JSON)
+    │   ├── 📄 avito_chat.py         # 📱 Модель чатов Avito Messenger
+    │   │                           #   - chat_id, customer_id
+    │   │                           #   - ai_enabled, ai_model, ai_temperature
+    │   │                           #   - message_count, last_message_at
+    │   │                           #   - notifications_enabled
+    │   └── 📁 __pycache__/          # Кэшированные байт-коды
+    │
+    ├── 📁 api/                      # 🌐 REST API слой (FastAPI)
+    │   ├── 📄 __init__.py           # Инициализация API модуля
+    │   ├── 📁 routers/              # 🛣️ API маршруты (эндпоинты)
+    │   │   ├── 📄 __init__.py       # Импорт всех роутеров
+    │   │   ├── 📄 auth.py           # 🔐 Аутентификация
+    │   │   │                       #   - POST /auth/login/json
+    │   │   │                       #   - POST /auth/register
+    │   │   │                       #   - GET /auth/me
+    │   │   ├── 📄 customer.py       # 🏢 Управление клиентами
+    │   │   │                       #   - CRUD операции с клиентами
+    │   │   │                       #   - Поиск, статистика
+    │   │   ├── 📄 order.py          # 📦 Управление заказами
+    │   │   │                       #   - Создание заказов с workflow
+    │   │   │                       #   - Управление этапами производства
+    │   │   │                       #   - Прогресс и отчеты
+    │   │   ├── 📄 task.py           # ✅ Управление задачами
+    │   │   │                       #   - Kanban доска
+    │   │   │                       #   - Приоритеты и сроки
+    │   │   ├── 📄 ai.py             # 🤖 AI функции
+    │   │   │                       #   - Анализ намерений
+    │   │   │                       #   - Генерация ответов
+    │   │   │                       #   - Чат с AI
+    │   │   │                       #   - Статистика использования
+    │   │   ├── 📄 avito.py          # 📢 Avito интеграция
+    │   │   │                       #   - Управление объявлениями
+    │   │   │                       #   - Статистика и аналитика
+    │   │   │                       #   - VAS услуги и продвижение
+    │   │   ├── 📄 automation.py     # ⚙️ Автоматизация процессов
+    │   │   │                       #   - CRUD процессов/стадий/триггеров
+    │   │   │                       #   - ИИ-генерация цепочек
+    │   │   │                       #   - Анализ и оптимизация
+    │   │   ├── 📄 email.py          # 📧 Email сервис
+    │   │   │                       #   - Отправка email
+    │   │   │                       #   - Шаблоны и SMTP
+    │   │   ├── 📄 telegram.py       # ✈️ Telegram бот
+    │   │   │                       #   - Управление ботом
+    │   │   │                       #   - Webhook интеграция
+    │   │   └── 📁 __pycache__/      # Кэшированные байт-коды
+    │   │
+    │   └── 📁 schemas/              # 📋 Pydantic схемы валидации
+    │       ├── 📄 __init__.py       # Импорт всех схем
+    │       ├── 📄 auth.py           # 🔐 Схемы аутентификации
+    │       │                       #   - User, UserCreate, Token
+    │       │                       #   - LoginRequest, UserUpdate
+    │       ├── 📄 customer.py       # 🏢 Схемы клиентов
+    │       │                       #   - Customer, CustomerCreate, CustomerUpdate
+    │       │                       #   - CustomerStats, CustomerSearch
+    │       ├── 📄 order.py          # 📦 Схемы заказов
+    │       │                       #   - Order, OrderCreate, ProductionStep
+    │       │                       #   - ProductionProgress, OverdueStep
+    │       ├── 📄 task.py           # ✅ Схемы задач
+    │       │                       #   - Task, TaskCreate, TaskUpdate
+    │       │                       #   - TaskComplete, TaskStats
+    │       ├── 📄 ai.py             # 🤖 Схемы AI
+    │       │                       #   - AIAnalysisRequest, AIChatRequest
+    │       │                       #   - AIUsageStats, AIModel
+    │       ├── 📄 avito.py          # 📢 Схемы Avito
+    │       │                       #   - AvitoItem, AvitoStats, AvitoVas
+    │       │                       #   - AvitoChat, AvitoMessage
+    │       ├── 📄 automation.py     # ⚙️ Схемы автоматизации
+    │       │                       #   - Process, Stage, Trigger, Robot
+    │       │                       #   - AutomationEvent, AutomationAnalysis
+    │       ├── 📄 email.py          # 📧 Схемы Email
+    │       │                       #   - EmailSend, EmailTemplate, EmailStatus
+    │       ├── 📄 telegram.py       # ✈️ Схемы Telegram
+    │       │                       #   - TelegramChat, TelegramMessage
+    │       │                       #   - TelegramStats, TelegramWebhook
+    │       └── 📁 __pycache__/      # Кэшированные байт-коды
+    │
+    ├── 📁 services/                 # 🔧 Бизнес-логика и сервисы
+    │   ├── 📄 __init__.py           # Импорт всех сервисов
+    │   ├── 📄 auth.py               # 🔐 Сервис аутентификации
+    │   │                           #   - JWT токены (создание/проверка)
+    │   │                           #   - Хэширование паролей (bcrypt)
+    │   │                           #   - Проверка учетных данных
+    │   ├── 📄 customer.py           # 🏢 Сервис управления клиентами
+    │   │                           #   - CRUD операции
+    │   │                           #   - Поиск и фильтрация
+    │   │                           #   - Статистика и аналитика
+    │   ├── 📄 task.py               # ✅ Сервис управления задачами
+    │   │                           #   - Создание и обновление задач
+    │   │                           #   - Назначение исполнителей
+    │   │                           #   - Отслеживание сроков
+    │   ├── 📄 production.py         # 🏭 Сервис управления производством
+    │   │                           #   - Автоматическое создание workflow
+    │   │                           #   - Управление этапами
+    │   │                           #   - Расчет прогресса и сроков
+    │   ├── 📄 communication_service.py # 💬 Сервис коммуникаций
+    │   │                           #   - Логирование взаимодействий
+    │   │                           #   - Анализ тональности сообщений
+    │   │                           #   - Определение намерений
+    │   ├── 📄 rate_limiter.py       # 🛡️ Rate limiting
+    │   │                           #   - Защита от перегрузки API
+    │   │                           #   - Настраиваемые лимиты
+    │   ├── 📄 ai_usage_service.py   # 🤖 Учет использования AI
+    │   │                           #   - Логирование запросов к AI
+    │   │                           #   - Агрегация статистики
+    │   │                           #   - Мониторинг расходов
+    │   │
+    │   ├── 📁 ai/                   # 🤖 AI сервисы
+    │   │   ├── 📄 __init__.py       # Инициализация AI модуля
+    │   │   ├── 📄 client.py         # 🌐 Унифицированный AI клиент
+    │   │   │                       #   - Поддержка OpenRouter, OpenAI, HuggingFace
+    │   │   │                       #   - Load balancing и fallback
+    │   │   │                       #   - Оптимизация стоимости
+    │   │   ├── 📄 intent_service.py # 🎯 Анализ намерений сообщений
+    │   │   │                       #   - Классификация intent
+    │   │   │                       #   - Confidence scoring
+    │   │   │                       #   - Context awareness
+    │   │   └── 📁 __pycache__/      # Кэшированные байт-коды
+    │   │
+    │   ├── 📁 automation/           # ⚙️ Автоматизация бизнес-процессов
+    │   │   ├── 📄 __init__.py       # Инициализация модуля автоматизации
+    │   │   ├── 📄 automation_service.py # 🎛️ Основной сервис автоматизации
+    │   │   │                       #   - Обработка событий
+    │   │   │                       #   - Выполнение триггеров
+    │   │   │                       #   - Запуск роботов
+    │   │   ├── 📄 robot_service.py  # 🤖 Сервис управления роботами
+    │   │   │                       #   - Выполнение действий
+    │   │   │                       #   - Обработка ошибок
+    │   │   ├── 📄 trigger_service.py # 🎯 Сервис управления триггерами
+    │   │   │                       #   - Проверка условий
+    │   │   │                       #   - Активация процессов
+    │   │   └── 📁 __pycache__/      # Кэшированные байт-коды
+    │   │
+    │   ├── 📄 avito_background_tasks.py # ⏰ Фоновые задачи Avito
+    │   │                           #   - Синхронизация объявлений
+    │   │                           #   - Обновление статистики
+    │   │                           #   - Обработка сообщений
+    │   ├── 📄 avito_handler.py      # 📱 Обработчик Avito коммуникаций
+    │   │                           #   - Webhook обработка
+    │   │                           #   - AI ответы на сообщения
+    │   ├── 📄 avito_service.py      # 📢 Сервис Avito API
+    │   │                           #   - OAuth аутентификация
+    │   │                           #   - Управление объявлениями
+    │   │                           #   - Статистика и аналитика
+    │   └── 📁 __pycache__/          # Кэшированные байт-коды
+    │
+    ├── 📁 config/                   # ⚙️ Конфигурационные файлы
+    │   └── 📄 openrouter_models.py  # 📋 Список моделей OpenRouter
+    │                               #   - Доступные модели
+    │                               #   - Их характеристики
+    │                               #   - Стоимость использования
+    │
+    ├── 📁 tests/                    # 🧪 Тесты приложения
+    │   ├── 📄 __init__.py           # Инициализация тестового пакета
+    │   ├── 📄 conftest.py           # 🏗️ Конфигурация pytest
+    │   │                           #   - Fixtures для БД
+    │   │                           #   - Test client setup
+    │   │                           #   - Mock сервисы
+    │   ├── 📄 test_api_ai.py        # 🤖 Тесты AI API эндпоинтов
+    │   ├── 📄 test_api_auth.py      # 🔐 Тесты аутентификации
+    │   ├── 📄 test_api_avito.py     # 📢 Тесты Avito интеграции
+    │   ├── 📄 test_api_customers.py # 🏢 Тесты API клиентов
+    │   ├── 📄 test_api_orders.py    # 📦 Тесты API заказов
+    │   ├── 📄 test_api_tasks.py     # ✅ Тесты API задач
+    │   ├── 📄 test_automation.py    # ⚙️ Тесты автоматизации
+    │   ├── 📄 test_avito_messenger.py # 📱 Тесты Avito Messenger
+    │   ├── 📄 test_avito.py         # 📢 Тесты Avito API
+    │   ├── 📄 test_core_services.py # 🔧 Тесты основных сервисов
+    │   ├── 📄 test_customer_service.py # 🏢 Тесты сервиса клиентов
+    │   ├── 📄 test_models.py        # 📊 Тесты моделей данных
+    │   ├── 📄 test_production_service.py # 🏭 Тесты сервиса производства
+    │   ├── 📄 test_schemas.py       # 📋 Тесты Pydantic схем
+    │   ├── 📄 test_task_service.py  # ✅ Тесты сервиса задач
+    │   └── 📁 __pycache__/          # Кэшированные байт-коды
+    │
+    ├── 📁 utils/                    # 🛠️ Утилиты и вспомогательные функции
+    │   ├── 📄 __init__.py           # Инициализация utils модуля
+    │   ├── 📄 logging.py            # 📝 Настройка структурированного логирования
+    │   │                           #   - JSON формат логов
+    │   │                           #   - Context binding
+    │   │                           #   - Multiple outputs
+    │   │                           #   - Performance monitoring
+    │   └── 📁 __pycache__/          # Кэшированные байт-коды
+    │
+    └── 📁 __pycache__/              # Кэшированные байт-коды основного пакета
+```
+
+### 📁 Frontend директория (frontend/)
+
+```
+frontend/
+├── 📄 package.json                 # Зависимости и скрипты npm
+├── 📄 package-lock.json            # Замороженные версии зависимостей
+├── 📄 .env                         # Переменные окружения React
+├── 📁 public/                      # Статические файлы
+│   ├── 📄 index.html               # HTML шаблон
+│   ├── 📄 manifest.json            # PWA манифест
+│   └── 📄 robots.txt               # Robots.txt для SEO
+├── 📁 src/                         # Исходный код React приложения
+│   ├── 📄 index.tsx                # 🚀 Точка входа React приложения
+│   ├── 📄 index.css                # 🎨 Глобальные стили
+│   ├── 📄 App.tsx                  # 🏗️ Главный компонент приложения
+│   ├── 📁 components/              # 🧩 Переиспользуемые компоненты
+│   │   ├── 📁 Header.tsx           # 🧭 Шапка приложения
+│   │   ├── 📁 Sidebar.tsx          # 📊 Боковое меню
+│   │   ├── 📁 ProtectedRoute.tsx   # 🛡️ Защищенный маршрут
+│   │   └── 📁 automation/          # ⚙️ Компоненты автоматизации
+│   │       └── 📁 WorkflowDesigner.tsx # 🎨 Дизайнер процессов
+│   ├── 📁 contexts/                # 🌍 React Context для глобального состояния
+│   │   └── 📁 AuthContext.tsx      # 🔐 Контекст аутентификации
+│   ├── 📁 pages/                   # 📄 Страницы приложения
+│   │   ├── 📁 Login.tsx            # 🔐 Страница входа
+│   │   ├── 📁 Dashboard.tsx        # 📊 Главная панель
+│   │   ├── 📁 Customers.tsx        # 🏢 Управление клиентами
+│   │   ├── 📁 Orders.tsx           # 📦 Управление заказами
+│   │   ├── 📁 Tasks.tsx            # ✅ Управление задачами
+│   │   ├── 📁 AISettings.tsx       # 🤖 Настройки AI
+│   │   ├── 📁 AvitoSettings.tsx    # 📢 Настройки Avito
+│   │   ├── 📁 AutomationSettings.tsx # ⚙️ Настройки автоматизации
+│   │   ├── 📁 SystemSettings.tsx   # ⚙️ Системные настройки
+│   │   └── 📁 Telegram.tsx         # ✈️ Управление Telegram ботом
+│   ├── 📁 services/                # 🌐 API клиенты
+│   │   ├── 📁 api.ts               # 🌍 Основной API клиент
+│   │   └── 📁 automationApi.ts     # ⚙️ API автоматизации
+│   └── 📁 contexts/                # 🌍 Глобальное состояние
+│       └── 📁 AuthContext.tsx      # 🔐 Аутентификация
+├── 📁 build/                       # 🏗️ Собранное production приложение
+├── 📄 tailwind.config.js           # 🎨 Конфигурация Tailwind CSS
+├── 📄 postcss.config.js            # 🎨 Конфигурация PostCSS
+└── 📄 tsconfig.json                # ⚙️ Конфигурация TypeScript
+```
+
+### 🔗 Архитектурные связи
+
+#### 🔄 Поток данных в приложении:
+1. **Frontend** → **API Router** → **Service** → **Model** → **Database**
+2. **Webhook** → **Handler** → **Service** → **Database**
+3. **Background Task** → **Service** → **Database**
+4. **AI Request** → **AI Client** → **External API** → **Service** → **Database**
+
+#### 🗂️ Принципы организации кода:
+- **SOLID**: Каждый модуль имеет единственную ответственность
+- **DRY**: Переиспользование кода через сервисы и утилиты
+- **Separation of Concerns**: API, бизнес-логика, данные разделены
+- **Dependency Injection**: Сервисы внедряются через FastAPI Depends
+- **Type Safety**: Полная типизация Python (mypy) и TypeScript
+
+#### 🔐 Безопасность:
+- **JWT токены** для аутентификации
+- **bcrypt** для хэширования паролей
+- **CORS** защита от cross-origin атак
+- **Rate limiting** защита от DDoS
+- **SQL injection** предотвращена через SQLAlchemy ORM
+- **Input validation** через Pydantic схемы
+
+#### 📊 Мониторинг и логирование:
+- **Структурированные логи** в JSON формате
+- **Метрики Prometheus** для мониторинга
+- **Health checks** для всех компонентов
+- **OpenTelemetry** для распределенной трассировки
+- **AI usage tracking** для контроля расходов
 
 ## Основные модули
 
@@ -645,6 +1011,108 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/avito/items/123/per
 
 # Получение цен на VAS услуги
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/avito/items/123/vas-prices
+```
+
+### 📧 Email интеграция
+
+#### Проверка статуса email сервиса
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/email/status"
+```
+
+**Ответ:**
+```json
+{
+  "service": "email",
+  "status": "configured",
+  "config": {
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "from_email": "your_email@gmail.com",
+    "smtp_username": true,
+    "smtp_configured": true
+  }
+}
+```
+
+#### Получение списка шаблонов
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/email/templates"
+```
+
+**Ответ:**
+```json
+{
+  "templates": {
+    "order_confirmation": {
+      "name": "Подтверждение заказа",
+      "description": "Отправляется клиенту после оформления заказа",
+      "required_fields": ["order_id", "customer_name", "total_amount", "deadline"]
+    },
+    "task_assigned": {
+      "name": "Уведомление о задаче",
+      "description": "Отправляется исполнителю при назначении задачи",
+      "required_fields": ["task_id", "assignee_name", "task_title", "task_description", "priority", "deadline"]
+    }
+  },
+  "total": 2
+}
+```
+
+#### Отправка простого email
+```bash
+curl -X POST "http://localhost:8000/email/send" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "to": "recipient@example.com",
+    "subject": "Тестовое сообщение",
+    "body": "Это тестовое сообщение от AI CRM системы",
+    "html_body": "<h1>Тестовое сообщение</h1><p>Это тестовое сообщение от AI CRM системы</p>"
+  }'
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "message": "Email принят в очередь на отправку",
+  "email_id": "email_1_test_subject"
+}
+```
+
+#### Отправка шаблонного email
+```bash
+curl -X POST "http://localhost:8000/email/send-template" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "template_name": "order_confirmation",
+    "to": "customer@example.com",
+    "template_data": {
+      "order_id": 123,
+      "customer_name": "Иван Петров",
+      "total_amount": "5000 руб.",
+      "deadline": "2025-12-01"
+    },
+    "subject": "Заказ №123 подтвержден"
+  }'
+```
+
+#### Тестовая отправка email
+```bash
+curl -X POST "http://localhost:8000/email/test" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "test_email=test@example.com"
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "message": "Тестовое email отправлено на test@example.com",
+  "email_id": "test_1"
+}
 ```
 
 ### Остановка приложения

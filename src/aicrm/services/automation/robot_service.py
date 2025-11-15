@@ -16,6 +16,10 @@ from ...models.task import Task
 from ...models.production_step import ProductionStep, StepStatus
 from ...services.task import TaskService
 from ...services.production import ProductionService
+from ...services.sms_service import sms_service
+from ...services.external_api_service import external_api_service
+from ...services.calendar_service import calendar_service
+from ...services.automation.error_handler import AutomationErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,7 @@ class RobotService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.error_handler = AutomationErrorHandler(db)
         self.action_executors = {
             RobotAction.SEND_EMAIL: self._execute_send_email,
             RobotAction.SEND_SMS: self._execute_send_sms,
@@ -42,6 +47,18 @@ class RobotService:
             RobotAction.CREATE_COMMUNICATION: self._execute_create_communication,
             RobotAction.ANALYZE_INTENT: self._execute_analyze_intent,
             RobotAction.GENERATE_RESPONSE: self._execute_generate_response,
+            # Новые действия
+            RobotAction.CALL_EXTERNAL_API: self._execute_call_external_api,
+            RobotAction.CALL_WEBHOOK: self._execute_call_webhook,
+            RobotAction.CALL_GRAPHQL: self._execute_call_graphql,
+            RobotAction.CALL_SOAP: self._execute_call_soap,
+            RobotAction.CREATE_CALENDAR_EVENT: self._execute_create_calendar_event,
+            RobotAction.UPDATE_CALENDAR_EVENT: self._execute_update_calendar_event,
+            RobotAction.SEND_CALENDAR_INVITE: self._execute_send_calendar_invite,
+            # Новые действия для Avito автоматизации
+            RobotAction.GENERATE_RESPONSE: self._execute_generate_response,
+            RobotAction.SEND_STANDARD_RESPONSE: self._execute_send_standard_response,
+            RobotAction.ESCALATE_COMPLEX_QUERY: self._execute_escalate_complex_query,
         }
 
     async def execute_stage_robots(
@@ -120,17 +137,85 @@ class RobotService:
                 })
 
             except Exception as e:
-                logger.error(f"Error executing robot action {action_config.id}: {e}")
+                error_message = str(e)
+                logger.error(f"Error executing robot action {action_config.id}: {error_message}")
+
+                # Обрабатываем ошибку через error handler
+                error_result = await self.error_handler.handle_error(
+                    automation_execution_id=0,  # TODO: передать реальный execution_id
+                    robot_id=robot.id,
+                    trigger_id=None,  # Для действий робота триггер не указан
+                    error_type="robot_action",
+                    error_message=error_message,
+                    error_details={
+                        "action_config": action_config.config,
+                        "robot_name": robot.name,
+                        "entity_type": entity_type.value,
+                        "entity_id": entity_id
+                    },
+                    entity_type=entity_type,
+                    entity_id=entity_id,
+                    action_type=action_config.action_type
+                )
+
                 executed_actions.append({
                     "action_id": action_config.id,
                     "action_type": action_config.action_type.value,
                     "success": False,
-                    "error": str(e)
+                    "error": error_message,
+                    "error_handled": error_result.get("error_logged", False),
+                    "retry_scheduled": error_result.get("retry_scheduled", False)
                 })
-                # В линейной логике можно прервать выполнение
+
+                # В линейной логике можно прервать выполнение при критических ошибках
+                # TODO: Добавить логику определения критичности ошибки
                 break
 
         return executed_actions
+
+    async def execute_robot_action(
+        self,
+        robot_id: int,
+        action_config: Dict[str, Any],
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """
+        Выполнение отдельного действия робота
+
+        Args:
+            robot_id: ID робота
+            action_config: Конфигурация действия
+            entity_type: Тип сущности
+            entity_id: ID сущности
+
+        Returns:
+            Dict с результатом выполнения
+        """
+        try:
+            # Создаем объект RobotActionConfig из словаря
+            from ...models.automation import RobotActionConfig, RobotAction
+
+            config_obj = RobotActionConfig(
+                action_type=RobotAction(action_config["action_type"]),
+                config=action_config.get("config", {}),
+                execution_order=action_config.get("execution_order", 1),
+                delay_seconds=action_config.get("delay_seconds", 0)
+            )
+
+            # Выполняем действие
+            result = await self._execute_robot_action(config_obj, entity_type, entity_id)
+            return {
+                "success": True,
+                "result": result
+            }
+
+        except Exception as e:
+            logger.error(f"Error executing robot action: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     async def _execute_robot_action(
         self,
@@ -189,13 +274,21 @@ class RobotService:
         phone = await self._get_recipient_phone(entity_type, entity_id, config)
         message = config.get("message", "Уведомление от системы")
 
-        # TODO: Интеграция с SMS сервисом
-        logger.info(f"SMS would be sent to {phone}: {message}")
+        # Получаем данные сущности для подстановки в сообщение
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+        message = self._replace_placeholders(message, entity_data)
+
+        # Отправляем SMS через сервис
+        result = await sms_service.send_sms(phone, message)
 
         return {
-            "status": "sms_queued",
+            "status": "sms_sent" if result.get("success") else "sms_failed",
             "phone": phone,
-            "message": message
+            "message": message[:50] + "..." if len(message) > 50 else message,
+            "provider": result.get("provider"),
+            "message_id": result.get("message_id"),
+            "cost": result.get("cost"),
+            "error": result.get("error")
         }
 
     async def _execute_send_telegram(
@@ -514,6 +607,359 @@ class RobotService:
             "generated_response": "placeholder"  # Сгенерированный ответ
         }
 
+    async def _execute_send_standard_response(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Отправка стандартного ответа"""
+        config = action_config.config or {}
+
+        response_text = config.get("response_text", "Спасибо за обращение. Мы свяжемся с вами в ближайшее время.")
+        channel = config.get("channel", "email")  # email, telegram, sms
+
+        # Получаем данные сущности для подстановки
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+        response_text = self._replace_placeholders(response_text, entity_data)
+
+        # TODO: Отправка через соответствующий канал
+        logger.info(f"Standard response would be sent via {channel}: {response_text}")
+
+        return {
+            "status": "standard_response_sent",
+            "channel": channel,
+            "response_text": response_text
+        }
+
+    async def _execute_escalate_complex_query(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Эскалация сложного запроса"""
+        config = action_config.config or {}
+
+        escalation_reason = config.get("reason", "Сложный запрос требует ручной обработки")
+        target_user_id = config.get("target_user_id")
+        priority = config.get("priority", "high")
+
+        # Создаем задачу для эскалации
+        task_data = {
+            "title": f"Эскалация: {escalation_reason}",
+            "description": f"Автоматическая эскалация для сущности {entity_type.value} ID {entity_id}",
+            "assigned_to": target_user_id,
+            "priority": priority
+        }
+
+        # Создаем задачу
+        task_service = TaskService(self.db)
+        created_task = await task_service.create_task(
+            self.db,
+            task_data,
+            created_by=1  # Системный пользователь
+        )
+
+        return {
+            "status": "query_escalated",
+            "task_id": created_task.id,
+            "reason": escalation_reason,
+            "priority": priority
+        }
+
+    # Новые действия для расширенной автоматизации
+
+    async def _execute_call_external_api(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Вызов внешнего API"""
+        config = action_config.config or {}
+
+        method = config.get("method", "GET")
+        url = config.get("url")
+        headers = config.get("headers", {})
+        params = config.get("params", {})
+        data = config.get("data")
+        json_data = config.get("json_data")
+        auth = config.get("auth")  # [username, password]
+        api_key = config.get("api_key")
+        bearer_token = config.get("bearer_token")
+
+        if not url:
+            raise ValueError("URL not specified for external API call")
+
+        # Получаем данные сущности для подстановки в запрос
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+
+        # Заменяем плейсхолдеры в URL и данных
+        url = self._replace_placeholders(url, entity_data)
+        if json_data:
+            json_data = self._replace_placeholders_in_dict(json_data, entity_data)
+        if data:
+            data = self._replace_placeholders_in_dict(data, entity_data)
+
+        # Выполняем вызов API
+        result = await external_api_service.call_api(
+            method=method,
+            url=url,
+            headers=headers,
+            params=params,
+            data=data,
+            json_data=json_data,
+            auth=tuple(auth) if auth else None,
+            api_key=api_key,
+            bearer_token=bearer_token
+        )
+
+        return {
+            "status": "api_called",
+            "method": method,
+            "url": url,
+            "success": result.get("success", False),
+            "status_code": result.get("status_code"),
+            "response": result.get("json") or result.get("text", "")[:500]
+        }
+
+    async def _execute_call_webhook(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Вызов webhook с данными события"""
+        config = action_config.config or {}
+
+        url = config.get("url")
+        event_type = config.get("event_type", "automation_event")
+        secret = config.get("secret")
+
+        if not url:
+            raise ValueError("Webhook URL not specified")
+
+        # Получаем данные сущности
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+        payload = {
+            "event_type": event_type,
+            "entity_type": entity_type.value,
+            "entity_id": entity_id,
+            "entity_data": entity_data,
+            "timestamp": datetime.utcnow().isoformat(),
+            "automation_triggered": True
+        }
+
+        # Выполняем вызов webhook
+        result = await external_api_service.call_webhook(
+            url=url,
+            event_type=event_type,
+            payload=payload,
+            secret=secret
+        )
+
+        return {
+            "status": "webhook_called",
+            "url": url,
+            "event_type": event_type,
+            "success": result.get("success", False),
+            "status_code": result.get("status_code")
+        }
+
+    async def _execute_call_graphql(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Вызов GraphQL API"""
+        config = action_config.config or {}
+
+        url = config.get("url")
+        query = config.get("query")
+        variables = config.get("variables", {})
+        headers = config.get("headers", {})
+
+        if not url or not query:
+            raise ValueError("GraphQL URL and query are required")
+
+        # Получаем данные сущности для подстановки в переменные
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+        variables = self._replace_placeholders_in_dict(variables, entity_data)
+
+        # Выполняем GraphQL запрос
+        result = await external_api_service.call_graphql(
+            url=url,
+            query=query,
+            variables=variables,
+            headers=headers
+        )
+
+        return {
+            "status": "graphql_called",
+            "url": url,
+            "success": result.get("success", False),
+            "status_code": result.get("status_code"),
+            "data": result.get("json", {}).get("data"),
+            "errors": result.get("json", {}).get("errors")
+        }
+
+    async def _execute_call_soap(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Вызов SOAP API"""
+        config = action_config.config or {}
+
+        url = config.get("url")
+        soap_action = config.get("soap_action")
+        soap_body = config.get("soap_body")
+        headers = config.get("headers", {})
+
+        if not url or not soap_action or not soap_body:
+            raise ValueError("SOAP URL, action and body are required")
+
+        # Получаем данные сущности для подстановки в SOAP body
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+        soap_body = self._replace_placeholders(soap_body, entity_data)
+
+        # Выполняем SOAP запрос
+        result = await external_api_service.call_soap_api(
+            url=url,
+            soap_action=soap_action,
+            soap_body=soap_body,
+            headers=headers
+        )
+
+        return {
+            "status": "soap_called",
+            "url": url,
+            "soap_action": soap_action,
+            "success": result.get("success", False),
+            "status_code": result.get("status_code"),
+            "response_length": len(result.get("text", ""))
+        }
+
+    async def _execute_create_calendar_event(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Создание события в календаре"""
+        config = action_config.config or {}
+
+        title = config.get("title", "Автоматическое событие")
+        description = config.get("description", "")
+        start_time = config.get("start_time")
+        end_time = config.get("end_time")
+        attendees = config.get("attendees", [])
+        calendar_id = config.get("calendar_id", "primary")
+        provider = config.get("provider")
+
+        # Получаем данные сущности для подстановки
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+        title = self._replace_placeholders(title, entity_data)
+        description = self._replace_placeholders(description, entity_data)
+
+        # Создаем событие через calendar сервис
+        result = await calendar_service.create_event(
+            title=title,
+            description=description,
+            start_time=start_time,
+            end_time=end_time,
+            attendees=attendees,
+            calendar_id=calendar_id,
+            provider=provider
+        )
+
+        return {
+            "status": "calendar_event_created" if result.get("success") else "calendar_event_failed",
+            "title": title,
+            "start_time": start_time,
+            "end_time": end_time,
+            "attendees_count": len(attendees),
+            "event_id": result.get("event_id"),
+            "provider": result.get("provider"),
+            "success": result.get("success", False),
+            "error": result.get("error")
+        }
+
+    async def _execute_update_calendar_event(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Обновление события в календаре"""
+        config = action_config.config or {}
+
+        event_id = config.get("event_id")
+        updates = config.get("updates", {})
+        calendar_id = config.get("calendar_id", "primary")
+        provider = config.get("provider")
+
+        if not event_id:
+            raise ValueError("Event ID not specified for calendar update")
+
+        # Получаем данные сущности для подстановки
+        entity_data = await self._get_entity_data(entity_type, entity_id)
+        updates = self._replace_placeholders_in_dict(updates, entity_data)
+
+        # Обновляем событие через calendar сервис
+        result = await calendar_service.update_event(
+            event_id=event_id,
+            updates=updates,
+            calendar_id=calendar_id,
+            provider=provider
+        )
+
+        return {
+            "status": "calendar_event_updated" if result.get("success") else "calendar_event_update_failed",
+            "event_id": event_id,
+            "updates": updates,
+            "provider": result.get("provider"),
+            "success": result.get("success", False),
+            "error": result.get("error")
+        }
+
+    async def _execute_send_calendar_invite(
+        self,
+        action_config: RobotActionConfig,
+        entity_type: EntityType,
+        entity_id: int
+    ) -> Dict[str, Any]:
+        """Отправка приглашения в календарь"""
+        config = action_config.config or {}
+
+        event_id = config.get("event_id")
+        attendees = config.get("attendees", [])
+        calendar_id = config.get("calendar_id", "primary")
+        provider = config.get("provider")
+
+        if not event_id:
+            raise ValueError("Event ID not specified for calendar invite")
+
+        # Отправляем приглашения через calendar сервис
+        result = await calendar_service.send_invite(
+            event_id=event_id,
+            attendees=attendees,
+            calendar_id=calendar_id,
+            provider=provider
+        )
+
+        return {
+            "status": "calendar_invites_sent" if result.get("success") else "calendar_invites_failed",
+            "event_id": event_id,
+            "attendees_count": len(attendees),
+            "provider": result.get("provider"),
+            "success": result.get("success", False),
+            "error": result.get("error")
+        }
+
     # Вспомогательные методы
 
     async def _get_entity_data(self, entity_type: EntityType, entity_id: int) -> Dict[str, Any]:
@@ -583,3 +1029,38 @@ class RobotService:
         """Получение контекста для генерации ответа"""
         # TODO: Реализация получения контекста из сущности
         return "Sample context for response generation"
+
+    def _replace_placeholders(self, text: str, data: Dict[str, Any]) -> str:
+        """Замена плейсхолдеров в строке"""
+        if not text:
+            return text
+
+        for key, value in data.items():
+            if value is not None:
+                placeholder = f"{{{key}}}"
+                text = text.replace(placeholder, str(value))
+
+        return text
+
+    def _replace_placeholders_in_dict(self, data: Dict[str, Any], entity_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Рекурсивная замена плейсхолдеров в словаре"""
+        if not data:
+            return data
+
+        result = {}
+        for key, value in data.items():
+            if isinstance(value, str):
+                result[key] = self._replace_placeholders(value, entity_data)
+            elif isinstance(value, dict):
+                result[key] = self._replace_placeholders_in_dict(value, entity_data)
+            elif isinstance(value, list):
+                result[key] = [
+                    self._replace_placeholders_in_dict(item, entity_data) if isinstance(item, dict)
+                    else self._replace_placeholders(item, entity_data) if isinstance(item, str)
+                    else item
+                    for item in value
+                ]
+            else:
+                result[key] = value
+
+        return result

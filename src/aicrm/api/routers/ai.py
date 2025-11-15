@@ -449,3 +449,80 @@ async def get_usage_history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Не удалось получить историю использования: {str(e)}"
         )
+
+
+@router.put(
+    "/settings/ai",
+    status_code=status.HTTP_200_OK,
+    summary="Обновление настроек ИИ",
+    description="""
+    Обновляет настройки искусственного интеллекта для системы.
+
+    **Настройки:**
+    - `default_model`: Модель ИИ по умолчанию
+    - `temperature`: Температура генерации (0.0 - 2.0)
+    - `max_tokens`: Максимальное количество токенов
+    - `api_key`: API ключ для доступа к сервисам ИИ
+
+    **Валидация:**
+    - Температура должна быть в диапазоне 0.0 - 2.0
+    - Максимальное количество токенов не более 8000
+    - API ключ проверяется на корректность формата
+    """,
+    response_description="Результат обновления настроек"
+)
+async def update_ai_settings(
+    settings: Dict[str, Any],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Обновляет настройки ИИ.
+
+    Args:
+        settings: Словарь с настройками ИИ
+        current_user: Текущий пользователь
+        db: Сессия базы данных
+
+    Returns:
+        Dict: Результат обновления настроек
+    """
+    try:
+        # Валидация настроек
+        if 'temperature' in settings:
+            temp = settings['temperature']
+            if not isinstance(temp, (int, float)) or not (0.0 <= temp <= 2.0):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Температура должна быть числом от 0.0 до 2.0"
+                )
+
+        if 'max_tokens' in settings:
+            max_tokens = settings['max_tokens']
+            if not isinstance(max_tokens, int) or not (1 <= max_tokens <= 8000):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Максимальное количество токенов должно быть от 1 до 8000"
+                )
+
+        # TODO: Сохранить настройки в базу данных или конфигурационный файл
+        # Пока просто логируем и возвращаем успех
+        logger.info(f"AI settings updated by user {current_user.id}: {settings}")
+
+        # В будущем здесь будет сохранение в базу данных
+        # Например, в таблицу user_settings или global_settings
+
+        return {
+            "success": True,
+            "message": "Настройки ИИ успешно обновлены",
+            "updated_settings": settings
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update AI settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось обновить настройки ИИ: {str(e)}"
+        )

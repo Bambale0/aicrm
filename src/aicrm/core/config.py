@@ -34,24 +34,52 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: Optional[str] = None
     smtp_password: Optional[str] = None
+    from_email: Optional[str] = None
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
 
     # Twilio
     twilio_account_sid: Optional[str] = None
     twilio_auth_token: Optional[str] = None
     twilio_phone_number: Optional[str] = None
 
+    # SMS настройки
+    sms_provider: str = "smsc"  # smsc, twilio, smsru
+    sms_api_key: Optional[str] = None
+    sms_login: Optional[str] = None
+    sms_password: Optional[str] = None
+    sms_sender: str = "AICRM"
+
     # Avito
     avito_client_id: Optional[str] = None
     avito_client_secret: Optional[str] = None
     avito_user_id: Optional[int] = None
 
+    # Google Calendar
+    google_calendar_client_id: Optional[str] = None
+    google_calendar_client_secret: Optional[str] = None
+    google_calendar_refresh_token: Optional[str] = None
+
+    # Outlook Calendar
+    outlook_client_id: Optional[str] = None
+    outlook_client_secret: Optional[str] = None
+    outlook_tenant_id: Optional[str] = None
+
+    # Calendar
+    calendar_provider: str = "google"  # google, outlook
+
     # App
     debug: bool = False
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "https://dev.chilcreative.ru",
+        "https://dev.chillcreative.ru"
+    ]
     log_level: str = "INFO"
 
     model_config = ConfigDict(
-        env_file=".env",
+        env_file=os.path.join(os.path.dirname(__file__), "../../.env"),
         case_sensitive=False,
         extra='ignore'  # Allow extra fields from environment
     )

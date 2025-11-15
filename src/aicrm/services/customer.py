@@ -15,7 +15,21 @@ class CustomerService:
 
     @staticmethod
     def create_customer(db: Session, customer_data: dict) -> Customer:
-        """Создание нового клиента"""
+        """Создание нового клиента или возврат существующего"""
+        email = customer_data.get('email')
+        if email:
+            # Проверяем, существует ли клиент с таким email
+            existing_customer = db.query(Customer).filter(Customer.email == email).first()
+            if existing_customer:
+                # Обновляем данные существующего клиента
+                for key, value in customer_data.items():
+                    if value is not None and hasattr(existing_customer, key):
+                        setattr(existing_customer, key, value)
+                db.commit()
+                db.refresh(existing_customer)
+                return existing_customer
+
+        # Создаем нового клиента
         customer = Customer(**customer_data)
         db.add(customer)
         db.commit()
@@ -46,7 +60,7 @@ class CustomerService:
         search: Optional[str] = None
     ) -> List[Customer]:
         """Получение списка клиентов с фильтрацией"""
-        query = db.query(Customer)
+        query = db.query(Customer).filter(Customer.is_deleted == False)
 
         if search:
             query = query.filter(
@@ -78,12 +92,13 @@ class CustomerService:
 
     @staticmethod
     def delete_customer(db: Session, customer_id: int) -> bool:
-        """Удаление клиента"""
+        """Soft delete клиента"""
         customer = CustomerService.get_customer(db, customer_id)
         if not customer:
             return False
 
-        db.delete(customer)
+        # Soft delete - помечаем как удаленного
+        customer.is_deleted = True
         db.commit()
         return True
 

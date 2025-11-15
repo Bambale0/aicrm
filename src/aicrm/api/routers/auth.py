@@ -59,6 +59,7 @@ async def login_json(login_data: LoginRequest, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+@router.get("/me", response_model=UserSchema)
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Получение текущего пользователя"""
     user = auth_service.get_current_user(db, token)

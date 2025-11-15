@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ...core.database import get_db
 from ...services.automation.automation_service import AutomationService
+from ...services.automation.analytics_service import AutomationAnalyticsService
 from ...models.automation import (
     EntityType, TriggerEvent, Process, Stage, Trigger, Robot,
     RobotAction, RobotActionConfig
@@ -323,8 +324,7 @@ async def get_processes(
         "description": p.description,
         "entity_type": p.entity_type,
         "is_active": p.is_active,
-        "created_at": p.created_at,
-        "updated_at": p.updated_at
+        "created_at": p.created_at
     } for p in processes]
 
 
@@ -814,6 +814,218 @@ async def generate_automation_chain(
             status_code=400,
             detail=result.get("error", "Failed to generate automation chain")
         )
+
+    return result
+
+
+# Аналитические эндпоинты
+
+@router.get("/analytics/executions")
+async def get_execution_stats(
+    start_date: Optional[str] = Query(None, description="Начало периода (ISO format)"),
+    end_date: Optional[str] = Query(None, description="Конец периода (ISO format)"),
+    entity_type: Optional[EntityType] = Query(None, description="Тип сущности"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить статистику выполнений автоматизаций
+
+    Возвращает:
+    - Общее количество выполнений
+    - Процент успешных/неуспешных
+    - Метрики производительности
+    - Статистику действий
+    """
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+    if end_date:
+        from datetime import datetime
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+
+    analytics_service = AutomationAnalyticsService(db)
+    result = await analytics_service.get_execution_stats(
+        start_date=start_dt,
+        end_date=end_dt,
+        entity_type=entity_type
+    )
+
+    return result
+
+
+@router.get("/analytics/robots")
+async def get_robot_performance(
+    robot_id: Optional[int] = Query(None, description="ID конкретного робота"),
+    start_date: Optional[str] = Query(None, description="Начало периода (ISO format)"),
+    end_date: Optional[str] = Query(None, description="Конец периода (ISO format)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить метрики производительности роботов
+
+    Возвращает:
+    - Количество выполнений по роботам
+    - Среднее время выполнения
+    - Процент успешных действий
+    """
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+    if end_date:
+        from datetime import datetime
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+
+    analytics_service = AutomationAnalyticsService(db)
+    result = await analytics_service.get_robot_performance(
+        robot_id=robot_id,
+        start_date=start_dt,
+        end_date=end_dt
+    )
+
+    return result
+
+
+@router.get("/analytics/actions")
+async def get_action_type_stats(
+    start_date: Optional[str] = Query(None, description="Начало периода (ISO format)"),
+    end_date: Optional[str] = Query(None, description="Конец периода (ISO format)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить статистику по типам действий
+
+    Возвращает:
+    - Количество выполнений каждого типа действия
+    - Процент успешности по типам
+    """
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+    if end_date:
+        from datetime import datetime
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+
+    analytics_service = AutomationAnalyticsService(db)
+    result = await analytics_service.get_action_type_stats(
+        start_date=start_dt,
+        end_date=end_dt
+    )
+
+    return result
+
+
+@router.get("/analytics/errors")
+async def get_error_analysis(
+    start_date: Optional[str] = Query(None, description="Начало периода (ISO format)"),
+    end_date: Optional[str] = Query(None, description="Конец периода (ISO format)"),
+    limit: int = Query(10, ge=1, le=100, description="Максимальное количество ошибок"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить анализ ошибок в автоматизациях
+
+    Возвращает:
+    - Список последних ошибок
+    - Классификация ошибок по типам
+    """
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+    if end_date:
+        from datetime import datetime
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+
+    analytics_service = AutomationAnalyticsService(db)
+    result = await analytics_service.get_error_analysis(
+        start_date=start_dt,
+        end_date=end_dt,
+        limit=limit
+    )
+
+    return result
+
+
+@router.get("/analytics/processes")
+async def get_process_efficiency(
+    process_id: Optional[int] = Query(None, description="ID конкретного процесса"),
+    start_date: Optional[str] = Query(None, description="Начало периода (ISO format)"),
+    end_date: Optional[str] = Query(None, description="Конец периода (ISO format)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить метрики эффективности бизнес-процессов
+
+    Возвращает:
+    - Статистику по стадиям процессов
+    - Время выполнения стадий
+    - Процент успешности
+    """
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+    if end_date:
+        from datetime import datetime
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+
+    analytics_service = AutomationAnalyticsService(db)
+    result = await analytics_service.get_process_efficiency(
+        process_id=process_id,
+        start_date=start_dt,
+        end_date=end_dt
+    )
+
+    return result
+
+
+@router.get("/analytics/hourly")
+async def get_hourly_distribution(
+    start_date: Optional[str] = Query(None, description="Начало периода (ISO format)"),
+    end_date: Optional[str] = Query(None, description="Конец периода (ISO format)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Получить почасовое распределение выполнений
+
+    Возвращает:
+    - Количество выполнений по часам
+    - Пиковые часы активности
+    """
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+    if end_date:
+        from datetime import datetime
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+
+    analytics_service = AutomationAnalyticsService(db)
+    result = await analytics_service.get_hourly_distribution(
+        start_date=start_dt,
+        end_date=end_dt
+    )
 
     return result
 

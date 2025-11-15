@@ -1,68 +1,44 @@
-Я нашел все заглушки и TODO в проекте aicrm. Вот полный отчет:
+1. Кэширование и производительность
+python
+# Redis для кэширования
+from redis import Redis
+from functools import wraps
 
-### 🔍 __Найденные заглушки и TODO:__
+def cache_response(ttl=300):
+    def decorator(f):
+        @wraps(f)
+        async def decorated_function(*args, **kwargs):
+            key = f"{f.__name__}:{str(kwargs)}"
+            cached = await redis.get(key)
+            if cached:
+                return json.loads(cached)
+            result = await f(*args, **kwargs)
+            await redis.setex(key, ttl, json.dumps(result))
+            return result
+        return decorated_function
+    return decorator
+2. Расширенное логирование аудита
+python
+class AuditLogger:
+    def log_order_change(self, order_id, user_id, changes)
+    def log_customer_interaction(self, customer_id, interaction_type, details)
+    def log_system_event(self, event_type, severity, description)
+3. Система уведомлений
+python
+class NotificationSystem:
+    def send_order_status_update(self, order_id, customer_id)
+    def send_production_delay_alert(self, order_id, delay_reason)
+    def send_payment_reminder(self, order_id)
+    def send_quality_control_alert(self, order_id, issue)
+4. Бизнес-ананлитика
+    class BusinessAnalytics:
+    def calculate_profitability(self, order_id)
+    def analyze_customer_lifetime_value(self)
+    def predict_demand_seasonality(self)
+    def optimize_pricing_strategy(self)
 
-#### __1. Avito Handler (`src/aicrm/services/avito_handler.py`)__
-
-- __Строка 146__: `"Пока что это заглушка, так как Avito API не предоставляет"` - комментарий о заглушке отправки сообщений
-- __Строка 153__: `# TODO: Реализовать отправку через Avito Messenger API` - отправка сообщений
-- __Строка 371__: `"""Получение истории чата (заглушка для будущего API)"""` - получение истории чата
-- __Строка 395__: `"""Отметка сообщений как прочитанные (заглушка)"""` - отметка сообщений как прочитанные
-- __Строка 397__: `# TODO: Реализовать через Avito API` - реализация через Avito API
-
-#### __2. Avito Router (`src/aicrm/api/routers/avito.py`)__
-
-- __Строка 360__: `"unread_count": 0 # TODO: Реализовать подсчет непрочитанных` - подсчет непрочитанных сообщений
-- __Строка 503__: `# TODO: Реализовать генерацию AI ответа` - генерация AI ответов
-- __Строка 508__: `# Отправка сообщения (пока что заглушка)` - отправка сообщений
-- __Строка 558__: `# Среднее время ответа (заглушка)` - расчет среднего времени ответа
-- __Строка 559__: `avg_response_time = None # TODO: Реализовать расчет среднего времени ответа` - расчет среднего времени ответа
-
-#### __3. Пустые классы (pass)__
-
-- __Avito Service (`src/aicrm/services/avito_service.py`)__:
-
-  - Строка 18: `pass` в классе `AvitoAuthError`
-  - Строка 23: `pass` в классе `AvitoAPIError`
-  - Строка 28: `pass` в классе `AvitoRateLimitError`
-
-- __API Schemas__:
-
-  - `src/aicrm/api/schemas/customer.py:21`: `pass` в классе `CustomerCreate`
-  - `src/aicrm/api/schemas/task.py:25`: `pass` в классе `TaskCreate`
-
-#### __4. Тестовые заглушки__
-
-- __Строка 59 в `test_api_customers.py`__: `assert True # Заглушка - в реальном проекте нужно настроить FastAPI TestClient`
-
-### 📊 __СТАТИСТИКА:__
-
-| Категория | Количество | |-----------|------------| | TODO комментарии | 5 | | Заглушки в коде | 5 | | Пустые классы (pass) | 5 | | Тестовые заглушки | 1 | | __ИТОГО__ | __16__ |
-
-### 🎯 __ПРИОРИТЕТЫ ДЛЯ РЕАЛИЗАЦИИ:__
-
-#### __Высокий приоритет:__
-
-1. __Отправка сообщений через Avito API__ - критично для работы мессенджера
-2. __Генерация AI ответов__ - основная фича продукта
-3. __Подсчет непрочитанных сообщений__ - UX
-
-#### __Средний приоритет:__
-
-4. __Получение истории чата__ - полезная фича
-5. __Отметка сообщений как прочитанные__ - UX улучшение
-6. __Расчет среднего времени ответа__ - аналитика
-
-#### __Низкий приоритет:__
-
-7. __Заполнение пустых классов исключений__ - можно оставить как есть
-8. __Заполнение пустых схем__ - наследуют от базовых классов
-
-### 💡 __РЕКОМЕНДАЦИИ:__
-
-1. __Начать с Avito Messenger API интеграции__ - это core фича
-2. __Реализовать AI ответы__ - основное конкурентное преимущество
-3. __Улучшить тесты__ - убрать `assert True` заглушки
-4. __Документировать__ - добавить подробные комментарии к TODO
-
-Все найденные заглушки не критичны для базовой работы системы, но ва
+5. Модуль расчета себестоимости
+    class CostCalculator:
+    def calculate_material_cost(self, product_type, quantity, materials)
+    def calculate_printing_cost(self, complexity, colors, size)
+    def calculate_processing_cost(self, post_processing_steps)

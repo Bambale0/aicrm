@@ -130,17 +130,139 @@ Thumbnails.db
 .env.local
 .env.production
 .env.staging
+.env.development
 secrets.json
 config/secrets.py
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Frontend secrets
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.staging
+
+# API keys and tokens
+*_API_KEY*
+*_SECRET*
+*_TOKEN*
+*OPENROUTER*
+*AVITO*
 
 # Test database
 src/test.db
+test.db
+*.db-journal
 
 # Coverage reports
 .coverage
 htmlcov/
+coverage.xml
+*.cover
 
 # Temporary files
 *.tmp
 *.temp
 .cache/
+*.log
+logs/
+*.pid
+*.lock
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Frontend build
+frontend/build/
+frontend/dist/
+frontend/node_modules/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Nginx logs and configs
+/var/log/nginx/
+nginx.conf.backup
+*.conf.backup
+
+# Docker
+.dockerignore
+
+# Development files
+.vscode/settings.json
+.idea/workspace.xml
+*.sublime-project
+*.sublime-workspace
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbnails.db
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# Redis dumps
+dump.rdb
+appendonly.aof
+
+# PostgreSQL
+postgresql.conf
+pg_hba.conf
+*.log
+
+# System files
+core
+core.*
+
+# Additional TypeScript
+*.tsbuildinfo
+
+# Ruff
+.ruff_cache/
+
+# Direnv
+.direnv/
+.envrc
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Docker overrides
+docker-compose.override.yml
+
+# Ngrok archives
+*.tgz
+
+# Additional caches
+.eslintcache
+.yarn/
+.pnpm/
+.docker/
+
+# Serverless
+.serverless/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfvars
+
+# Coverage additional
+coverage/

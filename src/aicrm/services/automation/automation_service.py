@@ -262,6 +262,36 @@ class AutomationService:
             {"communication_id": communication_id}
         )
 
+    # Avito интеграция
+
+    async def on_avito_message_received(self, chat_id: str, message_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Получено сообщение от Avito"""
+        # Используем communication entity type для Avito сообщений
+        return await self.handle_event(
+            EntityType.COMMUNICATION,
+            TriggerEvent.AVITO_MESSAGE_RECEIVED,
+            0,  # Нет конкретного ID сущности
+            {"chat_id": chat_id, "message_data": message_data}
+        )
+
+    async def on_avito_chat_created(self, chat_id: str, chat_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Создан новый чат в Avito"""
+        return await self.handle_event(
+            EntityType.COMMUNICATION,
+            TriggerEvent.AVITO_CHAT_CREATED,
+            0,  # Нет конкретного ID сущности
+            {"chat_id": chat_id, "chat_data": chat_data}
+        )
+
+    async def on_avito_chat_closed(self, chat_id: str, close_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Закрыт чат в Avito"""
+        return await self.handle_event(
+            EntityType.COMMUNICATION,
+            TriggerEvent.AVITO_CHAT_CLOSED,
+            0,  # Нет конкретного ID сущности
+            {"chat_id": chat_id, "close_data": close_data}
+        )
+
     # ИИ-функционал для генерации и оптимизации цепочек автоматизации
 
     async def generate_automation_chain_with_ai(

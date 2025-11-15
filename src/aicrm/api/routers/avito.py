@@ -10,6 +10,7 @@ from ...core.database import get_db
 from ...services.avito_service import AvitoService, AvitoAPIError, AvitoRateLimitError, AvitoAuthError
 from ...services.avito_handler import AvitoCommunicationHandler
 from ...services.avito_background_tasks import avito_background_tasks
+from ...services.automation.avito_integration import AvitoIntegrationService
 from ..schemas.avito import (
     AvitoItem,
     AvitoStatsRequest,
@@ -303,6 +304,7 @@ async def handle_avito_webhook(
     try:
         processed_events = 0
         handler = AvitoCommunicationHandler(db)
+        integration_service = AvitoIntegrationService(db)
 
         for event in webhook_data.events:
             event_type = event.event
@@ -339,6 +341,20 @@ async def handle_avito_webhook(
                 if result.get("success", False):
                     processed_events += 1
                     logger.info(f"Сообщение {message_id} обработано успешно")
+
+                    # Запускаем автоматизацию для нового сообщения
+                    automation_result = await integration_service.handle_message_received(
+                        chat_id=chat_id,
+                        message_data={
+                            "message_id": message_id,
+                            "text": text,
+                            "timestamp": timestamp,
+                            "user_id": user_id,
+                            "item_id": item_id,
+                            "author_role": author_role
+                        }
+                    )
+                    logger.info(f"Автоматизация для сообщения {message_id}: {automation_result}")
                 else:
                     logger.error(f"Ошибка обработки сообщения {message_id}: {result.get('error')}")
 
@@ -357,8 +373,42 @@ async def handle_avito_webhook(
                 if success:
                     processed_events += 1
                     logger.info(f"Статус чата {chat_id} обновлен на {status}")
+
+                    # Запускаем автоматизацию для изменения статуса чата
+                    if status == "closed":
+                        automation_result = await integration_service.handle_chat_closed(
+                            chat_id=chat_id,
+                            close_data={
+                                "status": status,
+                                "timestamp": timestamp
+                            }
+                        )
+                        logger.info(f"Автоматизация для закрытия чата {chat_id}: {automation_result}")
                 else:
                     logger.error(f"Ошибка обновления статуса чата {chat_id}")
+
+            elif event_type == "chat_created":
+                # Обработка создания нового чата
+                chat_id = payload.get("chat_id")
+                user_id = payload.get("user_id")
+                item_id = payload.get("item_id")
+                timestamp = payload.get("timestamp")
+
+                if not chat_id:
+                    logger.error(f"Недостаточно данных для создания чата: {payload}")
+                    continue
+
+                # Запускаем автоматизацию для создания чата
+                automation_result = await integration_service.handle_chat_created(
+                    chat_id=chat_id,
+                    chat_data={
+                        "user_id": user_id,
+                        "item_id": item_id,
+                        "timestamp": timestamp
+                    }
+                )
+                processed_events += 1
+                logger.info(f"Автоматизация для создания чата {chat_id}: {automation_result}")
 
             else:
                 # Неизвестный тип события - логируем для отладки

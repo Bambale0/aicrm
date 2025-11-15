@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .core.database import engine, SessionLocal
 from .models import Base
-from .api.routers import auth, customer, ai, order, avito, task, automation
+from .api.routers import auth, customer, ai, ai_manager, order, avito, task, automation, email, telegram
 from .utils.logging import get_logger
 
 
@@ -114,6 +114,10 @@ app = FastAPI(
         {
             "name": "automation",
             "description": "Автоматизация бизнес-процессов: триггеры, роботы, стадии"
+        },
+        {
+            "name": "telegram",
+            "description": "Управление Telegram ботом: инициализация, статистика, отправка сообщений"
         }
     ],
     servers=[
@@ -141,10 +145,13 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(customer.router)
 app.include_router(order.router, prefix="/orders", tags=["Orders"])
-app.include_router(ai.router, prefix="/ai", tags=["AI"])
+app.include_router(ai.router)
+app.include_router(ai_manager.router)
 app.include_router(avito.router)
 app.include_router(task.router)
 app.include_router(automation.router)
+app.include_router(email.router)
+app.include_router(telegram.router)
 
 
 @app.get("/")
