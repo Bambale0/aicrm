@@ -343,8 +343,8 @@ class AutomationErrorHandler:
             Dict с результатом отправки
         """
         try:
-            # Получаем email администраторов (в реальном проекте из конфига)
-            admin_emails = ["admin@example.com"]  # TODO: из конфигурации
+            # Получаем email администраторов из конфигурации
+            admin_emails = await self.get_admin_emails()
 
             subject = f"Ошибка автоматизации: {error_record.error_type}"
 
@@ -446,6 +446,30 @@ class AutomationErrorHandler:
         except Exception as e:
             logger.error(f"Failed to get error statistics: {e}")
             return {"error": str(e)}
+
+    async def get_admin_emails(self) -> List[str]:
+        """
+        Получение email адресов администраторов из конфигурации
+
+        Returns:
+            List[str]: Список email адресов администраторов
+        """
+        try:
+            # В реальном проекте здесь должна быть загрузка из конфигурации
+            # Пока возвращаем значения по умолчанию
+            from ...config import settings
+
+            # Проверяем настройки в конфигурации
+            if hasattr(settings, 'ADMIN_EMAILS') and settings.ADMIN_EMAILS:
+                return settings.ADMIN_EMAILS
+
+            # Fallback на значения по умолчанию
+            return ["admin@example.com", "support@example.com"]
+
+        except Exception as e:
+            logger.error(f"Failed to get admin emails from config: {e}")
+            # Возвращаем значения по умолчанию в случае ошибки
+            return ["admin@example.com"]
 
 
 # Глобальный экземпляр обработчика

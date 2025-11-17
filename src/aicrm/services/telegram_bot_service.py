@@ -46,9 +46,26 @@ class TelegramBotService:
             logger.error("Telegram bot token не настроен")
             return False
 
+        # Проверяем, не инициализирован ли уже бот
+        if self.application is not None:
+            logger.info("Telegram бот уже инициализирован")
+            return True
+
         try:
-            # Создание приложения
-            self.application = Application.builder().token(self.bot_token).build()
+            # Создание приложения с явным HTTP клиентом
+            from telegram.request import HTTPXRequest
+
+            # Создаем HTTPX клиент с таймаутами
+            request = HTTPXRequest(
+                connection_pool_size=20,
+                read_timeout=30.0,
+                write_timeout=30.0,
+                connect_timeout=10.0,
+                pool_timeout=10.0
+            )
+
+            # Создание приложения с кастомным HTTP клиентом
+            self.application = Application.builder().token(self.bot_token).request(request).build()
 
             # Регистрация обработчиков
             self._register_handlers()
@@ -61,6 +78,9 @@ class TelegramBotService:
 
         except Exception as e:
             logger.error(f"Ошибка инициализации Telegram бота: {e}")
+            # Очищаем состояние при ошибке
+            self.application = None
+            self.bot = None
             return False
 
     def _register_handlers(self):
@@ -86,25 +106,58 @@ class TelegramBotService:
             return
 
         logger.info("Запуск Telegram бота...")
-        # Используем initialize() перед polling
-        await self.application.initialize()
-        await self.application.start()
 
-        # Запускаем polling в фоне
         try:
-            await self.application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+            # Проверяем и инициализируем приложение если нужно
+            if not hasattr(self.application, '_initialized') or not self.application._initialized:
+                await self.application.initialize()
+
+            # Запускаем приложение
+            await self.application.start()
+
+            # Проверяем что updater существует и инициализирован
+            if not self.application.updater:
+                logger.error("Updater не инициализирован")
+                return
+
+            # Запускаем polling в фоне с обработкой ошибок
+            await self.application.updater.start_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True  # Игнорируем pending updates при старте
+            )
             logger.info("Telegram бот успешно запущен в режиме polling")
+
         except Exception as e:
             logger.error(f"Ошибка запуска polling: {e}")
-            await self.application.stop()
+            # Пытаемся корректно остановить приложение
+            try:
+                await self.stop_bot()
+            except Exception as stop_error:
+                logger.error(f"Ошибка остановки после неудачного запуска: {stop_error}")
             raise
 
     async def stop_bot(self):
         """Остановка бота"""
         if self.application:
             logger.info("Остановка Telegram бота...")
-            await self.application.stop()
-            await self.application.shutdown()
+            try:
+                # Сначала останавливаем updater (polling)
+                if hasattr(self.application, 'updater') and self.application.updater:
+                    await self.application.updater.stop()
+            except Exception as e:
+                logger.warning(f"Ошибка остановки updater: {e}")
+
+            try:
+                # Останавливаем приложение
+                await self.application.stop()
+            except Exception as e:
+                logger.warning(f"Ошибка остановки приложения: {e}")
+
+            try:
+                # Завершаем работу приложения
+                await self.application.shutdown()
+            except Exception as e:
+                logger.warning(f"Ошибка завершения работы приложения: {e}")
 
     async def _handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка команды /start"""
@@ -411,6 +464,14 @@ class TelegramBotService:
     async def _handle_error(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка ошибок"""
         logger.error(f"Ошибка в Telegram боте: {context.error}")
+
+        # Специальная обработка сетевых ошибок
+        from telegram.error import NetworkError
+        if isinstance(context.error, NetworkError):
+            logger.warning("Сетевая ошибка Telegram бота - возможно проблемы с подключением к API Telegram")
+            # Не отправляем сообщение пользователю при сетевых ошибках,
+            # так как это может вызвать дополнительные ошибки
+            return
 
         if update and update.effective_chat:
             try:

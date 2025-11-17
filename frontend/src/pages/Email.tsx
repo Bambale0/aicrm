@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiService } from '../services/api.ts';
+import { apiService } from '../services/api';
 import {
   EnvelopeIcon,
   PaperAirplaneIcon,
   Cog6ToothIcon,
   EyeIcon,
   PlusIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ServerIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  EyeSlashIcon
 } from '@heroicons/react/24/outline';
 
 interface EmailTemplate {
@@ -26,10 +31,56 @@ interface EmailStats {
   bounced: number;
 }
 
+interface EmailSettingsData {
+  smtp_host: string;
+  smtp_port: number;
+  smtp_username: string;
+  smtp_password: string;
+  smtp_use_tls: boolean;
+  smtp_use_ssl: boolean;
+  imap_host: string;
+  imap_port: number;
+  imap_username: string;
+  imap_password: string;
+  imap_use_ssl: boolean;
+  default_from_email: string;
+  default_from_name: string;
+  signature: string;
+  auto_reply_enabled: boolean;
+  auto_reply_message: string;
+}
+
 export default function Email() {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [stats] = useState<EmailStats | null>(null);
+  const [emailSettings, setEmailSettings] = useState<EmailSettingsData>({
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_username: '',
+    smtp_password: '',
+    smtp_use_tls: true,
+    smtp_use_ssl: false,
+    imap_host: '',
+    imap_port: 993,
+    imap_username: '',
+    imap_password: '',
+    imap_use_ssl: true,
+    default_from_email: '',
+    default_from_name: '',
+    signature: '',
+    auto_reply_enabled: false,
+    auto_reply_message: ''
+  });
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    smtp: false,
+    imap: false
+  });
+  const [testResults, setTestResults] = useState<{
+    smtp?: { success: boolean; message: string; details?: any };
+    imap?: { success: boolean; message: string; details?: any };
+  }>({});
   const [loading, setLoading] = useState(true);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showCreateTemplateModal, setShowCreateTemplateModal] = useState(false);
@@ -41,17 +92,77 @@ export default function Email() {
 
   const loadEmailData = async () => {
     try {
-      const [templatesData] = await Promise.all([
+      const [templatesData, settingsData] = await Promise.all([
         apiService.getEmailTemplates(),
+        apiService.getEmailSettings(),
         // apiService.getEmailStats() // TODO: Add when backend implements
       ]);
 
       setTemplates(templatesData);
+      // Объединяем загруженные данные с дефолтными значениями, чтобы избежать undefined
+      setEmailSettings(prev => ({
+        smtp_host: settingsData?.smtp_host || prev.smtp_host,
+        smtp_port: settingsData?.smtp_port || prev.smtp_port,
+        smtp_username: settingsData?.smtp_username || prev.smtp_username,
+        smtp_password: settingsData?.smtp_password || prev.smtp_password,
+        smtp_use_tls: settingsData?.smtp_use_tls ?? prev.smtp_use_tls,
+        smtp_use_ssl: settingsData?.smtp_use_ssl ?? prev.smtp_use_ssl,
+        imap_host: settingsData?.imap_host || prev.imap_host,
+        imap_port: settingsData?.imap_port || prev.imap_port,
+        imap_username: settingsData?.imap_username || prev.imap_username,
+        imap_password: settingsData?.imap_password || prev.imap_password,
+        imap_use_ssl: settingsData?.imap_use_ssl ?? prev.imap_use_ssl,
+        default_from_email: settingsData?.default_from_email || prev.default_from_email,
+        default_from_name: settingsData?.default_from_name || prev.default_from_name,
+        signature: settingsData?.signature || prev.signature,
+        auto_reply_enabled: settingsData?.auto_reply_enabled ?? prev.auto_reply_enabled,
+        auto_reply_message: settingsData?.auto_reply_message || prev.auto_reply_message
+      }));
       // setStats(statsData);
     } catch (error) {
       console.error('Failed to load email data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveEmailSettings = async () => {
+    try {
+      setEmailSaving(true);
+      await apiService.saveEmailSettings(emailSettings);
+      // Показать успех
+      alert('Настройки email сохранены успешно');
+    } catch (err: any) {
+      console.error('Failed to save email settings:', err);
+      alert(`Ошибка при сохранении настроек email: ${err.response?.data?.detail || err.message || 'Неизвестная ошибка'}`);
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const testSMTPConnection = async () => {
+    try {
+      const result = await apiService.testSMTPConnection(emailSettings);
+      setTestResults(prev => ({ ...prev, smtp: result }));
+    } catch (err) {
+      console.error('Failed to test SMTP:', err);
+      setTestResults(prev => ({
+        ...prev,
+        smtp: { success: false, message: 'Ошибка при тестировании SMTP' }
+      }));
+    }
+  };
+
+  const testIMAPConnection = async () => {
+    try {
+      const result = await apiService.testIMAPConnection(emailSettings);
+      setTestResults(prev => ({ ...prev, imap: result }));
+    } catch (err) {
+      console.error('Failed to test IMAP:', err);
+      setTestResults(prev => ({
+        ...prev,
+        imap: { success: false, message: 'Ошибка при тестировании IMAP' }
+      }));
     }
   };
 
@@ -197,6 +308,329 @@ export default function Email() {
         )}
       </div>
 
+      {/* Email Settings */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Настройки Email</h3>
+          <div className="flex space-x-2">
+            <button
+              onClick={testSMTPConnection}
+              disabled={false}
+              className="btn-secondary flex items-center"
+            >
+              <ServerIcon className="w-4 h-4 mr-2" />
+              Тест SMTP
+            </button>
+            <button
+              onClick={testIMAPConnection}
+              disabled={false}
+              className="btn-secondary flex items-center"
+            >
+              <EnvelopeIcon className="w-4 h-4 mr-2" />
+              Тест IMAP
+            </button>
+            <button
+              onClick={saveEmailSettings}
+              disabled={emailSaving}
+              className="btn-primary flex items-center"
+            >
+              {emailSaving ? (
+                <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircleIcon className="w-4 h-4 mr-2" />
+              )}
+              Сохранить
+            </button>
+          </div>
+        </div>
+
+        {/* Test Results */}
+        {(testResults.smtp || testResults.imap) && (
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-3">Результаты тестирования:</h4>
+            <div className="space-y-2">
+              {testResults.smtp && (
+                <div className="flex items-center space-x-2">
+                  {testResults.smtp.success ? (
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <XCircleIcon className="w-5 h-5 text-red-600" />
+                  )}
+                  <span className="text-sm">
+                    <strong>SMTP:</strong> {testResults.smtp.message}
+                  </span>
+                </div>
+              )}
+              {testResults.imap && (
+                <div className="flex items-center space-x-2">
+                  {testResults.imap.success ? (
+                    <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <XCircleIcon className="w-5 h-5 text-red-600" />
+                  )}
+                  <span className="text-sm">
+                    <strong>IMAP:</strong> {testResults.imap.message}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* SMTP Settings */}
+          <div>
+            <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+              <ServerIcon className="w-5 h-5 mr-2" />
+              Настройки SMTP (Отправка)
+            </h4>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    SMTP сервер *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSettings.smtp_host}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_host: e.target.value }))}
+                    className="input-field"
+                    placeholder="smtp.gmail.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Порт *
+                  </label>
+                  <input
+                    type="number"
+                    value={emailSettings.smtp_port}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_port: parseInt(e.target.value) || 587 }))}
+                    className="input-field"
+                    placeholder="587"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Логин (email) *
+                </label>
+                <input
+                  type="email"
+                  value={emailSettings.smtp_username}
+                  onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_username: e.target.value }))}
+                  className="input-field"
+                  placeholder="your-email@gmail.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Пароль *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswords.smtp ? "text" : "password"}
+                    value={emailSettings.smtp_password}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_password: e.target.value }))}
+                    className="input-field pr-10"
+                    placeholder="Пароль от почты"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(prev => ({ ...prev, smtp: !prev.smtp }))}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPasswords.smtp ? (
+                      <EyeSlashIcon className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <EyeIcon className="w-4 h-4 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={emailSettings.smtp_use_tls}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_use_tls: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Использовать TLS</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={emailSettings.smtp_use_ssl}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, smtp_use_ssl: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Использовать SSL</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* IMAP Settings */}
+          <div>
+            <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+              <EnvelopeIcon className="w-5 h-5 mr-2" />
+              Настройки IMAP (Получение)
+            </h4>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    IMAP сервер
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSettings.imap_host}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_host: e.target.value }))}
+                    className="input-field"
+                    placeholder="imap.gmail.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Порт
+                  </label>
+                  <input
+                    type="number"
+                    value={emailSettings.imap_port}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_port: parseInt(e.target.value) || 993 }))}
+                    className="input-field"
+                    placeholder="993"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Логин (email)
+                </label>
+                <input
+                  type="email"
+                  value={emailSettings.imap_username}
+                  onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_username: e.target.value }))}
+                  className="input-field"
+                  placeholder="your-email@gmail.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Пароль
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswords.imap ? "text" : "password"}
+                    value={emailSettings.imap_password}
+                    onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_password: e.target.value }))}
+                    className="input-field pr-10"
+                    placeholder="Пароль от почты"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(prev => ({ ...prev, imap: !prev.imap }))}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPasswords.imap ? (
+                      <EyeSlashIcon className="w-5 h-5 text-gray-400" />
+                    ) : (
+                      <EyeIcon className="w-5 h-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={emailSettings.imap_use_ssl}
+                  onChange={(e) => setEmailSettings(prev => ({ ...prev, imap_use_ssl: e.target.checked }))}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Использовать SSL</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* General Email Settings */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h4 className="text-md font-semibold text-gray-900 mb-4 flex items-center">
+            <Cog6ToothIcon className="w-5 h-5 mr-2" />
+            Общие настройки
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email отправителя по умолчанию *
+              </label>
+              <input
+                type="email"
+                value={emailSettings.default_from_email}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, default_from_email: e.target.value }))}
+                className="input-field"
+                placeholder="noreply@yourcompany.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Имя отправителя по умолчанию
+              </label>
+              <input
+                type="text"
+                value={emailSettings.default_from_name}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, default_from_name: e.target.value }))}
+                className="input-field"
+                placeholder="Ваша Компания"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Подпись по умолчанию
+            </label>
+            <textarea
+              value={emailSettings.signature}
+              onChange={(e) => setEmailSettings(prev => ({ ...prev, signature: e.target.value }))}
+              className="input-field"
+              rows={3}
+              placeholder="С уважением,&#10;Ваша Компания"
+            />
+          </div>
+
+          <div className="mt-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={emailSettings.auto_reply_enabled}
+                onChange={(e) => setEmailSettings(prev => ({ ...prev, auto_reply_enabled: e.target.checked }))}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="ml-2 text-sm text-gray-700">Включить автоответчик</span>
+            </label>
+            {emailSettings.auto_reply_enabled && (
+              <div className="mt-2">
+                <textarea
+                  value={emailSettings.auto_reply_message}
+                  onChange={(e) => setEmailSettings(prev => ({ ...prev, auto_reply_message: e.target.value }))}
+                  className="input-field"
+                  rows={3}
+                  placeholder="Спасибо за ваше сообщение. Мы свяжемся с вами в ближайшее время."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Быстрые действия</h3>
@@ -209,14 +643,7 @@ export default function Email() {
             Отправить тестовый email
           </button>
           <button
-            onClick={() => navigate('/settings/system')}
-            className="btn-secondary flex items-center justify-center py-3"
-          >
-            <Cog6ToothIcon className="w-5 h-5 mr-2" />
-            Настройки SMTP
-          </button>
-          <button
-            onClick={() => navigate('/settings/avito')}
+            onClick={() => navigate('/email')}
             className="btn-secondary flex items-center justify-center py-3"
           >
             <MagnifyingGlassIcon className="w-5 h-5 mr-2" />

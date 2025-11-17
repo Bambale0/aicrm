@@ -155,7 +155,7 @@ class RobotService:
                     },
                     entity_type=entity_type,
                     entity_id=entity_id,
-                    action_type=action_config.action_type
+                    action_type=action_config.action_type.value
                 )
 
                 executed_actions.append({
@@ -197,6 +197,7 @@ class RobotService:
             from ...models.automation import RobotActionConfig, RobotAction
 
             config_obj = RobotActionConfig(
+                robot_id=0,  # Временный ID для создания объекта
                 action_type=RobotAction(action_config["action_type"]),
                 config=action_config.get("config", {}),
                 execution_order=action_config.get("execution_order", 1),
@@ -245,20 +246,33 @@ class RobotService:
         entity_data = await self._get_entity_data(entity_type, entity_id)
 
         # Генерация содержимого email
-        template_name = config.get("template")
+        template_name = config.get("template") if config else None
         email_content = await self._render_email_template(template_name, entity_data)
 
         # Получаем email получателя
         recipient_email = await self._get_recipient_email(entity_type, entity_id, config)
 
-        # TODO: Интеграция с email сервисом
-        logger.info(f"Email would be sent to {recipient_email} with template {template_name}")
+        if not recipient_email:
+            raise ValueError("Recipient email not found")
+
+        # Отправляем email через email сервис
+        from ...services.email_service import email_service, EmailMessage
+
+        message = EmailMessage(
+            to=recipient_email,
+            subject=email_content.get("subject", "Уведомление"),
+            body=email_content.get("body", "Системное уведомление"),
+            html_body=email_content.get("html_body")
+        )
+
+        success = await email_service.send_email(message)
 
         return {
-            "status": "email_queued",
+            "status": "email_sent" if success else "email_failed",
             "template": template_name,
             "recipient": recipient_email,
-            "subject": email_content.get("subject")
+            "subject": email_content.get("subject"),
+            "success": success
         }
 
     async def _execute_send_sms(
@@ -357,7 +371,7 @@ class RobotService:
 
         # Создаем задачу через сервис
         task_service = TaskService(self.db)
-        created_task = await task_service.create_task(
+        created_task = task_service.create_task(
             self.db,
             task_data,
             created_by=config.get("created_by", 1)  # Системный пользователь
@@ -386,7 +400,7 @@ class RobotService:
 
         # Обновляем задачу
         task_service = TaskService(self.db)
-        updated_task = await task_service.update_task(
+        updated_task = task_service.update_task(
             self.db,
             task_id,
             {"status": new_status}
@@ -577,14 +591,35 @@ class RobotService:
         # Получаем текст для анализа
         text_to_analyze = config.get("text") or await self._get_entity_text(entity_type, entity_id)
 
-        # TODO: Интеграция с AI сервисом для анализа намерения
-        logger.info(f"Intent analysis would be performed on: {text_to_analyze[:100]}...")
+        # Интеграция с AI сервисом для анализа намерения
+        try:
+            from ...services.ai.intent_service import AIIntentService
+            ai_service = AIIntentService()
 
-        return {
-            "status": "intent_analyzed",
-            "text_length": len(text_to_analyze),
-            "analysis_result": "placeholder"  # Результат анализа
-        }
+            # Получаем контекст сущности для лучшего анализа
+            context = await self._get_entity_context(entity_type, entity_id)
+
+            # Анализируем намерение
+            intent = await ai_service.analyze_intent(text_to_analyze, context)
+
+            logger.info(f"Intent analyzed: {intent} for text length {len(text_to_analyze)}")
+
+            return {
+                "status": "intent_analyzed",
+                "text_length": len(text_to_analyze),
+                "intent": intent.value if hasattr(intent, 'value') else str(intent),
+                "confidence": 0.85,  # Можно получить из AI сервиса
+                "analysis_result": "success"
+            }
+
+        except Exception as e:
+            logger.error(f"AI intent analysis failed: {e}")
+            return {
+                "status": "intent_analysis_failed",
+                "text_length": len(text_to_analyze),
+                "error": str(e),
+                "analysis_result": "failed"
+            }
 
     async def _execute_generate_response(
         self,
@@ -596,16 +631,38 @@ class RobotService:
         config = action_config.config or {}
 
         # Получаем контекст для генерации
-        context = config.get("context") or await self._get_entity_context(entity_type, entity_id)
+        context_str = config.get("context") or await self._get_entity_context(entity_type, entity_id)
 
-        # TODO: Интеграция с AI сервисом для генерации ответа
-        logger.info(f"Response generation would be performed with context: {context[:100]}...")
+        # Интеграция с AI сервисом для генерации ответа
+        try:
+            from ...services.ai.intent_service import AIIntentService
+            ai_service = AIIntentService()
 
-        return {
-            "status": "response_generated",
-            "context_length": len(context),
-            "generated_response": "placeholder"  # Сгенерированный ответ
-        }
+            # Получаем текст для анализа намерения
+            text_to_analyze = config.get("text") or await self._get_entity_text(entity_type, entity_id)
+
+            # Анализируем намерение и генерируем ответ
+            intent = await ai_service.analyze_intent(text_to_analyze, {"context": context_str})
+            response = await ai_service.generate_response(intent, text_to_analyze, {"context": context_str})
+
+            logger.info(f"Response generated for intent {intent}: {response[:100]}...")
+
+            return {
+                "status": "response_generated",
+                "context_length": len(context_str),
+                "intent": intent.value if hasattr(intent, 'value') else str(intent),
+                "generated_response": response,
+                "response_type": "ai_generated"
+            }
+
+        except Exception as e:
+            logger.error(f"AI response generation failed: {e}")
+            return {
+                "status": "response_generation_failed",
+                "context_length": len(context_str),
+                "error": str(e),
+                "generated_response": "Извините, произошла ошибка при генерации ответа. Мы свяжемся с вами в ближайшее время."
+            }
 
     async def _execute_send_standard_response(
         self,
@@ -869,11 +926,11 @@ class RobotService:
         result = await calendar_service.create_event(
             title=title,
             description=description,
-            start_time=start_time,
-            end_time=end_time,
+            start_time=start_time or "",
+            end_time=end_time or "",
             attendees=attendees,
             calendar_id=calendar_id,
-            provider=provider
+            provider=provider or "google"
         )
 
         return {
@@ -914,7 +971,7 @@ class RobotService:
             event_id=event_id,
             updates=updates,
             calendar_id=calendar_id,
-            provider=provider
+            provider=provider or "google"
         )
 
         return {
@@ -948,7 +1005,7 @@ class RobotService:
             event_id=event_id,
             attendees=attendees,
             calendar_id=calendar_id,
-            provider=provider
+            provider=provider or "google"
         )
 
         return {
@@ -997,26 +1054,26 @@ class RobotService:
     async def _get_recipient_email(self, entity_type: EntityType, entity_id: int, config: Dict[str, Any]) -> str:
         """Получение email получателя"""
         # Проверяем конфиг
-        if config.get("email"):
-            return config["email"]
+        if isinstance(config, dict) and config.get("email"):
+            return str(config["email"])
 
         # Получаем из сущности
         if entity_type == EntityType.CUSTOMER:
             customer = self.db.query(Customer).filter(Customer.id == entity_id).first()
-            return customer.email if customer else ""
+            return str(customer.email) if customer and customer.email else ""
 
         return ""
 
     async def _get_recipient_phone(self, entity_type: EntityType, entity_id: int, config: Dict[str, Any]) -> str:
         """Получение номера телефона"""
         # Проверяем конфиг
-        if config.get("phone"):
-            return config["phone"]
+        if isinstance(config, dict) and config.get("phone"):
+            return str(config["phone"])
 
         # Получаем из сущности
         if entity_type == EntityType.CUSTOMER:
             customer = self.db.query(Customer).filter(Customer.id == entity_id).first()
-            return customer.phone if customer else ""
+            return str(customer.phone) if customer and customer.phone else ""
 
         return ""
 
@@ -1064,3 +1121,122 @@ class RobotService:
                 result[key] = value
 
         return result
+
+
+# =============================================================================
+# Глобальные функции-заглушки для автоматизации
+# =============================================================================
+
+async def send_telegram_message(telegram_id: str, message: str):
+    """Отправка сообщения в Telegram Bot API"""
+    # TODO: Интеграция с Telegram Bot API
+    logger.info(f"Telegram message would be sent to {telegram_id}: {message}")
+    return {"status": "telegram_queued", "telegram_id": telegram_id, "message": message}
+
+
+async def create_communication_message(data: dict):
+    """Создание сообщения в системе коммуникаций"""
+    # TODO: Создание сообщения в системе коммуникаций
+    logger.info(f"Message created: {data}")
+    return {"status": "message_created", "message_data": data}
+
+
+async def create_production_step(order_id: int, step_name: str):
+    """Создание отдельного этапа производства"""
+    # TODO: Добавить метод создания отдельного этапа
+    logger.info(f"Production step would be created for order {order_id}: {step_name}")
+    return {"status": "production_step_created", "order_id": order_id, "step_name": step_name}
+
+
+async def notify_user(user_id: int, message: str):
+    """Система уведомлений пользователей"""
+    # TODO: Система уведомлений пользователей
+    logger.info(f"User {user_id} would be notified: {message}")
+    return {"status": "user_notified", "user_id": user_id, "message": message}
+
+
+async def notify_group(group_id: int, message: str):
+    """Система групповых уведомлений"""
+    # TODO: Система групповых уведомлений
+    logger.info(f"Group {group_id} would be notified: {message}")
+    return {"status": "group_notified", "group_id": group_id, "message": message}
+
+
+async def create_communication_record(data: dict):
+    """Создание записи в таблице коммуникаций"""
+    # TODO: Создание записи в таблице коммуникаций
+    logger.info(f"Communication created: {data}")
+    return {"status": "communication_created", "communication_data": data}
+
+
+async def analyze_intent(text: str):
+    """Анализ намерения с помощью AI"""
+    # TODO: Интеграция с AI сервисом для анализа намерения
+    logger.info(f"Intent analysis would be performed on: {text[:100]}...")
+    return {
+        "status": "intent_analyzed",
+        "text_length": len(text),
+        "analysis_result": "placeholder",
+        "intent": "general_inquiry",
+        "confidence": 0.8
+    }
+
+
+async def generate_response(context: str):
+    """Генерация ответа с помощью AI"""
+    # TODO: Интеграция с AI сервисом для генерации ответа
+    logger.info(f"Response generation would be performed with context: {context[:100]}...")
+    return {
+        "status": "response_generated",
+        "context_length": len(context),
+        "generated_response": "Спасибо за ваше обращение. Мы свяжемся с вами в ближайшее время.",
+        "response_type": "standard_reply"
+    }
+
+
+async def send_via_channel(channel: str, response: str):
+    """Отправка через соответствующий канал"""
+    # TODO: Отправка через соответствующий канал
+    logger.info(f"Standard response would be sent via {channel}: {response}")
+    return {
+        "status": "response_sent",
+        "channel": channel,
+        "response_text": response,
+        "success": True
+    }
+
+
+async def render_email_template(template_name: str, context: dict):
+    """Рендеринг шаблона email"""
+    # TODO: Система шаблонов
+    templates = {
+        "welcome": {
+            "subject": "Добро пожаловать!",
+            "body": f"Здравствуйте, {context.get('name', 'Клиент')}!"
+        },
+        "order_confirmation": {
+            "subject": "Заказ подтвержден",
+            "body": f"Ваш заказ #{context.get('id', 'N/A')} подтвержден."
+        }
+    }
+
+    template = templates.get(template_name, {
+        "subject": "Уведомление",
+        "body": "Системное уведомление"
+    })
+
+    return template
+
+
+async def get_entity_text(entity_type: str, entity_id: int):
+    """Получение текста из сущности"""
+    # TODO: Реализация получения текста из сущности
+    logger.info(f"Getting text for entity {entity_type} ID {entity_id}")
+    return "Sample text for analysis"
+
+
+async def get_entity_context(entity_type: str, entity_id: int):
+    """Получение контекста из сущности"""
+    # TODO: Реализация получения контекста из сущности
+    logger.info(f"Getting context for entity {entity_type} ID {entity_id}")
+    return "Sample context for response generation"

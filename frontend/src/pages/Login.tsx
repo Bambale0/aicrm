@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext.tsx';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import BackgroundStars from '../components/BackgroundVideo';
 
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -48,94 +49,109 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {isLogin ? 'Вход в систему' : 'Регистрация'}
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            {!isLogin && (
-              <div>
-                <label htmlFor="username" className="sr-only">
-                  Имя пользователя
-                </label>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  required={!isLogin}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Имя пользователя"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-              </div>
-            )}
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 ${
-                  isLogin ? 'rounded-t-md' : ''
-                } focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm`}
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Пароль
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+    <div className="min-h-screen relative overflow-hidden">
+      <BackgroundStars />
+
+      <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <img
+              src="/лого.png"
+              alt="AI CRM Logo"
+              className="w-20 h-auto max-h-20 object-contain drop-shadow-2xl mx-auto mb-8"
+            />
+            <h2 className="text-3xl sm:text-4xl font-bold text-gradient mb-2">
+              {isLogin ? 'Вход в систему' : 'Регистрация'}
+            </h2>
+            <p className="text-van-gogh-wheat-field text-lg font-medium">
+              AI CRM система управления
+            </p>
           </div>
 
-          {error && (
-            <div className="text-red-600 text-sm text-center">
-              {error}
-            </div>
-          )}
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div className="card p-8">
+              {!isLogin && (
+                <div className="mb-6">
+                  <label htmlFor="username" className="block text-sm font-semibold text-van-gogh-wheat-field mb-3">
+                    Имя пользователя
+                  </label>
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    required={!isLogin}
+                    className="input-field text-lg"
+                    placeholder="Имя пользователя"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </div>
+              )}
 
-          <div>
+              <div className="mb-6">
+                <label htmlFor="email-address" className="block text-sm font-semibold text-van-gogh-wheat-field mb-3">
+                  Email
+                </label>
+                <input
+                  id="email-address"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="input-field text-lg"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="password" className="block text-sm font-semibold text-van-gogh-wheat-field mb-3">
+                  Пароль
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className="input-field text-lg"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-van-gogh-vermilion/20 backdrop-blur-sm border-2 border-van-gogh-vermilion/50 text-van-gogh-vermilion px-6 py-4 rounded-xl text-sm text-center font-medium shadow-lg flex items-center justify-center">
+                <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="btn-primary w-full flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed text-lg py-4 px-8 rounded-xl font-semibold shadow-2xl transform hover:scale-105 transition-all duration-300"
             >
-              {isLoading ? 'Загрузка...' : (isLogin ? 'Войти' : 'Зарегистрироваться')}
+              {isLoading && <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3" />}
+              {isLoading ? 'Загрузка...' : (isLogin ? '🚀 Войти' : '✨ Зарегистрироваться')}
             </button>
-          </div>
 
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-indigo-600 hover:text-indigo-500 text-sm"
-            >
-              {isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
-            </button>
-          </div>
-        </form>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-van-gogh-cadmium-yellow hover:text-van-gogh-vermilion text-base font-medium transition-all duration-300 hover:scale-105 transform"
+              >
+                {isLogin ? '🎨 Нет аккаунта? Зарегистрироваться' : '🎭 Уже есть аккаунт? Войти'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

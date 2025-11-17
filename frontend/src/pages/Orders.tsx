@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api.ts';
+import { apiService } from '../services/api';
 import {
   ClipboardDocumentListIcon,
   MagnifyingGlassIcon,
@@ -55,8 +55,8 @@ export default function Orders() {
   const [overdueOrders, setOverdueOrders] = useState<Order[]>([]);
   const [formData, setFormData] = useState({
     customer_id: '',
-    total_amount: '',
-    description: ''
+    items: [{ product_type: 't-shirt', quantity: 1, size: 'M', color: 'black' }],
+    requirements: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -103,21 +103,21 @@ export default function Orders() {
   const resetForm = () => {
     setFormData({
       customer_id: '',
-      total_amount: '',
-      description: ''
+      items: [{ product_type: 't-shirt', quantity: 1, size: 'M', color: 'black' }],
+      requirements: ''
     });
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.customer_id || !formData.total_amount) return;
+    if (!formData.customer_id || formData.items.length === 0) return;
 
     setSubmitting(true);
     try {
       await apiService.createOrder({
         customer_id: parseInt(formData.customer_id),
-        total_amount: parseFloat(formData.total_amount),
-        description: formData.description
+        items: formData.items,
+        requirements: formData.requirements
       });
       setShowCreateModal(false);
       resetForm();
@@ -134,8 +134,8 @@ export default function Orders() {
     setEditingOrder(order);
     setFormData({
       customer_id: order.customer_id.toString(),
-      total_amount: order.total_amount.toString(),
-      description: '' // Assuming description is not stored in order model
+      items: [{ product_type: 't-shirt', quantity: 1, size: 'M', color: 'black' }], // Default item for editing
+      requirements: ''
     });
     setShowEditModal(true);
     setSelectedOrder(null);
@@ -143,14 +143,13 @@ export default function Orders() {
 
   const handleUpdateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingOrder || !formData.customer_id || !formData.total_amount) return;
+    if (!editingOrder || !formData.customer_id || formData.items.length === 0) return;
 
     setSubmitting(true);
     try {
       await apiService.updateOrder(editingOrder.id, {
-        customer_id: parseInt(formData.customer_id),
-        total_amount: parseFloat(formData.total_amount),
-        description: formData.description
+        items: formData.items,
+        requirements: formData.requirements
       });
       setShowEditModal(false);
       setEditingOrder(null);
@@ -503,15 +502,38 @@ export default function Orders() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Сумма заказа *
+                  Тип продукта
+                </label>
+                <select
+                  value={formData.items[0]?.product_type || 't-shirt'}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], product_type: e.target.value }]
+                  })}
+                  className="input-field"
+                  disabled={submitting}
+                >
+                  <option value="t-shirt">Футболка</option>
+                  <option value="hoodie">Худи</option>
+                  <option value="cap">Кепка</option>
+                  <option value="mug">Кружка</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Количество *
                 </label>
                 <input
                   type="number"
-                  step="0.01"
-                  value={formData.total_amount}
-                  onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                  min="1"
+                  value={formData.items[0]?.quantity || 1}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], quantity: parseInt(e.target.value) || 1 }]
+                  })}
                   className="input-field"
-                  placeholder="0.00"
+                  placeholder="1"
                   required
                   disabled={submitting}
                 />
@@ -519,14 +541,53 @@ export default function Orders() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Описание
+                  Размер
+                </label>
+                <select
+                  value={formData.items[0]?.size || 'M'}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], size: e.target.value }]
+                  })}
+                  className="input-field"
+                  disabled={submitting}
+                >
+                  <option value="XS">XS</option>
+                  <option value="S">S</option>
+                  <option value="M">M</option>
+                  <option value="L">L</option>
+                  <option value="XL">XL</option>
+                  <option value="XXL">XXL</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Цвет
+                </label>
+                <input
+                  type="text"
+                  value={formData.items[0]?.color || 'black'}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], color: e.target.value }]
+                  })}
+                  className="input-field"
+                  placeholder="black"
+                  disabled={submitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Требования
                 </label>
                 <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={formData.requirements}
+                  onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
                   className="input-field"
                   rows={3}
-                  placeholder="Описание заказа"
+                  placeholder="Особые требования к заказу"
                   disabled={submitting}
                 />
               </div>
@@ -542,7 +603,7 @@ export default function Orders() {
               </button>
               <button
                 onClick={handleCreateOrder}
-                disabled={submitting || !formData.customer_id || !formData.total_amount}
+                disabled={submitting || !formData.customer_id || formData.items.length === 0}
                 className="btn-primary"
               >
                 {submitting ? 'Создание...' : 'Создать заказ'}
@@ -584,15 +645,38 @@ export default function Orders() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Сумма заказа *
+                  Тип продукта
+                </label>
+                <select
+                  value={formData.items[0]?.product_type || 't-shirt'}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], product_type: e.target.value }]
+                  })}
+                  className="input-field"
+                  disabled={submitting}
+                >
+                  <option value="t-shirt">Футболка</option>
+                  <option value="hoodie">Худи</option>
+                  <option value="cap">Кепка</option>
+                  <option value="mug">Кружка</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Количество *
                 </label>
                 <input
                   type="number"
-                  step="0.01"
-                  value={formData.total_amount}
-                  onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                  min="1"
+                  value={formData.items[0]?.quantity || 1}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], quantity: parseInt(e.target.value) || 1 }]
+                  })}
                   className="input-field"
-                  placeholder="0.00"
+                  placeholder="1"
                   required
                   disabled={submitting}
                 />
@@ -600,14 +684,53 @@ export default function Orders() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Описание
+                  Размер
+                </label>
+                <select
+                  value={formData.items[0]?.size || 'M'}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], size: e.target.value }]
+                  })}
+                  className="input-field"
+                  disabled={submitting}
+                >
+                  <option value="XS">XS</option>
+                  <option value="S">S</option>
+                  <option value="M">M</option>
+                  <option value="L">L</option>
+                  <option value="XL">XL</option>
+                  <option value="XXL">XXL</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Цвет
+                </label>
+                <input
+                  type="text"
+                  value={formData.items[0]?.color || 'black'}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    items: [{ ...formData.items[0], color: e.target.value }]
+                  })}
+                  className="input-field"
+                  placeholder="black"
+                  disabled={submitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Требования
                 </label>
                 <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={formData.requirements}
+                  onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
                   className="input-field"
                   rows={3}
-                  placeholder="Описание заказа"
+                  placeholder="Особые требования к заказу"
                   disabled={submitting}
                 />
               </div>
@@ -623,7 +746,7 @@ export default function Orders() {
               </button>
               <button
                 onClick={handleUpdateOrder}
-                disabled={submitting || !formData.customer_id || !formData.total_amount}
+                disabled={submitting || !formData.customer_id || formData.items.length === 0}
                 className="btn-primary"
               >
                 {submitting ? 'Сохранение...' : 'Сохранить изменения'}

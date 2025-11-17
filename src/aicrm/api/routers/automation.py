@@ -1,6 +1,7 @@
 """
 API эндпоинты для управления автоматизацией
 """
+import logging
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -20,6 +21,8 @@ from ...api.schemas.automation import (
 from .auth import get_current_active_user
 from ...models.user import User
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/automation", tags=["automation"])
 
 
@@ -28,7 +31,7 @@ async def fire_automation_event(
     entity_type: EntityType,
     event_type: TriggerEvent,
     entity_id: int,
-    event_data: Dict[str, Any] = None,
+    event_data: Optional[Dict[str, Any]] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -305,7 +308,7 @@ async def on_email_opened(
 
 # CRUD операции для процессов
 
-@router.get("/processes/", response_model=List[Dict[str, Any]])
+@router.get("/processes", response_model=List[Dict[str, Any]])
 async def get_processes(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -324,7 +327,7 @@ async def get_processes(
         "description": p.description,
         "entity_type": p.entity_type,
         "is_active": p.is_active,
-        "created_at": p.created_at
+        "stages_count": len(p.stages)
     } for p in processes]
 
 
@@ -345,8 +348,7 @@ async def create_process(
         "description": db_process.description,
         "entity_type": db_process.entity_type,
         "is_active": db_process.is_active,
-        "created_at": db_process.created_at,
-        "updated_at": db_process.updated_at
+        "created_at": db_process.created_at
     }
 
 
@@ -367,7 +369,7 @@ async def get_process(
         "entity_type": process.entity_type,
         "is_active": process.is_active,
         "created_at": process.created_at,
-        "updated_at": process.updated_at
+        "updated_at": process.created_at  # Process model doesn't have updated_at field
     }
 
 
@@ -693,6 +695,7 @@ async def get_robots(
         "description": r.description,
         "entity_type": r.entity_type,
         "stage_id": r.stage_id,
+        "actions_count": len(r.actions),
         "is_active": r.is_active,
         "created_at": r.created_at
     } for r in robots]
@@ -802,6 +805,8 @@ async def generate_automation_chain(
         "entity_type": "customer"
     }
     """
+    logger.info(f"Generate automation chain request: {request.dict()}")
+
     automation_service = AutomationService(db)
     result = await automation_service.generate_automation_chain_with_ai(
         request.description,

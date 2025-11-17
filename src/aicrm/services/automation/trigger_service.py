@@ -30,7 +30,7 @@ class TriggerService:
         entity_type: EntityType,
         event_type: TriggerEvent,
         entity_id: int,
-        event_data: Dict[str, Any] = None
+        event_data: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         Обработка события триггера - перемещение на целевую стадию
@@ -50,16 +50,17 @@ class TriggerService:
                 # Проверяем условия
                 if await self._check_trigger_conditions(trigger, entity_id, event_data):
                     # Перемещаем сущность на целевую стадию
+                    target_stage_id = int(trigger.target_stage_id)  # type: ignore
                     move_result = await self._move_to_target_stage(
-                        entity_type, entity_id, trigger.target_stage_id
+                        entity_type, entity_id, target_stage_id
                     )
 
                     results.append({
-                        "trigger_id": trigger.id,
-                        "trigger_name": trigger.name,
+                        "trigger_id": trigger.id,  # type: ignore
+                        "trigger_name": trigger.name,  # type: ignore
                         "entity_type": entity_type.value,
                         "entity_id": entity_id,
-                        "target_stage_id": trigger.target_stage_id,
+                        "target_stage_id": trigger.target_stage_id,  # type: ignore
                         "success": True,
                         "move_result": move_result
                     })
@@ -83,16 +84,16 @@ class TriggerService:
         event_data: Dict[str, Any]
     ) -> bool:
         """Проверка условий срабатывания триггера"""
-        if not trigger.conditions:
+        if not trigger.conditions:  # type: ignore
             return True
 
         # Получаем данные сущности
-        entity_data = await self._get_entity_data(trigger.entity_type, entity_id)
+        entity_data = await self._get_entity_data(trigger.entity_type, entity_id)  # type: ignore
         if not entity_data:
             return False
 
         # Проверяем условия
-        return self._evaluate_conditions(trigger.conditions, entity_data, event_data)
+        return self._evaluate_conditions(trigger.conditions, entity_data, event_data)  # type: ignore
 
     def _evaluate_conditions(
         self,
@@ -212,8 +213,8 @@ class TriggerService:
         # Маппинг стадий на статусы заказов
         status_mapping = {
             "новый": OrderStatus.PENDING,
-            "в работе": OrderStatus.IN_PROGRESS,
-            "завершен": OrderStatus.COMPLETED,
+            "в работе": OrderStatus.IN_PRODUCTION,
+            "завершен": OrderStatus.DELIVERED,
             "отменен": OrderStatus.CANCELLED
         }
 
@@ -277,9 +278,9 @@ class TriggerService:
         new_status = status_mapping.get(stage.name.lower())
         if new_status:
             step.status = new_status
-            if new_status == StepStatus.IN_PROGRESS and not step.started_at:
+            if new_status == StepStatus.IN_PROGRESS and not step.started_at:  # type: ignore
                 step.started_at = datetime.utcnow()
-            elif new_status == StepStatus.COMPLETED and not step.completed_at:
+            elif new_status == StepStatus.COMPLETED and not step.completed_at:  # type: ignore
                 step.completed_at = datetime.utcnow()
             self.db.commit()
 

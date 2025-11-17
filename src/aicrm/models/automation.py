@@ -1,58 +1,136 @@
 """
 Модели автоматизации в стиле Bitrix24
 """
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean, Enum, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
 import enum
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import (
+    Boolean, Column, DateTime, Enum, ForeignKey,
+    Integer, JSON, String, Text
+)
+from sqlalchemy.orm import Mapped, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from typing import Optional
 
 
 class EntityType(enum.Enum):
     """Типы сущностей для автоматизации"""
-    CUSTOMER = "customer"
-    ORDER = "order"
-    TASK = "task"
-    PRODUCTION_STEP = "production_step"
-    COMMUNICATION = "communication"
+    CUSTOMER = "CUSTOMER"
+    ORDER = "ORDER"
+    TASK = "TASK"
+    PRODUCTION_STEP = "PRODUCTION_STEP"
+    COMMUNICATION = "COMMUNICATION"
 
 
 class TriggerEvent(enum.Enum):
     """События триггеров"""
     # Заказы
-    ORDER_CREATED = "order_created"
-    ORDER_STATUS_CHANGED = "order_status_changed"
-    ORDER_COMPLETED = "order_completed"
-    PAYMENT_RECEIVED = "payment_received"
+    ORDER_CREATED = "ORDER_CREATED"
+    ORDER_STATUS_CHANGED = "ORDER_STATUS_CHANGED"
+    ORDER_COMPLETED = "ORDER_COMPLETED"
+    PAYMENT_RECEIVED = "PAYMENT_RECEIVED"
+
+    # Обратная совместимость со старыми значениями
+    order_created = "ORDER_CREATED"  # Алиас для обратной совместимости
+    order_status_changed = "ORDER_STATUS_CHANGED"
+    order_completed = "ORDER_COMPLETED"
+    payment_received = "PAYMENT_RECEIVED"
 
     # Задачи
-    TASK_CREATED = "task_created"
-    TASK_STATUS_CHANGED = "task_status_changed"
-    TASK_COMPLETED = "task_completed"
-    DEADLINE_APPROACHING = "deadline_approaching"
+    TASK_CREATED = "TASK_CREATED"
+    TASK_STATUS_CHANGED = "TASK_STATUS_CHANGED"
+    TASK_COMPLETED = "TASK_COMPLETED"
+    TASK_ASSIGNED = "TASK_ASSIGNED"
+    DEADLINE_APPROACHING = "DEADLINE_APPROACHING"
+
+    # Обратная совместимость со старыми значениями
+    task_created = "TASK_CREATED"
+    task_status_changed = "TASK_STATUS_CHANGED"
+    task_completed = "TASK_COMPLETED"
+    task_assigned = "TASK_ASSIGNED"
+    deadline_approaching = "DEADLINE_APPROACHING"
 
     # Производство
-    PRODUCTION_STARTED = "production_started"
-    PRODUCTION_STEP_COMPLETED = "production_step_completed"
-    PRODUCTION_COMPLETED = "production_completed"
-    PRODUCTION_OVERDUE = "production_overdue"
+    PRODUCTION_STARTED = "PRODUCTION_STARTED"
+    PRODUCTION_STEP_COMPLETED = "PRODUCTION_STEP_COMPLETED"
+    PRODUCTION_COMPLETED = "PRODUCTION_COMPLETED"
+    PRODUCTION_OVERDUE = "PRODUCTION_OVERDUE"
+    PRINT_COMPLETED = "PRINT_COMPLETED"
+
+    # Обратная совместимость со старыми значениями
+    production_started = "PRODUCTION_STARTED"
+    production_step_completed = "PRODUCTION_STEP_COMPLETED"
+    production_completed = "PRODUCTION_COMPLETED"
+    production_overdue = "PRODUCTION_OVERDUE"
+    print_completed = "PRINT_COMPLETED"
 
     # Клиенты
-    CUSTOMER_CREATED = "customer_created"
-    CUSTOMER_UPDATED = "customer_updated"
-    CUSTOMER_LOYALTY_CHANGED = "customer_loyalty_changed"
+    CUSTOMER_CREATED = "CUSTOMER_CREATED"
+    CUSTOMER_UPDATED = "CUSTOMER_UPDATED"
+    CUSTOMER_LOYALTY_CHANGED = "CUSTOMER_LOYALTY_CHANGED"
+
+    # Обратная совместимость со старыми значениями
+    customer_created = "CUSTOMER_CREATED"
+    customer_updated = "CUSTOMER_UPDATED"
+    customer_loyalty_changed = "CUSTOMER_LOYALTY_CHANGED"
 
     # Коммуникации
-    MESSAGE_RECEIVED = "message_received"
-    MESSAGE_SENT = "message_sent"
-    EMAIL_OPENED = "email_opened"
+    MESSAGE_RECEIVED = "MESSAGE_RECEIVED"
+    MESSAGE_SENT = "MESSAGE_SENT"
+    EMAIL_OPENED = "EMAIL_OPENED"
+
+    # Обратная совместимость со старыми значениями
+    message_received = "MESSAGE_RECEIVED"
+    message_sent = "MESSAGE_SENT"
+    email_opened = "EMAIL_OPENED"
+
+    # Бизнес-процессы
+    MANAGER_APPROVAL = "MANAGER_APPROVAL"
+    DESIGN_COMPLETED = "DESIGN_COMPLETED"
+    CLIENT_APPROVED = "CLIENT_APPROVED"
+    QUALITY_APPROVED = "QUALITY_APPROVED"
+    DESIGNER_ASSIGNED = "DESIGNER_ASSIGNED"
+    PRINTING_COMPLETED = "PRINTING_COMPLETED"
+    STAGE_ENTERED = "STAGE_ENTERED"
+    APPROVAL_GRANTED = "APPROVAL_GRANTED"
+    ASSIGNEE_ASSIGNED = "ASSIGNEE_ASSIGNED"
+    ORDER_APPROVED = "ORDER_APPROVED"
+    CUSTOMER_APPROVED = "CUSTOMER_APPROVED"
+    DESIGN_APPROVED = "DESIGN_APPROVED"
+    STAGE_COMPLETED = "STAGE_COMPLETED"
+    ORDER_UPDATED = "ORDER_UPDATED"
+    APPROVAL_COMPLETED = "APPROVAL_COMPLETED"
+
+    # Обратная совместимость со старыми значениями
+    manager_approval = "MANAGER_APPROVAL"
+    design_completed = "DESIGN_COMPLETED"
+    client_approved = "CLIENT_APPROVED"
+    quality_approved = "QUALITY_APPROVED"
+    designer_assigned = "DESIGNER_ASSIGNED"
+    printing_completed = "PRINTING_COMPLETED"
+    stage_entered = "STAGE_ENTERED"
+    approval_granted = "APPROVAL_GRANTED"
+    assignee_assigned = "ASSIGNEE_ASSIGNED"
+    order_approved = "ORDER_APPROVED"
+    customer_approved = "CUSTOMER_APPROVED"
+    design_approved = "DESIGN_APPROVED"
+    stage_completed = "STAGE_COMPLETED"
+    order_updated = "ORDER_UPDATED"
+    approval_completed = "APPROVAL_COMPLETED"
 
     # Avito интеграция
-    AVITO_MESSAGE_RECEIVED = "avito_message_received"
-    AVITO_CHAT_CREATED = "avito_chat_created"
-    AVITO_CHAT_CLOSED = "avito_chat_closed"
+    AVITO_MESSAGE_RECEIVED = "AVITO_MESSAGE_RECEIVED"
+    AVITO_CHAT_CREATED = "AVITO_CHAT_CREATED"
+    AVITO_CHAT_CLOSED = "AVITO_CHAT_CLOSED"
+
+    # Обратная совместимость со старыми значениями
+    avito_message_received = "AVITO_MESSAGE_RECEIVED"
+    avito_chat_created = "AVITO_CHAT_CREATED"
+    avito_chat_closed = "AVITO_CHAT_CLOSED"
 
 
 class RobotAction(enum.Enum):
@@ -80,6 +158,7 @@ class RobotAction(enum.Enum):
     # AI действия
     ANALYZE_INTENT = "analyze_intent"
     GENERATE_RESPONSE = "generate_response"
+    GENERATE_AI_RESPONSE = "generate_ai_response"  # Для совместимости
     SEND_STANDARD_RESPONSE = "send_standard_response"
     ESCALATE_COMPLEX_QUERY = "escalate_complex_query"
 
@@ -132,7 +211,7 @@ class AutomationExecution(Base):
     stage = relationship("Stage")
 
     # Результаты выполнения
-    actions_executed = Column(JSON)  # Список выполненных действий с результатами
+    actions_executed = Column(JSON)  # Список действий с результатами
     execution_status = Column(String(50), default="running")  # running, completed, failed, partial
     error_message = Column(Text)
 
@@ -167,8 +246,11 @@ class Stage(Base):
     robots = relationship("Robot", back_populates="stage", cascade="all, delete-orphan")
 
     # Триггеры, ведущие на эту стадию
-    incoming_triggers = relationship("Trigger", back_populates="target_stage",
-                                   foreign_keys="Trigger.target_stage_id")
+    incoming_triggers = relationship(
+        "Trigger",
+        back_populates="target_stage",
+        foreign_keys="Trigger.target_stage_id"
+    )
 
     order_index = Column(Integer, default=0)
     color = Column(String(7))  # HEX цвет для визуализации
@@ -193,8 +275,11 @@ class Trigger(Base):
 
     # Целевая стадия
     target_stage_id = Column(Integer, ForeignKey("stages.id"))
-    target_stage = relationship("Stage", back_populates="incoming_triggers",
-                               foreign_keys=[target_stage_id])
+    target_stage = relationship(
+        "Stage",
+        back_populates="incoming_triggers",
+        foreign_keys=[target_stage_id]
+    )
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -216,8 +301,12 @@ class Robot(Base):
     stage = relationship("Stage", back_populates="robots")
 
     # Последовательные действия
-    actions = relationship("RobotActionConfig", back_populates="robot",
-                          cascade="all, delete-orphan", order_by="RobotActionConfig.execution_order")
+    actions = relationship(
+        "RobotActionConfig",
+        back_populates="robot",
+        cascade="all, delete-orphan",
+        order_by="RobotActionConfig.execution_order"
+    )
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -267,7 +356,7 @@ class AutomationError(Base):
     error_type = Column(String(100), nullable=False)  # network, api, validation, timeout, etc.
     error_code = Column(String(50))  # HTTP status, API error code
     error_message = Column(Text, nullable=False)
-    error_details = Column(JSON)  # Дополнительные детали ошибки
+    error_details = Column(JSON)  # Дополнительные детали
 
     # Контекст выполнения
     entity_type = Column(Enum(EntityType))

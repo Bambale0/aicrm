@@ -9,11 +9,15 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from sqlalchemy.orm import Session
-from aicrm.core.database import SessionLocal
+from aicrm.core.database import SessionLocal, engine
+from aicrm.models import Base
 from aicrm.models.user import User
 
 def create_admin_user():
     """Создание администратора"""
+    # Создаем таблицы, если они не существуют
+    Base.metadata.create_all(bind=engine)
+
     db: Session = SessionLocal()
 
     try:

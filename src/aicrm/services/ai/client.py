@@ -209,6 +209,38 @@ class UnifiedAIClient:
 
         return "\n".join(formatted) + "\nAssistant:"
 
+    def _extract_json_from_markdown(self, text: str) -> str:
+        """
+        Извлекает JSON из markdown блоков кода
+
+        Args:
+            text: Текст, который может содержать JSON в markdown блоках
+
+        Returns:
+            str: Извлеченный JSON
+
+        Raises:
+            ValueError: Если JSON не найден в тексте
+        """
+        import re
+
+        # Ищем блоки ```json ... ```
+        json_pattern = r'```(?:json)?\s*\n(.*?)\n```'
+        match = re.search(json_pattern, text, re.DOTALL | re.IGNORECASE)
+
+        if match:
+            return match.group(1).strip()
+
+        # Если не нашли с json, пробуем просто ```
+        code_pattern = r'```\s*\n(.*?)\n```'
+        match = re.search(code_pattern, text, re.DOTALL)
+
+        if match:
+            return match.group(1).strip()
+
+        # Если ничего не нашли, возвращаем оригинальный текст
+        raise ValueError("No JSON found in markdown blocks")
+
     # Методы для работы с автоматизацией
 
     async def generate_automation_chain(self, prompt: str) -> Dict[str, Any]:
@@ -239,20 +271,30 @@ class UnifiedAIClient:
                 max_tokens=4000
             )
 
-            # Парсим JSON ответ
+            # Парсим JSON ответ, извлекая из markdown блоков если нужно
             import json
             try:
+                # Сначала пробуем распарсить как чистый JSON
                 generated_chain = json.loads(response_text)
                 return {
                     "success": True,
                     "generated_chain": generated_chain
                 }
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse AI response as JSON: {response_text}")
-                return {
-                    "success": False,
-                    "error": f"Invalid JSON response: {str(e)}"
-                }
+            except json.JSONDecodeError:
+                # Если не получилось, пробуем извлечь JSON из markdown блоков
+                try:
+                    extracted_json = self._extract_json_from_markdown(response_text)
+                    generated_chain = json.loads(extracted_json)
+                    return {
+                        "success": True,
+                        "generated_chain": generated_chain
+                    }
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"Failed to parse AI response as JSON: {response_text}")
+                    return {
+                        "success": False,
+                        "error": f"Invalid JSON response: {str(e)}"
+                    }
 
         except Exception as e:
             logger.error(f"Error generating automation chain: {e}")
@@ -289,21 +331,32 @@ class UnifiedAIClient:
                 max_tokens=3000
             )
 
-            # Парсим JSON ответ
+            # Парсим JSON ответ, извлекая из markdown блоков если нужно
             import json
             try:
+                # Сначала пробуем распарсить как чистый JSON
                 optimization_result = json.loads(response_text)
                 return {
                     "success": True,
                     "optimizations": optimization_result.get("optimizations", []),
                     "performance_improvements": optimization_result.get("performance_improvements", {})
                 }
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse optimization response as JSON: {response_text}")
-                return {
-                    "success": False,
-                    "error": f"Invalid JSON response: {str(e)}"
-                }
+            except json.JSONDecodeError:
+                # Если не получилось, пробуем извлечь JSON из markdown блоков
+                try:
+                    extracted_json = self._extract_json_from_markdown(response_text)
+                    optimization_result = json.loads(extracted_json)
+                    return {
+                        "success": True,
+                        "optimizations": optimization_result.get("optimizations", []),
+                        "performance_improvements": optimization_result.get("performance_improvements", {})
+                    }
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"Failed to parse optimization response as JSON: {response_text}")
+                    return {
+                        "success": False,
+                        "error": f"Invalid JSON response: {str(e)}"
+                    }
 
         except Exception as e:
             logger.error(f"Error optimizing automation chain: {e}")
@@ -340,21 +393,32 @@ class UnifiedAIClient:
                 max_tokens=3500
             )
 
-            # Парсим JSON ответ
+            # Парсим JSON ответ, извлекая из markdown блоков если нужно
             import json
             try:
+                # Сначала пробуем распарсить как чистый JSON
                 analysis_result = json.loads(response_text)
                 return {
                     "success": True,
                     "bottlenecks": analysis_result.get("bottlenecks", []),
                     "suggestions": analysis_result.get("suggestions", [])
                 }
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse analysis response as JSON: {response_text}")
-                return {
-                    "success": False,
-                    "error": f"Invalid JSON response: {str(e)}"
-                }
+            except json.JSONDecodeError:
+                # Если не получилось, пробуем извлечь JSON из markdown блоков
+                try:
+                    extracted_json = self._extract_json_from_markdown(response_text)
+                    analysis_result = json.loads(extracted_json)
+                    return {
+                        "success": True,
+                        "bottlenecks": analysis_result.get("bottlenecks", []),
+                        "suggestions": analysis_result.get("suggestions", [])
+                    }
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"Failed to parse analysis response as JSON: {response_text}")
+                    return {
+                        "success": False,
+                        "error": f"Invalid JSON response: {str(e)}"
+                    }
 
         except Exception as e:
             logger.error(f"Error analyzing automation: {e}")

@@ -4,7 +4,7 @@
 import os
 from typing import Optional
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field, field_validator
 
 
 class Settings(BaseSettings):
@@ -70,12 +70,8 @@ class Settings(BaseSettings):
 
     # App
     debug: bool = False
-    cors_origins: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "https://dev.chilcreative.ru",
-        "https://dev.chillcreative.ru"
-    ]
+    cors_origins: Optional[list[str]] = None
+    cors_origins_env: Optional[str] = None
     log_level: str = "INFO"
 
     model_config = ConfigDict(
@@ -85,4 +81,18 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../../../.env"))
+
+# Override cors_origins if CORS_ORIGINS is set in environment
+cors_origins_env = os.getenv("CORS_ORIGINS")
+default_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "https://dev.chillcreative.ru"
+]
+if cors_origins_env:
+    default_cors_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+
+settings = Settings(cors_origins=default_cors_origins)

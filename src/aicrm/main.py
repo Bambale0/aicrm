@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .core.database import engine, SessionLocal
 from .models import Base
-from .api.routers import auth, customer, ai, ai_manager, order, avito, task, automation, email, telegram
+from .api.routers import auth, customer, communication, ai, ai_manager, order, avito, task, automation, email, telegram, user, ai_settings
 from .utils.logging import get_logger
 
 
@@ -77,6 +77,7 @@ app = FastAPI(
     """,
     version="0.1.0",
     lifespan=lifespan,
+    redirect_slashes=False,
     contact={
         "name": "AI CRM Team",
         "email": "support@aicrm.dev",
@@ -135,7 +136,7 @@ app = FastAPI(
 # Настройка CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -144,14 +145,17 @@ app.add_middleware(
 # Подключение роутеров
 app.include_router(auth.router)
 app.include_router(customer.router)
+app.include_router(communication.router)
 app.include_router(order.router, prefix="/orders", tags=["Orders"])
 app.include_router(ai.router)
 app.include_router(ai_manager.router)
+app.include_router(ai_settings.router)
 app.include_router(avito.router)
 app.include_router(task.router)
 app.include_router(automation.router)
 app.include_router(email.router)
 app.include_router(telegram.router)
+app.include_router(user.router)
 
 
 @app.get("/")

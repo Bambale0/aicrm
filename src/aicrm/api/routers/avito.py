@@ -41,7 +41,13 @@ from ..schemas.avito import (
     AvitoWebhookRequest,
     AvitoWebhookResponse,
     AvitoWebhookMessagePayload,
-    AvitoWebhookStatusPayload
+    AvitoWebhookStatusPayload,
+    # Global settings schemas
+    AvitoGlobalSettings,
+    AvitoGlobalSettingsCreate,
+    AvitoGlobalSettingsUpdate,
+    AvitoTestConnectionResponse,
+    AvitoTestWebhookResponse
 )
 from ...utils.logging import get_logger, get_messenger_logger
 
@@ -493,60 +499,115 @@ async def _count_unread_messages(chat_id: str, db: Session) -> int:
 
 
 async def _calculate_average_response_time(db: Session) -> Optional[float]:
-    """Расчет среднего времени ответа на сообщения"""
+    """Расчет среднего времени ответа на сообщения (оптимизированная версия)"""
     try:
         from ...models.communication import Communication
-        from sqlalchemy import func
+        from sqlalchemy import func, text
+        from sqlalchemy.orm import aliased
 
-        # Получаем все пары входящее-исходящее сообщение в одном чате
-        # Группируем по чату и находим время между первым входящим и первым исходящим после него
+        # Оптимизированный SQL запрос для расчета среднего времени ответа
+        # Используем оконные функции для поиска пар входящее->исходящее сообщение
 
-        # Это сложный запрос - получаем все сообщения, отсортированные по времени
-        messages = db.query(Communication).filter(
-            Communication.channel == "avito"
-        ).order_by(Communication.created_at).all()
+        # Создаем подзапрос для получения всех avito сообщений с chat_id
+        avito_messages = db.query(
+            Communication.id,
+            Communication.created_at,
+            Communication.direction,
+            func.json_extract_path_text(Communication.extra_data, 'chat_id').label('chat_id')
+        ).filter(
+            Communication.channel == "avito",
+            Communication.extra_data.isnot(None),
+            text("extra_data::jsonb ? 'chat_id'")
+        ).subquery()
 
-        response_times = []
+        # Алиасы для удобства
+        msg1 = aliased(avito_messages)
+        msg2 = aliased(avito_messages)
 
-        # Группируем сообщения по чату
-        chat_messages = {}
-        for msg in messages:
-            chat_id = msg.extra_data.get("chat_id") if msg.extra_data else None
-            if chat_id:
-                if chat_id not in chat_messages:
-                    chat_messages[chat_id] = []
-                chat_messages[chat_id].append(msg)
+        # Находим пары: входящее сообщение и следующее исходящее в том же чате
+        response_times_query = db.query(
+            func.avg(
+                func.extract('epoch', msg2.c.created_at - msg1.c.created_at)
+            ).label('avg_response_seconds')
+        ).select_from(
+            msg1.join(
+                msg2,
+                (msg1.c.chat_id == msg2.c.chat_id) &
+                (msg1.c.direction == "inbound") &
+                (msg2.c.direction == "outbound") &
+                (msg1.c.created_at < msg2.c.created_at)
+            )
+        ).filter(
+            # Исключаем пары, где между входящим и исходящим есть другое входящее
+            ~db.query(msg1).filter(
+                msg1.c.chat_id == msg1.c.chat_id,
+                msg1.c.direction == "inbound",
+                msg1.c.created_at > msg1.c.created_at,
+                msg1.c.created_at < msg2.c.created_at
+            ).exists()
+        ).filter(
+            # Ограничиваем время ответа 24 часами
+            func.extract('epoch', msg2.c.created_at - msg1.c.created_at) < 86400,
+            func.extract('epoch', msg2.c.created_at - msg1.c.created_at) > 0
+        )
 
-        # Для каждого чата рассчитываем время ответа
-        for chat_id, msgs in chat_messages.items():
-            # Сортируем сообщения чата по времени
-            msgs.sort(key=lambda x: x.created_at)
+        result = response_times_query.scalar()
 
-            # Ищем пары: входящее -> исходящее
-            i = 0
-            while i < len(msgs) - 1:
-                if msgs[i].direction == "inbound":
-                    # Ищем следующее исходящее сообщение
-                    for j in range(i + 1, len(msgs)):
-                        if msgs[j].direction == "outbound":
-                            # Рассчитываем время ответа в секундах
-                            response_time = (msgs[j].created_at - msgs[i].created_at).total_seconds()
-                            if response_time > 0 and response_time < 86400:  # Менее 24 часов
-                                response_times.append(response_time)
-                            break
-                    i = j  # Пропускаем до следующего входящего
-                else:
-                    i += 1
-
-        if response_times:
+        if result:
             # Возвращаем среднее время в минутах
-            return sum(response_times) / len(response_times) / 60
+            return result / 60
 
         return None
 
     except Exception as e:
         logger.error(f"Ошибка расчета среднего времени ответа: {e}")
-        return None
+        # Fallback на старую версию при ошибке SQL
+        try:
+            # Получаем все сообщения, отсортированные по времени
+            messages = db.query(Communication).filter(
+                Communication.channel == "avito"
+            ).order_by(Communication.created_at).all()
+
+            response_times = []
+
+            # Группируем сообщения по чату
+            chat_messages = {}
+            for msg in messages:
+                chat_id = msg.extra_data.get("chat_id") if msg.extra_data else None
+                if chat_id:
+                    if chat_id not in chat_messages:
+                        chat_messages[chat_id] = []
+                    chat_messages[chat_id].append(msg)
+
+            # Для каждого чата рассчитываем время ответа
+            for chat_id, msgs in chat_messages.items():
+                # Сортируем сообщения чата по времени
+                msgs.sort(key=lambda x: x.created_at)
+
+                # Ищем пары: входящее -> исходящее
+                i = 0
+                while i < len(msgs) - 1:
+                    if msgs[i].direction == "inbound":
+                        # Ищем следующее исходящее сообщение
+                        for j in range(i + 1, len(msgs)):
+                            if msgs[j].direction == "outbound":
+                                # Рассчитываем время ответа в секундах
+                                response_time = (msgs[j].created_at - msgs[i].created_at).total_seconds()
+                                if response_time > 0 and response_time < 86400:  # Менее 24 часов
+                                    response_times.append(response_time)
+                                break
+                        i = j  # Пропускаем до следующего входящего
+                    else:
+                        i += 1
+
+            if response_times:
+                # Возвращаем среднее время в минутах
+                return sum(response_times) / len(response_times) / 60
+
+            return None
+        except Exception as fallback_error:
+            logger.error(f"Ошибка fallback расчета среднего времени ответа: {fallback_error}")
+            return None
 
 
 # Messenger endpoints
@@ -1053,3 +1114,162 @@ async def check_task_status(task_id: str):
     except Exception as e:
         logger.error(f"Ошибка проверки статуса задачи {task_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка проверки статуса")
+
+
+# Global Settings endpoints
+
+@router.get("/settings", response_model=AvitoGlobalSettings)
+async def get_global_settings(db: Session = Depends(get_db)):
+    """
+    Получение глобальных настроек Avito
+    """
+    try:
+        from ...models.avito_chat import AvitoGlobalSettings
+
+        settings = db.query(AvitoGlobalSettings).first()
+        if not settings:
+            # Создаем настройки по умолчанию
+            settings = AvitoGlobalSettings()
+            db.add(settings)
+            db.commit()
+            db.refresh(settings)
+
+        return {
+            "id": settings.id,
+            "client_id": settings.client_id,
+            "client_secret": settings.client_secret,
+            "access_token": settings.access_token,
+            "refresh_token": settings.refresh_token,
+            "token_expires_at": settings.token_expires_at.isoformat() if settings.token_expires_at else None,
+            "webhook_url": settings.webhook_url,
+            "webhook_secret": settings.webhook_secret,
+            "auto_reply_enabled": settings.auto_reply_enabled,
+            "auto_reply_message": settings.auto_reply_message,
+            "ai_enabled": settings.ai_enabled,
+            "ai_model": settings.ai_model,
+            "ai_temperature": settings.ai_temperature,
+            "ai_max_tokens": settings.ai_max_tokens,
+            "notification_email": settings.notification_email,
+            "sync_interval": settings.sync_interval,
+            "max_concurrent_chats": settings.max_concurrent_chats,
+            "is_active": settings.is_active,
+            "last_sync_at": settings.last_sync_at.isoformat() if settings.last_sync_at else None,
+            "last_error": settings.last_error,
+            "created_at": settings.created_at.isoformat(),
+            "updated_at": settings.updated_at.isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Ошибка получения глобальных настроек Avito: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+@router.put("/settings", response_model=AvitoGlobalSettings)
+async def update_global_settings(settings: AvitoGlobalSettingsUpdate, db: Session = Depends(get_db)):
+    """
+    Обновление глобальных настроек Avito
+    """
+    try:
+        from ...models.avito_chat import AvitoGlobalSettings
+
+        existing_settings = db.query(AvitoGlobalSettings).first()
+        if not existing_settings:
+            existing_settings = AvitoGlobalSettings()
+            db.add(existing_settings)
+
+        # Обновляем только переданные поля
+        update_data = settings.dict(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(existing_settings, field, value)
+
+        db.commit()
+        db.refresh(existing_settings)
+
+        return {
+            "id": existing_settings.id,
+            "client_id": existing_settings.client_id,
+            "client_secret": existing_settings.client_secret,
+            "access_token": existing_settings.access_token,
+            "refresh_token": existing_settings.refresh_token,
+            "token_expires_at": existing_settings.token_expires_at.isoformat() if existing_settings.token_expires_at else None,
+            "webhook_url": existing_settings.webhook_url,
+            "webhook_secret": existing_settings.webhook_secret,
+            "auto_reply_enabled": existing_settings.auto_reply_enabled,
+            "auto_reply_message": existing_settings.auto_reply_message,
+            "ai_enabled": existing_settings.ai_enabled,
+            "ai_model": existing_settings.ai_model,
+            "ai_temperature": existing_settings.ai_temperature,
+            "ai_max_tokens": existing_settings.ai_max_tokens,
+            "notification_email": existing_settings.notification_email,
+            "sync_interval": existing_settings.sync_interval,
+            "max_concurrent_chats": existing_settings.max_concurrent_chats,
+            "is_active": existing_settings.is_active,
+            "last_sync_at": existing_settings.last_sync_at.isoformat() if existing_settings.last_sync_at else None,
+            "last_error": existing_settings.last_error,
+            "created_at": existing_settings.created_at.isoformat(),
+            "updated_at": existing_settings.updated_at.isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Ошибка обновления глобальных настроек Avito: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+@router.post("/settings/test-connection", response_model=AvitoTestConnectionResponse)
+async def test_connection(db: Session = Depends(get_db)):
+    """
+    Тестирование подключения к Avito API
+    """
+    try:
+        from ...models.avito_chat import AvitoGlobalSettings
+
+        settings = db.query(AvitoGlobalSettings).first()
+        if not settings or not settings.client_id or not settings.client_secret:
+            return {
+                "success": False,
+                "message": "Не настроены учетные данные Avito (Client ID и Client Secret)"
+            }
+
+        # Здесь должна быть логика тестирования подключения
+        # Avito API интеграция не реализована
+        return {
+            "success": False,
+            "message": "Интеграция с Avito API временно недоступна. Функциональность будет добавлена в следующих обновлениях."
+        }
+
+    except Exception as e:
+        logger.error(f"Ошибка тестирования подключения к Avito: {e}")
+        return {
+            "success": False,
+            "message": f"Ошибка при тестировании подключения: {str(e)}"
+        }
+
+
+@router.post("/settings/test-webhook", response_model=AvitoTestWebhookResponse)
+async def test_webhook(db: Session = Depends(get_db)):
+    """
+    Тестирование webhook
+    """
+    try:
+        from ...models.avito_chat import AvitoGlobalSettings
+
+        settings = db.query(AvitoGlobalSettings).first()
+        if not settings or not settings.webhook_url:
+            return {
+                "success": False,
+                "message": "Не настроен URL webhook"
+            }
+
+        # Здесь должна быть логика тестирования webhook
+        # Webhook интеграция не реализована
+        return {
+            "success": False,
+            "message": "Webhook интеграция временно недоступна. Функциональность будет добавлена в следующих обновлениях."
+        }
+
+    except Exception as e:
+        logger.error(f"Ошибка тестирования webhook: {e}")
+        return {
+            "success": False,
+            "message": f"Ошибка при тестировании webhook: {str(e)}"
+        }

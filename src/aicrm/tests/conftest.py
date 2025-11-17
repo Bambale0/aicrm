@@ -2,11 +2,12 @@
 Конфигурация pytest с фикстурами для тестирования
 """
 import pytest
+import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 
 from src.aicrm.core.database import get_db
 from src.aicrm.models import Base
@@ -146,7 +147,7 @@ def async_engine():
     return engine
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session")
 async def async_tables(async_engine):
     """Создание всех таблиц в асинхронной тестовой базе данных"""
     async with async_engine.begin() as conn:
@@ -156,7 +157,7 @@ async def async_tables(async_engine):
         await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_db(async_engine, async_tables):
     """Фикстура для асинхронной сессии базы данных"""
     async_session = async_sessionmaker(bind=async_engine, expire_on_commit=False)
@@ -164,7 +165,7 @@ async def async_db(async_engine, async_tables):
         yield session
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client(async_db):
     """Фикстура для httpx AsyncClient с тестовой БД"""
     from src.aicrm.core.database import get_async_db
@@ -174,13 +175,13 @@ async def async_client(async_db):
 
     app.dependency_overrides[get_async_db] = override_get_async_db
 
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         yield client
 
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_user(async_db):
     """Создание тестового пользователя для API тестов"""
     from src.aicrm.models.user import User
@@ -188,7 +189,7 @@ async def test_user(async_db):
 
     user = User(
         email="test@example.com",
-        hashed_password=auth_service.get_password_hash("testpass123"),
+        hashed_password=User.get_password_hash("testpass123"),
         is_active=True
     )
     async_db.add(user)
@@ -197,7 +198,7 @@ async def test_user(async_db):
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_customer_api(async_db):
     """Создание тестового клиента для API тестов"""
     customer = Customer(
@@ -212,7 +213,7 @@ async def test_customer_api(async_db):
     return customer
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_task_api(async_db):
     """Создание тестовой задачи для API тестов"""
     from datetime import datetime, timedelta

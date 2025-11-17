@@ -114,7 +114,7 @@ class AutomationApiService {
     limit?: number;
     entity_type?: string;
   }) {
-    const response = await api.get<Process[]>('/automation/processes/', { params });
+    const response = await api.get<Process[]>('/automation/processes', { params });
     return response.data;
   }
 

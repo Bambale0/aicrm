@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api.ts';
+import { apiService } from '../services/api';
 import {
   CpuChipIcon,
   Cog6ToothIcon,
   UserGroupIcon,
   ChatBubbleLeftRightIcon,
-  ClockIcon,
   CheckCircleIcon,
   DocumentTextIcon,
   WrenchScrewdriverIcon,
@@ -122,19 +121,46 @@ export default function AIManagerSettings() {
       setLoading(true);
       setError(null);
 
-      const [processesData, robotsData, promptsData, servicesData, productsData] = await Promise.all([
-        apiService.getAutomationProcesses(),
-        apiService.getAutomationRobots(),
-        apiService.getPrompts(),
-        apiService.getServices(),
-        apiService.getProducts()
-      ]);
+      // Load data individually to handle partial failures
+      try {
+        const processesData = await apiService.getAutomationProcesses();
+        setProcesses(processesData);
+      } catch (err) {
+        console.error('Failed to load processes:', err);
+        setProcesses([]);
+      }
 
-      setProcesses(processesData);
-      setRobots(robotsData);
-      setPrompts(promptsData);
-      setServices(servicesData);
-      setProducts(productsData);
+      try {
+        const robotsData = await apiService.getAutomationRobots();
+        setRobots(robotsData);
+      } catch (err) {
+        console.error('Failed to load robots:', err);
+        setRobots([]);
+      }
+
+      try {
+        const promptsData = await apiService.getPrompts();
+        setPrompts(promptsData);
+      } catch (err) {
+        console.error('Failed to load prompts:', err);
+        setPrompts([]);
+      }
+
+      try {
+        const servicesData = await apiService.getServices();
+        setServices(servicesData);
+      } catch (err) {
+        console.error('Failed to load services:', err);
+        setServices([]);
+      }
+
+      try {
+        const productsData = await apiService.getProducts();
+        setProducts(productsData);
+      } catch (err) {
+        console.error('Failed to load products:', err);
+        setProducts([]);
+      }
     } catch (err) {
       console.error('Failed to load AI manager data:', err);
       setError('Ошибка при загрузке данных ИИ менеджера');
@@ -171,6 +197,7 @@ export default function AIManagerSettings() {
   };
 
   const handleDeletePrompt = async (promptId: number) => {
+    // eslint-disable-next-line no-restricted-globals
     if (confirm('Вы уверены, что хотите удалить этот промпт?')) {
       try {
         await apiService.deletePrompt(promptId);
@@ -224,17 +251,7 @@ export default function AIManagerSettings() {
     setShowServiceModal(true);
   };
 
-  const handleDeleteService = async (serviceId: number) => {
-    if (confirm('Вы уверены, что хотите удалить эту услугу?')) {
-      try {
-        await apiService.deleteService(serviceId);
-        await loadData();
-      } catch (err) {
-        console.error('Failed to delete service:', err);
-        setError('Ошибка при удалении услуги');
-      }
-    }
-  };
+
 
   const handleSaveService = async () => {
     try {
@@ -284,17 +301,7 @@ export default function AIManagerSettings() {
     setShowProductModal(true);
   };
 
-  const handleDeleteProduct = async (productId: number) => {
-    if (confirm('Вы уверены, что хотите удалить этот товар?')) {
-      try {
-        await apiService.deleteProduct(productId);
-        await loadData();
-      } catch (err) {
-        console.error('Failed to delete product:', err);
-        setError('Ошибка при удалении товара');
-      }
-    }
-  };
+
 
   const handleSaveProduct = async () => {
     try {
@@ -535,7 +542,7 @@ export default function AIManagerSettings() {
         </div>
 
         <div className="mb-4">
-          <button className="btn-primary flex items-center">
+          <button onClick={handleAddProduct} className="btn-primary flex items-center">
             <PlusIcon className="w-4 h-4 mr-2" />
             Добавить товар
           </button>

@@ -2,7 +2,7 @@
 Pydantic схемы для автоматизации
 """
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 
 from ...models.automation import EntityType, TriggerEvent, RobotAction
@@ -34,8 +34,7 @@ class ProcessResponse(ProcessBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class StageBase(BaseModel):
@@ -68,8 +67,7 @@ class StageResponse(StageBase):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TriggerBase(BaseModel):
@@ -80,6 +78,8 @@ class TriggerBase(BaseModel):
     event_type: TriggerEvent = Field(..., description="Тип события")
     conditions: Optional[Dict[str, Any]] = Field(None, description="Условия срабатывания")
     target_stage_id: int = Field(..., description="ID целевой стадии")
+
+    model_config = ConfigDict(use_enum_values=True)  # Использовать строковые значения enum вместо самих enum объектов
 
 
 class TriggerCreate(TriggerBase):
@@ -102,8 +102,7 @@ class TriggerResponse(TriggerBase):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RobotActionConfigBase(BaseModel):
@@ -134,8 +133,7 @@ class RobotActionConfigResponse(RobotActionConfigBase):
     robot_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RobotBase(BaseModel):
@@ -165,8 +163,7 @@ class RobotResponse(RobotBase):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Схемы для API эндпоинтов

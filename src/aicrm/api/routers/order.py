@@ -13,6 +13,8 @@ from ..schemas.order import (
     OrderCreate, OrderResponse, OrderUpdate, OrderListResponse,
     ProductionProgressResponse, StepUpdateRequest
 )
+from ..schemas.auth import User as UserSchema
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -26,6 +28,7 @@ def get_production_service(db: Session = Depends(get_db)) -> ProductionService:
 async def create_order(
     order_data: OrderCreate,
     db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user),
     production_service: ProductionService = Depends(get_production_service)
 ):
     """
@@ -88,7 +91,8 @@ async def list_orders(
     per_page: int = Query(20, ge=1, le=100, description="Количество элементов на странице"),
     status: Optional[OrderStatus] = Query(None, description="Фильтр по статусу"),
     customer_id: Optional[int] = Query(None, description="Фильтр по клиенту"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user)
 ):
     """
     Получение списка заказов с пагинацией и фильтрами
@@ -129,7 +133,7 @@ async def list_orders(
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-async def get_order(order_id: int, db: Session = Depends(get_db)):
+async def get_order(order_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)):
     """
     Получение информации о конкретном заказе
     """
@@ -162,7 +166,8 @@ async def get_order(order_id: int, db: Session = Depends(get_db)):
 async def update_order(
     order_id: int,
     order_data: OrderUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user)
 ):
     """
     Обновление информации о заказе
@@ -207,6 +212,7 @@ async def update_order(
 async def get_production_progress(
     order_id: int,
     db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user),
     production_service: ProductionService = Depends(get_production_service)
 ):
     """
@@ -230,6 +236,7 @@ async def start_production_step(
     step_id: int,
     user_id: Optional[int] = None,
     db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user),
     production_service: ProductionService = Depends(get_production_service)
 ):
     """
@@ -248,6 +255,7 @@ async def complete_production_step(
     step_id: int,
     step_data: StepUpdateRequest,
     db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user),
     production_service: ProductionService = Depends(get_production_service)
 ):
     """
@@ -267,6 +275,7 @@ async def complete_production_step(
 @router.get("/production/overdue")
 async def get_overdue_production_steps(
     db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user),
     production_service: ProductionService = Depends(get_production_service)
 ):
     """
@@ -277,7 +286,7 @@ async def get_overdue_production_steps(
 
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_order(order_id: int, db: Session = Depends(get_db)):
+async def delete_order(order_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)):
     """
     Удаление заказа (только для заказов в статусе PENDING)
     """

@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = (window as any).REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NODE_ENV === 'production'
+  ? ''  // Use relative URLs in production (nginx will proxy to backend)
+  : window.location.protocol + '//' + window.location.hostname + ':8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -104,8 +106,13 @@ export interface SystemSettings {
 class ApiService {
   // AI Settings
   async getAIModels() {
-    const response = await api.get<AIModel[]>('/models');
-    return response.data;
+    const response = await api.get('/models');
+    const modelsData = response.data;
+    // Convert dictionary to array if needed
+    if (modelsData.models && typeof modelsData.models === 'object') {
+      return Object.values(modelsData.models);
+    }
+    return Array.isArray(modelsData) ? modelsData : [];
   }
 
   async getAIStatus() {
@@ -150,6 +157,26 @@ class ApiService {
   }
 
   // Avito Settings
+  async getAvitoSettings() {
+    const response = await api.get('/avito/settings');
+    return response.data;
+  }
+
+  async updateAvitoSettings(settings: any) {
+    const response = await api.put('/avito/settings', settings);
+    return response.data;
+  }
+
+  async testAvitoConnection() {
+    const response = await api.post('/avito/settings/test-connection');
+    return response.data;
+  }
+
+  async testAvitoWebhook() {
+    const response = await api.post('/avito/settings/test-webhook');
+    return response.data;
+  }
+
   async getAvitoChats() {
     const response = await api.get('/avito/messenger/v1/accounts/1/chats');
     return response.data;
@@ -296,8 +323,8 @@ class ApiService {
     return response.data;
   }
 
-  async completeProductionStep(orderId: number, stepId: number) {
-    const response = await api.post(`/orders/${orderId}/production-steps/${stepId}/complete`);
+  async completeProductionStep(orderId: number, stepId: number, data?: { actual_hours?: number; notes?: string }) {
+    const response = await api.post(`/orders/${orderId}/production-steps/${stepId}/complete`, data);
     return response.data;
   }
 
@@ -353,18 +380,18 @@ class ApiService {
     return response.data;
   }
 
-  async getEmailTemplates() {
-    const response = await api.get('/email/templates');
-    return response.data;
-  }
-
   async getEmailStatus(messageId: string) {
     const response = await api.get(`/email/status?message_id=${messageId}`);
     return response.data;
   }
 
   async getEmailServiceStatus() {
-    const response = await api.get('/email/service-status');
+    const response = await api.get('/email/status');
+    return response.data;
+  }
+
+  async testIMAPConnection(settings: any) {
+    const response = await api.post('/email/test-imap', settings);
     return response.data;
   }
 
@@ -549,6 +576,21 @@ class ApiService {
     return response.data;
   }
 
+  async createAutomationStage(stageData: any) {
+    const response = await api.post('/automation/stages/', stageData);
+    return response.data;
+  }
+
+  async updateAutomationStage(stageId: number, stageData: any) {
+    const response = await api.put(`/automation/stages/${stageId}`, stageData);
+    return response.data;
+  }
+
+  async deleteAutomationStage(stageId: number) {
+    const response = await api.delete(`/automation/stages/${stageId}`);
+    return response.data;
+  }
+
   async getAutomationTriggers() {
     const response = await api.get('/automation/triggers/');
     return response.data;
@@ -556,6 +598,21 @@ class ApiService {
 
   async getAutomationTrigger(triggerId: number) {
     const response = await api.get(`/automation/triggers/${triggerId}`);
+    return response.data;
+  }
+
+  async createAutomationTrigger(triggerData: any) {
+    const response = await api.post('/automation/triggers/', triggerData);
+    return response.data;
+  }
+
+  async updateAutomationTrigger(triggerId: number, triggerData: any) {
+    const response = await api.put(`/automation/triggers/${triggerId}`, triggerData);
+    return response.data;
+  }
+
+  async deleteAutomationTrigger(triggerId: number) {
+    const response = await api.delete(`/automation/triggers/${triggerId}`);
     return response.data;
   }
 
@@ -743,6 +800,141 @@ class ApiService {
 
   async getRoot() {
     const response = await api.get('/');
+    return response.data;
+  }
+
+  // Users
+  async getUsers() {
+    const response = await api.get('/users/');
+    return response.data;
+  }
+
+  async createUser(userData: any) {
+    const response = await api.post('/users/', userData);
+    return response.data;
+  }
+
+  async getUser(userId: number) {
+    const response = await api.get(`/users/${userId}`);
+    return response.data;
+  }
+
+  async updateUser(userId: number, userData: any) {
+    const response = await api.patch(`/users/${userId}`, userData);
+    return response.data;
+  }
+
+  async deleteUser(userId: number) {
+    const response = await api.delete(`/users/${userId}`);
+    return response.data;
+  }
+
+  // Communications
+  async getCommunications(params?: {
+    skip?: number;
+    limit?: number;
+    channel?: string;
+    customer_id?: number;
+    order_id?: number;
+    direction?: string;
+    sentiment?: string;
+    search?: string;
+    sort_by?: string;
+    sort_order?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const response = await api.get(`/communications/?${queryParams.toString()}`);
+    return response.data;
+  }
+
+  async getCommunication(communicationId: number) {
+    const response = await api.get(`/communications/${communicationId}`);
+    return response.data;
+  }
+
+  async createCommunication(communicationData: any) {
+    const response = await api.post('/communications/', communicationData);
+    return response.data;
+  }
+
+  async updateCommunication(communicationId: number, communicationData: any) {
+    const response = await api.put(`/communications/${communicationId}`, communicationData);
+    return response.data;
+  }
+
+  async deleteCommunication(communicationId: number) {
+    const response = await api.delete(`/communications/${communicationId}`);
+    return response.data;
+  }
+
+  async searchCommunications(searchData: any) {
+    const response = await api.post('/communications/search', searchData);
+    return response.data;
+  }
+
+  async getCommunicationStats(params?: {
+    channel?: string;
+    customer_id?: number;
+    date_from?: string;
+    date_to?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const response = await api.get(`/communications/stats/summary?${queryParams.toString()}`);
+    return response.data;
+  }
+
+  // Email Management
+  async getEmailMessages(folder: string = 'INBOX', limit: number = 50, offset: number = 0) {
+    const response = await api.get(`/email/messages?folder=${folder}&limit=${limit}&offset=${offset}`);
+    return response.data;
+  }
+
+  async markEmailsAsRead(data: { message_ids: string[]; folder: string }) {
+    const response = await api.post('/email/mark-read', data);
+    return response.data;
+  }
+
+  async deleteEmails(data: { message_ids: string[]; folder: string }) {
+    const response = await api.post('/email/delete', data);
+    return response.data;
+  }
+
+  async getEmailTemplates() {
+    const response = await api.get('/email/templates');
+    return response.data;
+  }
+
+  async getEmailSettings() {
+    const response = await api.get('/email/settings');
+    return response.data;
+  }
+
+  async saveEmailSettings(settings: any) {
+    const response = await api.post('/email/settings', settings);
+    return response.data;
+  }
+
+  async testSMTPConnection(settings: any) {
+    const response = await api.post('/email/test-smtp', settings);
+    return response.data;
+  }
+
+  async getEmailStats() {
+    const response = await api.get('/email/stats');
     return response.data;
   }
 }

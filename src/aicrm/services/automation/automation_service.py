@@ -2,12 +2,12 @@
 Основной сервис автоматизации в стиле Bitrix24
 """
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 
 from .trigger_service import TriggerService
 from .robot_service import RobotService
-from ...models.automation import EntityType, TriggerEvent
+from ...models.automation import EntityType, TriggerEvent, Process
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class AutomationService:
         entity_type: EntityType,
         event_type: TriggerEvent,
         entity_id: int,
-        event_data: Dict[str, Any] = None
+        event_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Обработка события - сначала триггеры, потом роботы
@@ -332,10 +332,20 @@ class AutomationService:
             generated_data = ai_response.get("generated_chain", {})
             applied_changes = await self._apply_generated_chain(generated_data, entity_type)
 
+            # Формируем правильную структуру ответа согласно схеме GeneratedProcess
+            generated_process = {
+                "name": generated_data.get("name", f"Generated {entity_type.value} Process"),
+                "description": generated_data.get("description", "AI-generated process"),
+                "entity_type": entity_type,
+                "stages": generated_data.get("stages", []),
+                "triggers": generated_data.get("triggers", []),
+                "robots": generated_data.get("robots", [])
+            }
+
             return {
                 "success": True,
                 "message": "Automation chain generated and applied successfully",
-                "generated_process": generated_data,
+                "generated_process": generated_process,
                 "applied_changes": applied_changes
             }
 
@@ -409,7 +419,7 @@ class AutomationService:
 
     async def analyze_and_suggest_improvements(
         self,
-        entity_type: EntityType = None,
+        entity_type: Optional[EntityType] = None,
         analysis_period_days: int = 30
     ) -> Dict[str, Any]:
         """
@@ -472,12 +482,26 @@ class AutomationService:
         complexity_level: str
     ) -> str:
         """Создает промпт для генерации цепочки автоматизации"""
+        # Доступные event_type для триггеров (в нижнем регистре для промпта)
+        available_events = [
+            "order_created", "order_status_changed", "order_completed", "payment_received",
+            "task_created", "task_status_changed", "task_completed", "task_assigned", "deadline_approaching",
+            "production_started", "production_step_completed", "production_completed", "production_overdue", "print_completed",
+            "customer_created", "customer_updated", "customer_loyalty_changed",
+            "message_received", "message_sent", "email_opened",
+            "manager_approval", "design_completed", "client_approved", "quality_approved",
+            "designer_assigned", "printing_completed", "stage_entered", "approval_granted", "assignee_assigned", "order_approved",
+            "customer_approved", "design_approved", "stage_completed", "order_updated", "approval_completed"
+        ]
+
         return f"""
 Ты - эксперт по бизнес-автоматизации. Проанализируй описание бизнес-процесса и создай полную цепочку автоматизации.
 
 Описание процесса: {description}
 Тип сущности: {entity_type.value}
 Уровень сложности: {complexity_level}
+
+ДОСТУПНЫЕ СОБЫТИЯ ДЛЯ ТРИГГЕРОВ: {', '.join(available_events)}
 
 Требуется создать:
 1. Стадии процесса (stages) - последовательные этапы жизненного цикла
@@ -493,7 +517,7 @@ class AutomationService:
 Для каждого триггера укажи:
 - name: название триггера
 - description: описание
-- event_type: тип события (из доступных: customer_created, order_completed, etc.)
+- event_type: ТОЛЬКО из списка доступных событий выше
 - conditions: условия срабатывания (опционально)
 - target_stage_id: ID целевой стадии
 
@@ -502,6 +526,8 @@ class AutomationService:
 - description: описание
 - stage_id: ID стадии
 - actions: список действий (action_type, config, conditions, delay_seconds)
+
+ВАЖНО: Используй ТОЛЬКО event_type из предоставленного списка доступных событий!
 
 Ответь в формате JSON с ключами: stages, triggers, robots.
 """
@@ -536,7 +562,7 @@ class AutomationService:
     def _build_analysis_prompt(
         self,
         stats: Dict[str, Any],
-        entity_type: EntityType = None
+        entity_type: Optional[EntityType] = None
     ) -> str:
         """Создает промпт для анализа автоматизации"""
         return f"""
@@ -616,11 +642,25 @@ class AutomationService:
                 target_stage_id = stage_id_map.get(target_stage_index)
 
                 if target_stage_id:
+                    # Конвертируем event_type в верхний регистр для соответствия enum
+                    event_type_str = trigger_data["event_type"]
+                    if isinstance(event_type_str, str):
+                        # Конвертируем в верхний регистр для соответствия TriggerEvent enum
+                        event_type_str = event_type_str.upper()
+
+                    # Проверяем, что event_type существует в enum
+                    try:
+                        from ...models.automation import TriggerEvent
+                        event_type_enum = TriggerEvent(event_type_str)
+                    except ValueError:
+                        logger.warning(f"Invalid event_type: {event_type_str}, skipping trigger")
+                        continue
+
                     trigger = Trigger(
                         name=trigger_data["name"],
                         description=trigger_data.get("description", ""),
                         entity_type=entity_type,
-                        event_type=trigger_data["event_type"],
+                        event_type=event_type_enum,
                         conditions=trigger_data.get("conditions"),
                         target_stage_id=target_stage_id,
                         is_active=True
@@ -706,7 +746,7 @@ class AutomationService:
 
     async def _collect_automation_stats(
         self,
-        entity_type: EntityType = None,
+        entity_type: Optional[EntityType] = None,
         days: int = 30
     ) -> Dict[str, Any]:
         """Собирает статистику автоматизации"""

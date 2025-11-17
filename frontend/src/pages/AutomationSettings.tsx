@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { automationApi, Process, Stage, Trigger, Robot } from '../services/automationApi.ts';
-import WorkflowDesigner from '../components/automation/WorkflowDesigner.tsx';
+import { automationApi, Process, Stage, Trigger, Robot } from '../services/automationApi';
+import { useAuth } from '../contexts/AuthContext';
+import WorkflowDesigner from '../components/automation/WorkflowDesigner';
 import {
   PlusIcon,
   Cog6ToothIcon,
@@ -13,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function AutomationSettings() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [selectedProcess, setSelectedProcess] = useState<Process | null>(null);
   const [showDesigner, setShowDesigner] = useState(false);
@@ -125,6 +127,27 @@ export default function AutomationSettings() {
       default: return entityType;
     }
   };
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Show error if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Требуется авторизация</h3>
+          <p className="text-gray-600">Пожалуйста, войдите в систему для доступа к настройкам автоматизации.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (showDesigner) {
     return (

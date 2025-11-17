@@ -28,22 +28,20 @@ class TestAutomationService:
     async def test_on_customer_created(self, automation_service, mock_db):
         """Тест события создания клиента"""
         # Мокаем методы
-        automation_service._find_matching_triggers = AsyncMock(return_value=[])
-        automation_service._execute_robots = AsyncMock(return_value={"executed": 0})
+        automation_service.trigger_service.handle_trigger_event = AsyncMock(return_value=[])
 
         result = await automation_service.on_customer_created(1)
 
-        assert result["entity_type"] == EntityType.CUSTOMER
+        assert result["entity_type"] == EntityType.CUSTOMER.value
         assert result["entity_id"] == 1
-        assert result["event_type"] == TriggerEvent.CUSTOMER_CREATED
-        assert "triggers_found" in result
+        assert result["event_type"] == TriggerEvent.CUSTOMER_CREATED.value
+        assert "triggers_executed" in result
         assert "robots_executed" in result
 
     @pytest.mark.asyncio
     async def test_handle_event(self, automation_service, mock_db):
         """Тест обработки события"""
-        automation_service._find_matching_triggers = AsyncMock(return_value=[])
-        automation_service._execute_robots = AsyncMock(return_value={"executed": 0})
+        automation_service.trigger_service.handle_trigger_event = AsyncMock(return_value=[])
 
         result = await automation_service.handle_event(
             EntityType.CUSTOMER,
@@ -51,9 +49,9 @@ class TestAutomationService:
             1
         )
 
-        assert result["entity_type"] == EntityType.CUSTOMER
+        assert result["entity_type"] == EntityType.CUSTOMER.value
         assert result["entity_id"] == 1
-        assert result["event_type"] == TriggerEvent.CUSTOMER_CREATED
+        assert result["event_type"] == TriggerEvent.CUSTOMER_CREATED.value
 
 
 class TestTriggerService:
@@ -173,7 +171,7 @@ def test_supported_events(entity_type, event_type):
         "subject": "Test",
         "body": "Test message"
     }),
-    (RobotAction.UPDATE_ENTITY, {
+    (RobotAction.UPDATE_FIELD, {
         "field": "status",
         "value": "completed"
     }),

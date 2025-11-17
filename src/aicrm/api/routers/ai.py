@@ -10,6 +10,7 @@ from ...services.ai.intent_service import AIIntentService, IntentType
 from ...services.ai.client import UnifiedAIClient
 from ...services.ai_usage_service import AIUsageService
 from ...api.routers.auth import get_current_user
+from ...utils.logging import get_logger
 from ..schemas.auth import User
 from ..schemas.ai import (
     AIAnalysisRequest, AIAnalysisResponse, AIChatRequest, AIChatResponse,
@@ -487,6 +488,7 @@ async def update_ai_settings(
     Returns:
         Dict: Результат обновления настроек
     """
+    logger = get_logger(__name__)
     try:
         # Валидация настроек
         if 'temperature' in settings:
@@ -505,18 +507,58 @@ async def update_ai_settings(
                     detail="Максимальное количество токенов должно быть от 1 до 8000"
                 )
 
-        # TODO: Сохранить настройки в базу данных или конфигурационный файл
-        # Пока просто логируем и возвращаем успех
-        logger.info(f"AI settings updated by user {current_user.id}: {settings}")
+        # Сохраняем настройки в базу данных
+        from ...models.ai_settings import AISettings
+        from sqlalchemy import select
 
-        # В будущем здесь будет сохранение в базу данных
-        # Например, в таблицу user_settings или global_settings
+        # Получаем или создаем настройки AI
+        result = db.execute(select(AISettings).limit(1))
+        ai_settings = result.scalar_one_or_none()
 
-        return {
-            "success": True,
-            "message": "Настройки ИИ успешно обновлены",
-            "updated_settings": settings
+        if not ai_settings:
+            # Создаем настройки по умолчанию
+            ai_settings = AISettings()
+            db.add(ai_settings)
+            db.commit()
+            db.refresh(ai_settings)
+
+        # Обновляем настройки
+        allowed_fields = {
+            'default_model', 'temperature', 'max_tokens',
+            'openrouter_api_key', 'openai_api_key', 'huggingface_api_key',
+            'provider', 'auto_reply_enabled', 'auto_reply_temperature',
+            'auto_reply_max_tokens', 'rate_limit_per_minute',
+            'cache_enabled', 'log_level', 'fallback_model', 'premium_model'
         }
+
+        filtered_updates = {k: v for k, v in settings.items() if k in allowed_fields}
+
+        if filtered_updates:
+            for key, value in filtered_updates.items():
+                if hasattr(ai_settings, key):
+                    setattr(ai_settings, key, value)
+
+            db.commit()
+            db.refresh(ai_settings)
+
+        if filtered_updates:
+            logger.info(f"AI settings updated by user {current_user.id}: {settings}")
+            return {
+                "success": True,
+                "message": "Настройки ИИ успешно обновлены",
+                "updated_settings": {
+                    "default_model": ai_settings.default_model,
+                    "temperature": ai_settings.temperature,
+                    "max_tokens": ai_settings.max_tokens,
+                    "provider": ai_settings.provider,
+                    "auto_reply_enabled": ai_settings.auto_reply_enabled
+                }
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Не удалось обновить настройки - нет допустимых полей для обновления"
+            )
 
     except HTTPException:
         raise

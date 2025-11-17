@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from ...core.database import get_db
 from ...services.telegram_bot_service import TelegramBotService
 from ...core.config import settings
+from ..schemas.auth import User as UserSchema
+from .auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,11 @@ async def initialize_bot(
             status_code=400,
             detail="Telegram bot token не настроен в конфигурации"
         )
+
+    # Проверяем, не запущен ли уже бот
+    stats = bot_service.get_bot_stats()
+    if stats.get("bot_running"):
+        return {"message": "Telegram бот уже запущен"}
 
     success = await bot_service.initialize_bot()
     if not success:
@@ -113,7 +120,8 @@ async def get_bot_stats(
 async def get_chats(
     limit: int = 50,
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserSchema = Depends(get_current_user)
 ):
     """
     Получение списка Telegram чатов

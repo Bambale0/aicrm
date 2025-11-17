@@ -1,7 +1,7 @@
 """
 Схемы для API заказов
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -53,8 +53,7 @@ class OrderResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductionStepResponse(BaseModel):
@@ -73,8 +72,7 @@ class ProductionStepResponse(BaseModel):
     is_overdue: bool
     progress_percentage: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductionProgressResponse(BaseModel):

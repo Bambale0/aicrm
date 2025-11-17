@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api.ts';
+import { apiService } from '../services/api';
+import Button from '../components/ui/Button';
 import {
   UsersIcon,
   MagnifyingGlassIcon,
@@ -183,19 +184,19 @@ export default function Customers() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Клиенты</h1>
-          <p className="text-gray-600 mt-2">Управление базой клиентов</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-van-gogh-starry-night-blue">Клиенты</h1>
+          <p className="text-van-gogh-chrome-green mt-2 text-sm sm:text-base">Управление базой клиентов</p>
         </div>
-        <button
+        <Button
           onClick={openCreateModal}
-          className="btn-primary flex items-center"
+          variant="primary"
         >
           <PlusIcon className="w-5 h-5 mr-2" />
           Добавить клиента
-        </button>
+        </Button>
       </div>
 
       {/* Search */}
@@ -211,20 +212,20 @@ export default function Customers() {
               className="input-field"
             />
           </div>
-          <button
+          <Button
             onClick={handleSearch}
-            className="btn-secondary flex items-center"
+            variant="secondary"
           >
             <MagnifyingGlassIcon className="w-5 h-5 mr-2" />
             Поиск
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Customers List */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue">
             Клиенты ({filteredCustomers.length})
           </h3>
         </div>

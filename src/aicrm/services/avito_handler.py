@@ -168,19 +168,34 @@ class AvitoCommunicationHandler:
         """
         Отправка сообщения через Avito API
         """
+        start_time = datetime.utcnow()
         try:
             messenger_logger.info(
                 "Начало отправки сообщения через Avito API",
                 chat_id=chat_id,
                 message_length=len(message),
+                message_preview=message[:50],
                 operation="send_message"
             )
 
             async with AvitoService() as avito_service:
+                messenger_logger.debug(
+                    "Вызов Avito API для отправки сообщения",
+                    chat_id=chat_id,
+                    operation="send_message"
+                )
+
                 result = await avito_service.send_avito_message(chat_id, message)
 
                 # Извлекаем ID отправленного сообщения из ответа Avito API
                 avito_message_id = result.get("message", {}).get("id") or result.get("id")
+
+                messenger_logger.debug(
+                    "Получен ответ от Avito API",
+                    chat_id=chat_id,
+                    avito_message_id=avito_message_id,
+                    operation="send_message"
+                )
 
                 # Сохраняем исходящее сообщение в базу
                 communication = Communication(
@@ -198,14 +213,23 @@ class AvitoCommunicationHandler:
                 self.db.commit()
                 self.db.refresh(communication)
 
+                messenger_logger.debug(
+                    "Сообщение сохранено в базу данных",
+                    chat_id=chat_id,
+                    communication_id=communication.id,
+                    operation="send_message"
+                )
+
                 # Обновляем статистику чата и кэшируем последнее сообщение
                 chat_settings = self.db.query(AvitoChatSettings).filter(
                     AvitoChatSettings.chat_id == chat_id
                 ).first()
                 if chat_settings:
+                    old_message_count = chat_settings.message_count
                     chat_settings.message_count += 1
                     chat_settings.last_message_at = datetime.utcnow()
                     # Сбрасываем счетчик непрочитанных при отправке ответа
+                    old_unread_count = chat_settings.unread_count
                     chat_settings.unread_count = 0
 
                     # Кэшируем превью последнего сообщения для оптимизации запросов
@@ -215,11 +239,68 @@ class AvitoCommunicationHandler:
 
                     self.db.commit()
 
-                logger.info(f"Сообщение отправлено в чат {chat_id}: {message[:100]}...")
+                    messenger_logger.info(
+                        "Обновлена статистика чата",
+                        chat_id=chat_id,
+                        old_message_count=old_message_count,
+                        new_message_count=chat_settings.message_count,
+                        old_unread_count=old_unread_count,
+                        new_unread_count=chat_settings.unread_count,
+                        operation="send_message"
+                    )
+                else:
+                    messenger_logger.warning(
+                        "Настройки чата не найдены для обновления статистики",
+                        chat_id=chat_id,
+                        operation="send_message"
+                    )
+
+                end_time = datetime.utcnow()
+                duration = (end_time - start_time).total_seconds()
+
+                messenger_logger.info(
+                    "Сообщение успешно отправлено",
+                    chat_id=chat_id,
+                    avito_message_id=avito_message_id,
+                    communication_id=communication.id,
+                    duration_seconds=duration,
+                    operation="send_message"
+                )
                 return True
 
+        except AvitoAPIError as e:
+            end_time = datetime.utcnow()
+            duration = (end_time - start_time).total_seconds()
+            messenger_logger.error(
+                "Ошибка Avito API при отправке сообщения",
+                chat_id=chat_id,
+                error=str(e),
+                duration_seconds=duration,
+                operation="send_message"
+            )
+            return False
+        except AvitoRateLimitError as e:
+            end_time = datetime.utcnow()
+            duration = (end_time - start_time).total_seconds()
+            messenger_logger.warning(
+                "Превышен лимит запросов Avito при отправке сообщения",
+                chat_id=chat_id,
+                error=str(e),
+                duration_seconds=duration,
+                operation="send_message"
+            )
+            return False
         except Exception as e:
-            logger.error(f"Ошибка отправки сообщения в чат {chat_id}: {e}")
+            end_time = datetime.utcnow()
+            duration = (end_time - start_time).total_seconds()
+            messenger_logger.error(
+                "Неожиданная ошибка при отправке сообщения",
+                chat_id=chat_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                duration_seconds=duration,
+                operation="send_message"
+            )
             return False
 
     async def _find_or_create_customer(self, avito_user_id: str, chat_id: str) -> Optional[Customer]:

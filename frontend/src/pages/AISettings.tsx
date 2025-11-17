@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { apiService, AIStatus, AIUsageStats } from '../services/api.ts';
+import React, { useState, useEffect, useCallback } from 'react';
+import { apiService, AIStatus, AIUsageStats } from '../services/api';
 import {
   CpuChipIcon,
   Cog6ToothIcon,
@@ -11,7 +11,7 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
-interface AIModelInfo {
+interface AIModel {
   id: string;
   name: string;
   context_length: number;
@@ -21,13 +21,8 @@ interface AIModelInfo {
   };
 }
 
-interface AIModelsResponse {
-  models: { [key: string]: AIModelInfo };
-  current_provider: string;
-}
-
 export default function AISettings() {
-  const [modelsData, setModelsData] = useState<AIModelsResponse | null>(null);
+  const [models, setModels] = useState<AIModel[]>([]);
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
   const [aiUsage, setAiUsage] = useState<AIUsageStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,11 +36,7 @@ export default function AISettings() {
     api_key: ''
   });
 
-  useEffect(() => {
-    loadAIData();
-  }, []);
-
-  const loadAIData = async () => {
+  const loadAIData = useCallback(async () => {
     try {
       const [modelsResponse, statusData, usageData] = await Promise.all([
         apiService.getAIModels(),
@@ -53,21 +44,25 @@ export default function AISettings() {
         apiService.getAIUsage()
       ]);
 
-      setModelsData(modelsResponse);
+      setModels(Array.isArray(modelsResponse) ? modelsResponse : []);
       setAiStatus(statusData);
       setAiUsage(usageData);
 
       // Set default model if available
-      const models = Object.values(modelsResponse.models);
-      if (models.length > 0 && !settings.default_model) {
-        setSettings(prev => ({ ...prev, default_model: models[0].id }));
+      if (Array.isArray(modelsResponse) && modelsResponse.length > 0 && !settings.default_model) {
+        setSettings(prev => ({ ...prev, default_model: modelsResponse[0].id }));
       }
     } catch (error) {
       console.error('Failed to load AI data:', error);
+      setModels([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [settings.default_model]);
+
+  useEffect(() => {
+    loadAIData();
+  }, [loadAIData]);
 
   const handleSaveSettings = async () => {
     setSaving(true);
@@ -165,9 +160,9 @@ export default function AISettings() {
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Доступные модели ИИ</h3>
 
-        {modelsData && Object.keys(modelsData.models).length > 0 ? (
+        {models.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.values(modelsData.models).map((model) => (
+            {models.map((model) => (
               <div key={model.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-900">{model.name}</h4>
@@ -208,7 +203,7 @@ export default function AISettings() {
               className="input-field"
             >
               <option value="">Выберите модель</option>
-              {modelsData && Object.values(modelsData.models).map((model) => (
+              {models.map((model) => (
                 <option key={model.id} value={model.id}>
                   {model.name} (openrouter)
                 </option>

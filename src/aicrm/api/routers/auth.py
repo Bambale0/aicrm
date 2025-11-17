@@ -77,3 +77,12 @@ async def get_current_active_user(current_user: UserSchema = Depends(get_current
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+
+async def get_current_admin_user(current_user: UserSchema = Depends(get_current_user)):
+    """Получение активного пользователя с проверкой прав администратора"""
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    if not current_user.is_superuser and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    return current_user

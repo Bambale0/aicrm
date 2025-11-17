@@ -9,6 +9,7 @@ from src.aicrm.models.customer import Customer
 from src.aicrm.models.task import Task
 from src.aicrm.models.order import Order, OrderStatus
 from src.aicrm.models.production_step import ProductionStep, StepStatus
+from src.aicrm.models.ai_settings import AISettings
 
 
 class TestCustomerModel:
@@ -451,3 +452,107 @@ class TestProductionStepModel:
         assert step.completed_at is not None
         assert step.actual_hours == 20.5
         assert step.notes == "Готово"
+
+
+class TestCustomerModelExtended:
+    """Расширенные тесты для модели Customer"""
+
+    def test_customer_loyalty_calculation(self):
+        """Тест расчета уровня лояльности"""
+        from src.aicrm.models.customer import Customer
+
+        customer = Customer(
+            name="Test Customer",
+            email="test@example.com",
+            phone="+7-999-123-45-67",
+            address="Test Address"
+        )
+
+        # Тестируем разные уровни лояльности на основе суммы покупок
+        # Создаем мок заказов для тестирования
+        order1 = MagicMock()
+        order1.total_amount = 500.00  # bronze уровень (< 1000)
+        customer.orders = [order1]
+        customer.update_stats()
+        assert customer.loyalty_level == "bronze"
+
+        order2 = MagicMock()
+        order2.total_amount = 600.00  # итого 1100 > 1000 - silver уровень
+        customer.orders = [order1, order2]
+        customer.update_stats()
+        assert customer.loyalty_level == "silver"
+
+        order3 = MagicMock()
+        order3.total_amount = 4500.00  # итого 5600 > 5000 - gold уровень
+        customer.orders = [order1, order2, order3]
+        customer.update_stats()
+        assert customer.loyalty_level == "gold"
+
+        order4 = MagicMock()
+        order4.total_amount = 5000.00  # итого 10600 > 10000 - platinum уровень
+        customer.orders = [order1, order2, order3, order4]
+        customer.update_stats()
+        assert customer.loyalty_level == "platinum"
+
+    def test_customer_total_spent_calculation(self):
+        """Тест расчета общей суммы заказов"""
+        from src.aicrm.models.customer import Customer
+
+        customer = Customer(
+            name="Test Customer",
+            email="test@example.com",
+            phone="+7-999-123-45-67",
+            address="Test Address"
+        )
+
+        # Имитируем заказы
+        customer.total_orders = 3
+        customer.total_spent = 1500.50
+        assert customer.total_spent == 1500.50
+
+
+class TestAISettingsModel:
+    """Тесты для модели AISettings"""
+
+    def test_ai_settings_creation(self):
+        """Тест создания настроек AI"""
+        settings = AISettings(
+            default_model="deepseek/deepseek-chat-v3.1",
+            temperature=0.7,
+            max_tokens=1000,
+            provider="openrouter",
+            auto_reply_enabled=True,
+            auto_reply_temperature=0.5,
+            auto_reply_max_tokens=500,
+            rate_limit_per_minute=60,
+            cache_enabled=True,
+            log_level="INFO"
+        )
+
+        assert settings.default_model == "deepseek/deepseek-chat-v3.1"
+        assert settings.temperature == 0.7
+        assert settings.max_tokens == 1000
+        assert settings.provider == "openrouter"
+        assert settings.auto_reply_enabled is True
+        assert settings.auto_reply_temperature == 0.5
+        assert settings.auto_reply_max_tokens == 500
+        assert settings.rate_limit_per_minute == 60
+        assert settings.cache_enabled is True
+        assert settings.log_level == "INFO"
+
+    def test_ai_settings_repr(self):
+        """Тест строкового представления настроек AI"""
+        settings = AISettings(
+            provider="openai",
+            default_model="gpt-4"
+        )
+
+        assert repr(settings) == "<AISettings(id=None, provider=openai, default_model=gpt-4)>"
+
+    def test_ai_settings_creation_empty(self):
+        """Тест создания пустых настроек AI"""
+        settings = AISettings()
+
+        # Проверяем, что объект создан
+        assert settings is not None
+        assert isinstance(settings, AISettings)

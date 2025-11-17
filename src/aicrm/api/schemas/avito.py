@@ -3,7 +3,7 @@ Pydantic схемы для Avito API
 """
 from typing import List, Optional, Dict, Any
 from datetime import date
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 from enum import Enum
 
 
@@ -350,15 +350,6 @@ class AvitoMessagesResponse(BaseModel):
     limit: int = Field(..., description="Лимит")
     offset: int = Field(..., description="Смещение")
 
-class AvitoSendMessageRequest(BaseModel):
-    """Запрос на отправку сообщения в Avito"""
-    message: str = Field(..., min_length=1, max_length=1000, description="Текст сообщения")
-
-class AvitoSendMessageResponse(BaseModel):
-    """Ответ на отправку сообщения"""
-    message_id: str = Field(..., description="ID отправленного сообщения")
-    success: bool = Field(True, description="Успешность операции")
-
 class AvitoWebhookSubscribeRequest(BaseModel):
     """Запрос на подписку webhook"""
     url: str = Field(..., description="URL для webhook уведомлений")
@@ -367,11 +358,6 @@ class AvitoWebhookSubscribeRequest(BaseModel):
 class AvitoWebhookUnsubscribeRequest(BaseModel):
     """Запрос на отписку webhook"""
     url: str = Field(..., description="URL для отписки")
-
-class AvitoWebhookResponse(BaseModel):
-    """Ответ webhook операций"""
-    success: bool = Field(..., description="Успешность операции")
-    webhook_id: Optional[str] = Field(None, description="ID webhook подписки")
 
 class AvitoWebhookEvent(BaseModel):
     """Событие webhook от Avito"""
@@ -407,6 +393,75 @@ class AvitoWebhookResponse(BaseModel):
     """Ответ на webhook запрос"""
     status: str = Field("ok", description="Статус обработки")
     processed_events: int = Field(..., description="Количество обработанных событий")
+
+
+# Схемы для глобальных настроек Avito
+
+class AvitoGlobalSettingsBase(BaseModel):
+    """Базовая схема глобальных настроек Avito"""
+    client_id: Optional[str] = Field(None, description="Client ID для Avito API")
+    client_secret: Optional[str] = Field(None, description="Client Secret для Avito API")
+    access_token: Optional[str] = Field(None, description="Access Token")
+    refresh_token: Optional[str] = Field(None, description="Refresh Token")
+    token_expires_at: Optional[str] = Field(None, description="Время истечения токена")
+    webhook_url: Optional[str] = Field(None, description="URL для webhook")
+    webhook_secret: Optional[str] = Field(None, description="Секрет для webhook")
+    auto_reply_enabled: bool = Field(False, description="Включен ли автоответчик")
+    auto_reply_message: str = Field("Спасибо за ваше сообщение. Мы свяжемся с вами в ближайшее время.", description="Сообщение автоответчика")
+    ai_enabled: bool = Field(True, description="Включен ли AI по умолчанию")
+    ai_model: str = Field("gpt-4", description="Модель AI по умолчанию")
+    ai_temperature: int = Field(70, ge=0, le=100, description="Температура AI (0-100)")
+    ai_max_tokens: int = Field(1000, ge=100, le=4000, description="Максимальное количество токенов")
+    notification_email: Optional[str] = Field(None, description="Email для уведомлений")
+    sync_interval: int = Field(300, ge=60, le=3600, description="Интервал синхронизации (секунды)")
+    max_concurrent_chats: int = Field(10, ge=1, le=100, description="Максимальное количество одновременных чатов")
+
+
+class AvitoGlobalSettingsCreate(AvitoGlobalSettingsBase):
+    """Создание глобальных настроек Avito"""
+    pass
+
+
+class AvitoGlobalSettingsUpdate(BaseModel):
+    """Обновление глобальных настроек Avito"""
+    client_id: Optional[str] = Field(None, description="Client ID для Avito API")
+    client_secret: Optional[str] = Field(None, description="Client Secret для Avito API")
+    access_token: Optional[str] = Field(None, description="Access Token")
+    refresh_token: Optional[str] = Field(None, description="Refresh Token")
+    token_expires_at: Optional[str] = Field(None, description="Время истечения токена")
+    webhook_url: Optional[str] = Field(None, description="URL для webhook")
+    webhook_secret: Optional[str] = Field(None, description="Секрет для webhook")
+    auto_reply_enabled: Optional[bool] = Field(None, description="Включен ли автоответчик")
+    auto_reply_message: Optional[str] = Field(None, description="Сообщение автоответчика")
+    ai_enabled: Optional[bool] = Field(None, description="Включен ли AI по умолчанию")
+    ai_model: Optional[str] = Field(None, description="Модель AI по умолчанию")
+    ai_temperature: Optional[int] = Field(None, ge=0, le=100, description="Температура AI (0-100)")
+    ai_max_tokens: Optional[int] = Field(None, ge=100, le=4000, description="Максимальное количество токенов")
+    notification_email: Optional[str] = Field(None, description="Email для уведомлений")
+    sync_interval: Optional[int] = Field(None, ge=60, le=3600, description="Интервал синхронизации (секунды)")
+    max_concurrent_chats: Optional[int] = Field(None, ge=1, le=100, description="Максимальное количество одновременных чатов")
+
+
+class AvitoGlobalSettings(AvitoGlobalSettingsBase):
+    """Глобальные настройки Avito с метаданными"""
+    id: int = Field(..., description="ID настройки")
+    is_active: bool = Field(False, description="Активна ли интеграция")
+    last_sync_at: Optional[str] = Field(None, description="Время последней синхронизации")
+    last_error: Optional[str] = Field(None, description="Последняя ошибка")
+    created_at: str = Field(..., description="Время создания")
+    updated_at: str = Field(..., description="Время обновления")
+
+
+class AvitoTestConnectionResponse(BaseModel):
+    """Ответ на тест подключения"""
+    success: bool = Field(..., description="Успешность подключения")
+    message: str = Field(..., description="Сообщение о результате")
+
+
+class AvitoTestWebhookResponse(BaseModel):
+    """Ответ на тест webhook"""
+    success: bool = Field(..., description="Успешность webhook")
+    message: str = Field(..., description="Сообщение о результате")
 
 class AvitoSyncChatsRequest(BaseModel):
     """Запрос на синхронизацию чатов"""

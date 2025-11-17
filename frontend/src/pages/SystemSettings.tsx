@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api.ts';
+import { apiService } from '../services/api';
 import {
   CheckCircleIcon,
   XCircleIcon,
   ExclamationTriangleIcon,
-  CpuChipIcon,
   ChartBarIcon,
   ClockIcon,
   Cog6ToothIcon
@@ -52,6 +51,8 @@ interface BackgroundTasksResponse {
   count: number;
 }
 
+
+
 export default function SystemSettings() {
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
@@ -87,6 +88,8 @@ export default function SystemSettings() {
       setLoading(false);
     }
   };
+
+
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
@@ -273,6 +276,10 @@ export default function SystemSettings() {
         )}
       </div>
 
+
+
+
+
       {/* System Information */}
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Информация о системе</h3>
@@ -287,6 +294,8 @@ export default function SystemSettings() {
           </div>
         </div>
       </div>
+
+
     </div>
   );
 }

@@ -3,10 +3,13 @@
 """
 from datetime import datetime
 from typing import Any
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, DateTime, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Integer, DateTime, String
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Базовый класс для всех моделей SQLAlchemy 2.0"""
+    pass
 
 
 class BaseModel(Base):
@@ -14,9 +17,9 @@ class BaseModel(Base):
 
     __abstract__ = True
 
-    id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}(id={self.id})>"

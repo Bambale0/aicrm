@@ -2,7 +2,7 @@
 Pydantic схемы для email API
 """
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class EmailAttachment(BaseModel):

@@ -10,6 +10,7 @@ from ...models.automation import TriggerEvent, EntityType
 from ...services.automation.automation_service import AutomationService
 from ...services.avito_handler import AvitoCommunicationHandler
 from ...services.ai.client import AIClient
+from ...services.task import TaskService
 
 logger = logging.getLogger(__name__)
 
@@ -275,18 +276,27 @@ class AvitoIntegrationService:
 
             send_result = await self.avito_handler.send_message(chat_id, escalation_message)
 
-            # Создаем задачу для специалиста
+            # Создаем задачу для специалиста через TaskService
             task_data = {
                 "title": f"Avito эскалация: {chat_id}",
                 "description": f"Сложный запрос от клиента в чате {chat_id}. "
                               f"Причина эскалации: {escalation_reason}. "
                               f"Сообщение: {message_text}",
                 "priority": "high",
+                "assigned_to": None,  # Назначить ответственному менеджеру
+                "deadline": None,  # Без дедлайна, но с высоким приоритетом
                 "source": "avito_integration"
             }
 
-            # TODO: Интеграция с TaskService для создания задачи
-            logger.info(f"Escalation task created for chat {chat_id}")
+            # Создаем задачу через TaskService
+            task_service = TaskService(self.db)
+            created_task = task_service.create_task(
+                self.db,
+                task_data,
+                created_by=1  # Системный пользователь
+            )
+
+            logger.info(f"Escalation task created for chat {chat_id}: task_id={created_task.id}")
 
             return {
                 "success": True,

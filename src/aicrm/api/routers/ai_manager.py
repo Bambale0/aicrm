@@ -15,6 +15,8 @@ from ..schemas.ai_manager import (
     ProductCreate, ProductUpdate, ProductResponse,
     CategoryResponse
 )
+from ..schemas.auth import User as UserSchema
+from .auth import get_current_user
 
 router = APIRouter(
     prefix="/ai-manager",
@@ -38,7 +40,7 @@ router = APIRouter(
     summary="Получить все AI промпты",
     description="Возвращает список всех AI промптов с их настройками"
 )
-async def get_prompts(db: Session = Depends(get_db)) -> List[AIPromptResponse]:
+async def get_prompts(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[AIPromptResponse]:
     """Получить все промпты"""
     service = AIPromptService(db)
     prompts = service.get_all_prompts()
@@ -52,7 +54,7 @@ async def get_prompts(db: Session = Depends(get_db)) -> List[AIPromptResponse]:
     summary="Получить активные AI промпты",
     description="Возвращает список активных AI промптов"
 )
-async def get_active_prompts(db: Session = Depends(get_db)) -> List[AIPromptResponse]:
+async def get_active_prompts(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[AIPromptResponse]:
     """Получить активные промпты"""
     service = AIPromptService(db)
     prompts = service.get_active_prompts()
@@ -66,7 +68,7 @@ async def get_active_prompts(db: Session = Depends(get_db)) -> List[AIPromptResp
     summary="Получить AI промпт по ID",
     description="Возвращает AI промпт по его идентификатору"
 )
-async def get_prompt(prompt_id: int, db: Session = Depends(get_db)) -> AIPromptResponse:
+async def get_prompt(prompt_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> AIPromptResponse:
     """Получить промпт по ID"""
     service = AIPromptService(db)
     prompt = service.get_prompt_by_id(prompt_id)
@@ -82,7 +84,7 @@ async def get_prompt(prompt_id: int, db: Session = Depends(get_db)) -> AIPromptR
     summary="Создать AI промпт",
     description="Создает новый AI промпт с заданными параметрами"
 )
-async def create_prompt(prompt_data: AIPromptCreate, db: Session = Depends(get_db)) -> AIPromptResponse:
+async def create_prompt(prompt_data: AIPromptCreate, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> AIPromptResponse:
     """Создать новый промпт"""
     service = AIPromptService(db)
     prompt = service.create_prompt(**prompt_data.dict())
@@ -96,7 +98,7 @@ async def create_prompt(prompt_data: AIPromptCreate, db: Session = Depends(get_d
     summary="Обновить AI промпт",
     description="Обновляет существующий AI промпт"
 )
-async def update_prompt(prompt_id: int, prompt_data: AIPromptUpdate, db: Session = Depends(get_db)) -> AIPromptResponse:
+async def update_prompt(prompt_id: int, prompt_data: AIPromptUpdate, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> AIPromptResponse:
     """Обновить промпт"""
     service = AIPromptService(db)
     prompt = service.update_prompt(prompt_id, **prompt_data.dict(exclude_unset=True))
@@ -125,7 +127,7 @@ async def delete_prompt(prompt_id: int, db: Session = Depends(get_db)):
     summary="Переключить статус AI промпта",
     description="Включает или выключает AI промпт"
 )
-async def toggle_prompt_status(prompt_id: int, db: Session = Depends(get_db)) -> AIPromptResponse:
+async def toggle_prompt_status(prompt_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> AIPromptResponse:
     """Переключить статус промпта"""
     service = AIPromptService(db)
     prompt = service.toggle_prompt_status(prompt_id)
@@ -142,7 +144,7 @@ async def toggle_prompt_status(prompt_id: int, db: Session = Depends(get_db)) ->
     summary="Получить все услуги",
     description="Возвращает список всех услуг"
 )
-async def get_services(db: Session = Depends(get_db)) -> List[ServiceResponse]:
+async def get_services(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[ServiceResponse]:
     """Получить все услуги"""
     service = ServiceService(db)
     services = service.get_all_services()
@@ -156,7 +158,7 @@ async def get_services(db: Session = Depends(get_db)) -> List[ServiceResponse]:
     summary="Получить активные услуги",
     description="Возвращает список активных услуг"
 )
-async def get_active_services(db: Session = Depends(get_db)) -> List[ServiceResponse]:
+async def get_active_services(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[ServiceResponse]:
     """Получить активные услуги"""
     service = ServiceService(db)
     services = service.get_active_services()
@@ -170,7 +172,7 @@ async def get_active_services(db: Session = Depends(get_db)) -> List[ServiceResp
     summary="Получить услугу по ID",
     description="Возвращает услугу по ее идентификатору"
 )
-async def get_service(service_id: int, db: Session = Depends(get_db)) -> ServiceResponse:
+async def get_service(service_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ServiceResponse:
     """Получить услугу по ID"""
     service = ServiceService(db)
     svc = service.get_service_by_id(service_id)
@@ -186,7 +188,7 @@ async def get_service(service_id: int, db: Session = Depends(get_db)) -> Service
     summary="Создать услугу",
     description="Создает новую услугу с заданными параметрами"
 )
-async def create_service(service_data: ServiceCreate, db: Session = Depends(get_db)) -> ServiceResponse:
+async def create_service(service_data: ServiceCreate, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ServiceResponse:
     """Создать новую услугу"""
     service = ServiceService(db)
     svc = service.create_service(**service_data.dict())
@@ -200,7 +202,7 @@ async def create_service(service_data: ServiceCreate, db: Session = Depends(get_
     summary="Обновить услугу",
     description="Обновляет существующую услугу"
 )
-async def update_service(service_id: int, service_data: ServiceUpdate, db: Session = Depends(get_db)) -> ServiceResponse:
+async def update_service(service_id: int, service_data: ServiceUpdate, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ServiceResponse:
     """Обновить услугу"""
     service = ServiceService(db)
     svc = service.update_service(service_id, **service_data.dict(exclude_unset=True))
@@ -229,7 +231,7 @@ async def delete_service(service_id: int, db: Session = Depends(get_db)):
     summary="Переключить статус услуги",
     description="Включает или выключает услугу"
 )
-async def toggle_service_status(service_id: int, db: Session = Depends(get_db)) -> ServiceResponse:
+async def toggle_service_status(service_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ServiceResponse:
     """Переключить статус услуги"""
     service = ServiceService(db)
     svc = service.toggle_service_status(service_id)
@@ -245,7 +247,7 @@ async def toggle_service_status(service_id: int, db: Session = Depends(get_db)) 
     summary="Получить категории услуг",
     description="Возвращает список уникальных категорий услуг"
 )
-async def get_service_categories(db: Session = Depends(get_db)) -> CategoryResponse:
+async def get_service_categories(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> CategoryResponse:
     """Получить категории услуг"""
     service = ServiceService(db)
     categories = service.get_categories()
@@ -260,7 +262,7 @@ async def get_service_categories(db: Session = Depends(get_db)) -> CategoryRespo
     summary="Получить все товары",
     description="Возвращает список всех товаров"
 )
-async def get_products(db: Session = Depends(get_db)) -> List[ProductResponse]:
+async def get_products(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[ProductResponse]:
     """Получить все товары"""
     service = ProductService(db)
     products = service.get_all_products()
@@ -274,7 +276,7 @@ async def get_products(db: Session = Depends(get_db)) -> List[ProductResponse]:
     summary="Получить активные товары",
     description="Возвращает список активных товаров"
 )
-async def get_active_products(db: Session = Depends(get_db)) -> List[ProductResponse]:
+async def get_active_products(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[ProductResponse]:
     """Получить активные товары"""
     service = ProductService(db)
     products = service.get_active_products()
@@ -288,7 +290,7 @@ async def get_active_products(db: Session = Depends(get_db)) -> List[ProductResp
     summary="Получить товары в наличии",
     description="Возвращает список товаров, которые есть в наличии"
 )
-async def get_in_stock_products(db: Session = Depends(get_db)) -> List[ProductResponse]:
+async def get_in_stock_products(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[ProductResponse]:
     """Получить товары в наличии"""
     service = ProductService(db)
     products = service.get_in_stock_products()
@@ -302,7 +304,7 @@ async def get_in_stock_products(db: Session = Depends(get_db)) -> List[ProductRe
     summary="Получить товар по ID",
     description="Возвращает товар по его идентификатору"
 )
-async def get_product(product_id: int, db: Session = Depends(get_db)) -> ProductResponse:
+async def get_product(product_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ProductResponse:
     """Получить товар по ID"""
     service = ProductService(db)
     product = service.get_product_by_id(product_id)
@@ -318,7 +320,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)) -> Product
     summary="Создать товар",
     description="Создает новый товар с заданными параметрами"
 )
-async def create_product(product_data: ProductCreate, db: Session = Depends(get_db)) -> ProductResponse:
+async def create_product(product_data: ProductCreate, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ProductResponse:
     """Создать новый товар"""
     service = ProductService(db)
     product = service.create_product(**product_data.dict())
@@ -332,7 +334,7 @@ async def create_product(product_data: ProductCreate, db: Session = Depends(get_
     summary="Обновить товар",
     description="Обновляет существующий товар"
 )
-async def update_product(product_id: int, product_data: ProductUpdate, db: Session = Depends(get_db)) -> ProductResponse:
+async def update_product(product_id: int, product_data: ProductUpdate, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ProductResponse:
     """Обновить товар"""
     service = ProductService(db)
     product = service.update_product(product_id, **product_data.dict(exclude_unset=True))
@@ -348,7 +350,7 @@ async def update_product(product_id: int, product_data: ProductUpdate, db: Sessi
     summary="Обновить количество товара",
     description="Обновляет количество товара на складе"
 )
-async def update_product_stock(product_id: int, stock_quantity: int, db: Session = Depends(get_db)) -> ProductResponse:
+async def update_product_stock(product_id: int, stock_quantity: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ProductResponse:
     """Обновить количество товара на складе"""
     service = ProductService(db)
     product = service.update_stock(product_id, stock_quantity)
@@ -377,7 +379,7 @@ async def delete_product(product_id: int, db: Session = Depends(get_db)):
     summary="Переключить статус товара",
     description="Включает или выключает товар"
 )
-async def toggle_product_status(product_id: int, db: Session = Depends(get_db)) -> ProductResponse:
+async def toggle_product_status(product_id: int, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> ProductResponse:
     """Переключить статус товара"""
     service = ProductService(db)
     product = service.toggle_product_status(product_id)
@@ -393,7 +395,7 @@ async def toggle_product_status(product_id: int, db: Session = Depends(get_db)) 
     summary="Получить категории товаров",
     description="Возвращает список уникальных категорий товаров"
 )
-async def get_product_categories(db: Session = Depends(get_db)) -> CategoryResponse:
+async def get_product_categories(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> CategoryResponse:
     """Получить категории товаров"""
     service = ProductService(db)
     categories = service.get_categories()
@@ -407,7 +409,7 @@ async def get_product_categories(db: Session = Depends(get_db)) -> CategoryRespo
     summary="Получить товары с низким остатком",
     description="Возвращает список товаров с низким остатком на складе"
 )
-async def get_low_stock_products(threshold: int = 10, db: Session = Depends(get_db)) -> List[ProductResponse]:
+async def get_low_stock_products(threshold: int = 10, db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[ProductResponse]:
     """Получить товары с низким остатком"""
     service = ProductService(db)
     products = service.get_low_stock_products(threshold)
@@ -421,7 +423,7 @@ async def get_low_stock_products(threshold: int = 10, db: Session = Depends(get_
     summary="Получить товары, которых нет в наличии",
     description="Возвращает список товаров, которых нет в наличии"
 )
-async def get_out_of_stock_products(db: Session = Depends(get_db)) -> List[ProductResponse]:
+async def get_out_of_stock_products(db: Session = Depends(get_db), current_user: UserSchema = Depends(get_current_user)) -> List[ProductResponse]:
     """Получить товары, которых нет в наличии"""
     service = ProductService(db)
     products = service.get_out_of_stock_products()

@@ -1,7 +1,7 @@
 """
 Схемы для AI API - OpenAPI 3.0.0 compliant
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Dict, Any, Optional, List
 from ...services.ai.intent_service import IntentType
 
@@ -38,8 +38,7 @@ class AIAnalysisRequest(BaseModel):
         example="deepseek/deepseek-chat-v3.1"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "message": "Сколько стоит печать логотипа на футболке?",
                 "context": {
@@ -47,7 +46,7 @@ class AIAnalysisRequest(BaseModel):
                     "preferred_contact": "email"
                 }
             }
-        }
+        })
 
 
 class AIAnalysisResponse(BaseModel):
@@ -82,15 +81,14 @@ class AIAnalysisResponse(BaseModel):
         example=["send_price_list", "schedule_followup"]
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "intent": "question",
                 "response": "Спасибо за вопрос! Я подготовлю для вас подробный прайс-лист с ценами на печать.",
                 "needs_human_intervention": False,
                 "suggested_actions": ["send_price_list", "log_interaction"]
             }
-        }
+        })
 
 
 class AIChatRequest(BaseModel):
@@ -133,8 +131,7 @@ class AIChatRequest(BaseModel):
         example=1000
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "messages": [
                     {"role": "system", "content": "Ты эксперт по печати на текстиле"},
@@ -144,7 +141,7 @@ class AIChatRequest(BaseModel):
                 "temperature": 0.7,
                 "max_tokens": 1500
             }
-        }
+        })
 
 
 class AIChatResponse(BaseModel):
@@ -173,14 +170,13 @@ class AIChatResponse(BaseModel):
         example=247.5
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "response": "Отличный вопрос! Для печати на текстиле мы используем несколько технологий: DTG (прямая печать), вышивка, термотрансфер и шелкография. Выбор зависит от тиража, материала и требований к качеству.",
                 "model_used": "deepseek/deepseek-coder:33b-instruct",
                 "tokens_used": 156
             }
-        }
+        })
 
 
 class AIModelInfo(BaseModel):
@@ -202,8 +198,7 @@ class AIModelsResponse(BaseModel):
     models: Dict[str, AIModelInfo] = Field(..., description="Словарь доступных моделей")
     current_provider: str = Field(..., description="Текущий провайдер AI", example="openrouter")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "models": {
                     "deepseek-coder": {
@@ -215,7 +210,7 @@ class AIModelsResponse(BaseModel):
                 },
                 "current_provider": "openrouter"
             }
-        }
+        })
 
 
 class AIStatusResponse(BaseModel):
@@ -228,15 +223,14 @@ class AIStatusResponse(BaseModel):
     default_model: str = Field(..., description="Модель по умолчанию", example="deepseek/deepseek-coder:33b-instruct")
     available_models: List[str] = Field(..., description="Список доступных моделей")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "provider": "openrouter",
                 "status": "active",
                 "default_model": "deepseek/deepseek-coder:33b-instruct",
                 "available_models": ["deepseek/deepseek-coder:33b-instruct", "meta-llama/llama-3-70b-instruct"]
             }
-        }
+        })
 
 
 class AIMonthlyUsageResponse(BaseModel):
@@ -252,8 +246,7 @@ class AIMonthlyUsageResponse(BaseModel):
     unique_models: int = Field(..., description="Количество уникальных моделей", example=3)
     model_breakdown: List[Dict[str, Any]] = Field(..., description="Статистика по моделям")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "period": {
                     "year": 2025,
@@ -278,7 +271,7 @@ class AIMonthlyUsageResponse(BaseModel):
                     }
                 ]
             }
-        }
+        })
 
 
 class AIUsageHistoryResponse(BaseModel):
@@ -288,8 +281,7 @@ class AIUsageHistoryResponse(BaseModel):
 
     history: List[Dict[str, Any]] = Field(..., description="Список записей использования")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "history": [
                     {
@@ -302,4 +294,4 @@ class AIUsageHistoryResponse(BaseModel):
                     }
                 ]
             }
-        }
+        })

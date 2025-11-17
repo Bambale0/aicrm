@@ -11,6 +11,25 @@ class TestAIApi:
 
     async def test_analyze_intent_success(self, async_client: AsyncClient):
         """Тест успешного анализа намерения"""
+        # Сначала регистрируем и логинимся пользователя
+        register_data = {
+            "email": "test_ai@example.com",
+            "password": "testpass123",
+            "full_name": "Test AI User"
+        }
+
+        register_response = await async_client.post("/auth/register", json=register_data)
+        assert register_response.status_code == 200
+
+        login_data = {
+            "email": "test_ai@example.com",
+            "password": "testpass123"
+        }
+
+        login_response = await async_client.post("/auth/login/json", json=login_data)
+        assert login_response.status_code == 200
+        token = login_response.json()["access_token"]
+
         request_data = {
             "message": "Хочу заказать футболку с логотипом",
             "context": {
@@ -20,27 +39,26 @@ class TestAIApi:
         }
 
         # Мокаем AI сервис
-        mock_response = {
-            "intent": "order",
-            "confidence": 0.95,
-            "response": "Отлично! Я помогу вам оформить заказ на футболку с логотипом. Расскажите подробнее о ваших пожеланиях.",
-            "needs_human_intervention": False,
-            "suggested_actions": ["create_order", "ask_design_details"]
-        }
-
-        with patch("src.aicrm.api.routers.ai.AIIntentService") as mock_service_class:
+        with patch("src.aicrm.services.ai.intent_service.AIIntentService") as mock_service_class:
             mock_service = MagicMock()
-            mock_service.process_customer_message.return_value = mock_response
+            mock_service.analyze_intent.return_value = "order"
+            mock_service.generate_response.return_value = "Отлично! Я помогу вам оформить заказ на футболку с логотипом."
+            mock_service._get_suggested_actions.return_value = ["create_order", "ask_design_details"]
             mock_service_class.return_value = mock_service
 
-            response = await async_client.post("/analyze-intent", json=request_data)
+            with patch("src.aicrm.services.ai_usage_service.AIUsageService") as mock_usage_class:
+                mock_usage = MagicMock()
+                mock_usage.log_usage = MagicMock()
+                mock_usage_class.return_value = mock_usage
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["intent"] == "order"
-            assert data["confidence"] == 0.95
-            assert "response" in data
-            assert data["needs_human_intervention"] is False
+                response = await async_client.post("/analyze-intent", json=request_data, headers={"Authorization": f"Bearer {token}"})
+
+                assert response.status_code == 200
+                data = response.json()
+                assert data["intent"] == "order"
+                assert "response" in data
+                assert data["needs_human_intervention"] is False
+                assert "suggested_actions" in data
 
     async def test_analyze_intent_ai_error(self, async_client: AsyncClient):
         """Тест ошибки AI при анализе намерения"""
@@ -516,3 +534,141 @@ class TestAIApi:
         assert "endpoint" in usage_record
         assert "total_tokens" in usage_record
         assert "created_at" in usage_record
+
+
+class TestAIRouterUnit:
+    """Unit тесты для AI роутера с моками"""
+
+    def test_get_available_models_unit(self):
+        """Unit тест получения списка моделей"""
+        from src.aicrm.api.routers.ai import get_available_models
+
+        # Мокаем OPENROUTER_MODELS
+        with patch("src.aicrm.api.routers.ai.OPENROUTER_MODELS", [
+            {"id": "model1", "name": "Model 1", "context_length": 4096}
+        ]):
+            result = get_available_models()
+            assert result.models == [{"id": "model1", "name": "Model 1", "context_length": 4096}]
+            assert result.current_provider == "openrouter"
+
+    def test_get_ai_status_unit(self):
+        """Unit тест получения статуса AI"""
+        from src.aicrm.api.routers.ai import get_ai_status
+
+        mock_client = MagicMock()
+        mock_client.provider.value = "openrouter"
+
+        with patch("src.aicrm.api.routers.ai.UnifiedAIClient", return_value=mock_client), \
+             patch("src.aicrm.api.routers.ai.ai_config") as mock_config:
+
+            mock_config.DEFAULT_MODEL = "test-model"
+
+            result = get_ai_status(mock_client)
+            assert result.provider == "openrouter"
+            assert result.status == "active"
+            assert result.default_model == "test-model"
+            assert len(result.available_models) > 0
+
+    def test_get_monthly_usage_unit(self):
+        """Unit тест получения месячной статистики"""
+        from src.aicrm.api.routers.ai import get_monthly_usage
+
+        mock_db = MagicMock()
+        mock_usage_service = MagicMock()
+        mock_usage_service.get_monthly_usage.return_value = {
+            "total_tokens": 1000.0,
+            "total_requests": 10,
+            "unique_models": 2
+        }
+
+        with patch("src.aicrm.api.routers.ai.AIUsageService", return_value=mock_usage_service):
+            result = get_monthly_usage(year=2024, month=11, user_id=1, db=mock_db)
+            assert result.total_tokens == 1000.0
+            assert result.total_requests == 10
+            assert result.unique_models == 2
+
+    def test_get_usage_history_unit(self):
+        """Unit тест получения истории использования"""
+        from src.aicrm.api.routers.ai import get_usage_history
+
+        mock_db = MagicMock()
+        mock_usage_service = MagicMock()
+        mock_usage_service.get_usage_history.return_value = [
+            {"model_used": "model1", "total_tokens": 100}
+        ]
+
+        with patch("src.aicrm.api.routers.ai.AIUsageService", return_value=mock_usage_service):
+            result = get_usage_history(days=30, user_id=1, limit=10, db=mock_db)
+            assert len(result.history) == 1
+            assert result.history[0]["model_used"] == "model1"
+
+    def test_update_ai_settings_success(self):
+        """Unit тест успешного обновления настроек AI"""
+        from src.aicrm.api.routers.ai import update_ai_settings
+
+        mock_current_user = MagicMock()
+        mock_current_user.id = 1
+        mock_db = MagicMock()
+
+        settings = {
+            "default_model": "new-model",
+            "temperature": 0.8,
+            "max_tokens": 1000
+        }
+
+        with patch("src.aicrm.api.routers.ai.logger"):
+            result = update_ai_settings(settings, mock_current_user, mock_db)
+            assert result["success"] is True
+            assert result["updated_settings"] == settings
+
+    def test_update_ai_settings_invalid_temperature(self):
+        """Unit тест валидации температуры"""
+        from src.aicrm.api.routers.ai import update_ai_settings
+        from fastapi import HTTPException
+
+        mock_current_user = MagicMock()
+        mock_db = MagicMock()
+
+        settings = {"temperature": 3.0}  # Недопустимое значение
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ai_settings(settings, mock_current_user, mock_db)
+
+        assert exc_info.value.status_code == 400
+        assert "Температура должна быть числом от 0.0 до 2.0" in exc_info.value.detail
+
+    def test_update_ai_settings_invalid_max_tokens(self):
+        """Unit тест валидации max_tokens"""
+        from src.aicrm.api.routers.ai import update_ai_settings
+        from fastapi import HTTPException
+
+        mock_current_user = MagicMock()
+        mock_db = MagicMock()
+
+        settings = {"max_tokens": 10000}  # Недопустимое значение
+
+        with pytest.raises(HTTPException) as exc_info:
+            update_ai_settings(settings, mock_current_user, mock_db)
+
+        assert exc_info.value.status_code == 400
+        assert "Максимальное количество токенов должно быть от 1 до 8000" in exc_info.value.detail
+
+    def test_get_ai_service_dependency(self):
+        """Тест зависимости get_ai_service"""
+        from src.aicrm.api.routers.ai import get_ai_service
+
+        service = get_ai_service()
+        assert service is not None
+        # Проверяем, что возвращается экземпляр AIIntentService
+        from src.aicrm.services.ai.intent_service import AIIntentService
+        assert isinstance(service, AIIntentService)
+
+    def test_get_ai_client_dependency(self):
+        """Тест зависимости get_ai_client"""
+        from src.aicrm.api.routers.ai import get_ai_client
+
+        client = get_ai_client()
+        assert client is not None
+        # Проверяем, что возвращается экземпляр UnifiedAIClient
+        from src.aicrm.services.ai.client import UnifiedAIClient
+        assert isinstance(client, UnifiedAIClient)

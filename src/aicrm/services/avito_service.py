@@ -98,6 +98,37 @@ class AvitoValidationError(Exception):
         self.error_type = "validation"
 
 
+class AvitoCircuitBreakerError(Exception):
+    """Ошибка Circuit Breaker - сервис временно недоступен"""
+
+    def __init__(self, message: str = "Avito API временно недоступен (Circuit Breaker)", service_name: str = "avito_api"):
+        super().__init__(message)
+        self.message = message
+        self.service_name = service_name
+        self.error_type = "circuit_breaker"
+
+
+class AvitoServiceUnavailableError(Exception):
+    """Сервис Avito временно недоступен"""
+
+    def __init__(self, message: str = "Avito API временно недоступен", retry_after: int = None):
+        super().__init__(message)
+        self.message = message
+        self.retry_after = retry_after
+        self.error_type = "service_unavailable"
+
+
+class AvitoQuotaExceededError(Exception):
+    """Превышена квота API Avito"""
+
+    def __init__(self, message: str = "Превышена квота API Avito", quota_type: str = None, reset_time: str = None):
+        super().__init__(message)
+        self.message = message
+        self.quota_type = quota_type
+        self.reset_time = reset_time
+        self.error_type = "quota_exceeded"
+
+
 class AvitoClient:
     """
     HTTP клиент для работы с Avito API

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiService } from '../services/api.ts';
+import { apiService } from '../services/api';
 import {
   PaperAirplaneIcon,
   ChatBubbleLeftRightIcon,
