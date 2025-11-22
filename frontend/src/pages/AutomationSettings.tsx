@@ -117,6 +117,38 @@ export default function AutomationSettings() {
     }
   };
 
+  const handleExportProcesses = async () => {
+    try {
+      // Создаем объект для экспорта с базовой информацией о процессах
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        version: "1.0",
+        processes: processes,
+        metadata: {
+          totalProcesses: processes.length,
+          exportedBy: "AICRM System",
+          description: "Экспорт бизнес-процессов автоматизации"
+        }
+      };
+
+      // Создаем и скачиваем JSON файл
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+      const exportFileDefaultName = `aicrm-processes-export-${new Date().toISOString().split('T')[0]}.json`;
+
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+
+      alert('Процессы успешно экспортированы!');
+    } catch (error) {
+      console.error('Failed to export processes:', error);
+      alert('Ошибка при экспорте процессов');
+    }
+  };
+
   const getEntityTypeLabel = (entityType: string) => {
     switch (entityType) {
       case 'order': return 'Заказы';
@@ -382,8 +414,8 @@ export default function AutomationSettings() {
           </button>
 
           <button
-            onClick={() => {/* TODO: Export processes */}}
-            className="btn-secondary flex items-center justify-center h-20 opacity-50 cursor-not-allowed"
+            onClick={handleExportProcesses}
+            className="btn-secondary flex items-center justify-center h-20"
           >
             <div className="text-center">
               <PlayIcon className="w-6 h-6 mx-auto mb-2" />

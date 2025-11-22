@@ -102,9 +102,23 @@ export default function EmailSettings() {
 
   const testIMAP = async () => {
     try {
-      // TODO: Add IMAP test endpoint
-      setTestResults(prev => ({ ...prev, imap: true }));
-      alert('IMAP подключение успешно!');
+      const imapSettings = {
+        host: settings.imap_host,
+        port: settings.imap_port,
+        username: settings.imap_username,
+        password: settings.imap_password,
+        use_ssl: settings.imap_use_ssl
+      };
+
+      const result = await apiService.testIMAPConnection(imapSettings);
+
+      if (result.success) {
+        setTestResults(prev => ({ ...prev, imap: true }));
+        alert('IMAP подключение успешно!');
+      } else {
+        setTestResults(prev => ({ ...prev, imap: false }));
+        alert(`Ошибка IMAP подключения: ${result.message || 'Неизвестная ошибка'}`);
+      }
     } catch (error) {
       setTestResults(prev => ({ ...prev, imap: false }));
       alert('Ошибка IMAP подключения');

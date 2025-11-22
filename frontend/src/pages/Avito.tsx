@@ -61,9 +61,9 @@ export default function Avito() {
 
   const handleLinkChat = async (chatId: string, customerId: number) => {
     try {
-      // TODO: Implement Avito chat linking API
-      console.log('Link Avito chat', chatId, 'to customer', customerId);
-      alert('Функция будет реализована после добавления API');
+      await apiService.linkAvitoChatToCustomer(chatId, customerId);
+      await loadAvitoData();
+      alert('Чат связан с клиентом!');
     } catch (error) {
       console.error('Failed to link chat:', error);
       alert('Ошибка при связывании чата');
@@ -72,9 +72,9 @@ export default function Avito() {
 
   const handleUnlinkChat = async (chatId: string) => {
     try {
-      // TODO: Implement Avito chat unlinking API
-      console.log('Unlink Avito chat', chatId);
-      alert('Функция будет реализована после добавления API');
+      await apiService.unlinkAvitoChatFromCustomer(chatId);
+      await loadAvitoData();
+      alert('Связь с клиентом удалена!');
     } catch (error) {
       console.error('Failed to unlink chat:', error);
       alert('Ошибка при удалении связи');

@@ -50,17 +50,17 @@ export const AutomationToolbox: React.FC = () => {
   };
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 h-full overflow-y-auto">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Элементы автоматизации</h2>
-        <p className="text-sm text-gray-500 mt-1">Перетащите на доску</p>
+    <div className="w-64 bg-gray-800/95 border-r border-gray-700 h-full overflow-y-auto">
+      <div className="p-4 border-b border-gray-700">
+        <h2 className="text-lg font-semibold text-van-gogh-starry-night-blue">Элементы автоматизации</h2>
+        <p className="text-sm text-gray-400 mt-1">Перетащите на доску</p>
       </div>
 
       <div className="p-4 space-y-3">
         {toolboxItems.map((item) => (
           <div
             key={item.type}
-            className="border border-gray-200 rounded-lg p-3 cursor-move hover:shadow-md transition-shadow bg-white"
+            className="border border-gray-600 rounded-lg p-3 cursor-move hover:shadow-lg hover:border-van-gogh-ultramarine/50 transition-all bg-gray-700/50 hover:bg-gray-700/80"
             onDragStart={(e) => onDragStart(e, item.type)}
             draggable
           >
@@ -73,12 +73,12 @@ export const AutomationToolbox: React.FC = () => {
               </div>
 
               <div className="flex-1">
-                <div className="font-medium text-gray-900">{item.label}</div>
-                <div className="text-sm text-gray-500 mt-1">{item.description}</div>
+                <div className="font-medium text-gray-100">{item.label}</div>
+                <div className="text-sm text-gray-300 mt-1">{item.description}</div>
 
                 <div className="mt-2">
-                  <div className="text-xs text-gray-400">Примеры:</div>
-                  <div className="text-xs text-gray-600 mt-1">
+                  <div className="text-xs text-gray-500">Примеры:</div>
+                  <div className="text-xs text-gray-400 mt-1">
                     {item.examples.join(', ')}
                   </div>
                 </div>
@@ -89,16 +89,16 @@ export const AutomationToolbox: React.FC = () => {
       </div>
 
       {/* Шаблоны процессов */}
-      <div className="p-4 border-t border-gray-200">
-        <h3 className="font-medium text-gray-900 mb-3">Готовые шаблоны</h3>
+      <div className="p-4 border-t border-gray-700">
+        <h3 className="font-medium text-van-gogh-starry-night-blue mb-3">Готовые шаблоны</h3>
         <div className="space-y-2">
-          <button className="w-full text-left p-2 text-sm border border-gray-200 rounded hover:bg-gray-50">
+          <button className="w-full text-left p-2 text-sm border border-gray-600 rounded hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 transition-colors">
             🛒 Процесс заказа
           </button>
-          <button className="w-full text-left p-2 text-sm border border-gray-200 rounded hover:bg-gray-50">
+          <button className="w-full text-left p-2 text-sm border border-gray-600 rounded hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 transition-colors">
             👤 Онбординг клиента
           </button>
-          <button className="w-full text-left p-2 text-sm border border-gray-200 rounded hover:bg-gray-50">
+          <button className="w-full text-left p-2 text-sm border border-gray-600 rounded hover:bg-gray-700/50 text-gray-300 hover:text-gray-100 transition-colors">
             📧 Email кампания
           </button>
         </div>

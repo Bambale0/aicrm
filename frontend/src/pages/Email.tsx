@@ -53,7 +53,7 @@ interface EmailSettingsData {
 export default function Email() {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-  const [stats] = useState<EmailStats | null>(null);
+  const [stats, setStats] = useState<EmailStats | null>(null);
   const [emailSettings, setEmailSettings] = useState<EmailSettingsData>({
     smtp_host: '',
     smtp_port: 587,
@@ -92,13 +92,14 @@ export default function Email() {
 
   const loadEmailData = async () => {
     try {
-      const [templatesData, settingsData] = await Promise.all([
+      const [templatesData, settingsData, statsData] = await Promise.all([
         apiService.getEmailTemplates(),
         apiService.getEmailSettings(),
-        // apiService.getEmailStats() // TODO: Add when backend implements
+        apiService.getEmailStats()
       ]);
 
       setTemplates(templatesData);
+      setStats(statsData);
       // Объединяем загруженные данные с дефолтными значениями, чтобы избежать undefined
       setEmailSettings(prev => ({
         smtp_host: settingsData?.smtp_host || prev.smtp_host,
@@ -118,7 +119,6 @@ export default function Email() {
         auto_reply_enabled: settingsData?.auto_reply_enabled ?? prev.auto_reply_enabled,
         auto_reply_message: settingsData?.auto_reply_message || prev.auto_reply_message
       }));
-      // setStats(statsData);
     } catch (error) {
       console.error('Failed to load email data:', error);
     } finally {

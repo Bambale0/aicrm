@@ -1,14 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { ChartBarIcon, CpuChipIcon, ClockIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/outline';
 import { apiService } from '../services/api';
-import {
-  ChartBarIcon,
-  CpuChipIcon,
-  ClockIcon,
-  CurrencyDollarIcon,
-  ArrowPathIcon
-} from '@heroicons/react/24/outline';
 
-interface AIUsageStats {
+interface MonthlyUsage {
   period: {
     year: number;
     month: number;
@@ -27,85 +21,77 @@ interface AIUsageStats {
 }
 
 interface UsageHistoryItem {
-  date: string;
+  id: number;
+  model_used: string;
+  endpoint: string;
   total_tokens: number;
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_requests: number;
-  cost_usd?: number;
+  created_at: string;
+  request_id: string;
 }
 
-export default function AIUsage() {
-  const [monthlyStats, setMonthlyStats] = useState<AIUsageStats | null>(null);
+const AIUsage: React.FC = () => {
+  const [monthlyUsage, setMonthlyUsage] = useState<MonthlyUsage | null>(null);
   const [usageHistory, setUsageHistory] = useState<UsageHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('current');
 
   useEffect(() => {
-    loadData();
+    loadUsageData();
   }, [selectedPeriod]);
 
-  const loadData = async () => {
+  const loadUsageData = async () => {
     try {
-      setLoading(true);
-
-      // Load monthly stats
-      const stats = await apiService.getAIUsage();
-      setMonthlyStats(stats);
-
-      // Load usage history
-      const history = await apiService.getUsageHistory();
-      setUsageHistory(history || []);
+      const [monthlyResponse, historyResponse] = await Promise.all([
+        apiService.getAIMonthlyUsage(),
+        apiService.getAIUsageHistory(30)
+      ]);
+      setMonthlyUsage(monthlyResponse);
+      setUsageHistory(historyResponse.history || []);
     } catch (error) {
-      console.error('Failed to load AI usage data:', error);
+      console.error('Error loading usage data:', error);
+      alert('Ошибка при загрузке данных использования AI');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatTokens = (tokens: number) => {
-    if (tokens >= 1000000) {
-      return `${(tokens / 1000000).toFixed(1)}M`;
-    }
-    if (tokens >= 1000) {
-      return `${(tokens / 1000).toFixed(1)}K`;
-    }
-    return tokens.toString();
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('ru-RU').format(num);
   };
 
-  const formatCurrency = (amount?: number) => {
-    if (!amount) return 'N/A';
-    return `$${amount.toFixed(2)}`;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('ru-RU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const getModelColor = (index: number) => {
-    const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500',
-      'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
-    ];
-    return colors[index % colors.length];
-  };
-
-  const calculateCost = (tokens: number, model: string) => {
-    // Rough estimation - in real app this would come from API
-    const rates: { [key: string]: { input: number; output: number } } = {
-      'gpt-4': { input: 0.03, output: 0.06 },
-      'gpt-3.5-turbo': { input: 0.0015, output: 0.002 },
-      'claude-3': { input: 0.015, output: 0.075 },
-      'default': { input: 0.002, output: 0.002 }
+  const getModelColor = (model: string) => {
+    const colors: { [key: string]: string } = {
+      'deepseek/deepseek-chat-v3.1': 'bg-blue-500',
+      'moonshotai/kimi-k2': 'bg-green-500',
+      'openai/gpt-5-nano': 'bg-purple-500',
+      'default': 'bg-gray-500'
     };
+    return colors[model] || colors.default;
+  };
 
-    const rate = rates[model] || rates.default;
-    // Assuming 70% completion tokens, 30% prompt tokens
-    const promptCost = (tokens * 0.3) * rate.input / 1000;
-    const completionCost = (tokens * 0.7) * rate.output / 1000;
-    return promptCost + completionCost;
+  const getEndpointLabel = (endpoint: string) => {
+    switch (endpoint) {
+      case 'analyze-intent': return 'Анализ намерений';
+      case 'chat': return 'Чат';
+      case 'generate-response': return 'Генерация ответа';
+      default: return endpoint;
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -114,89 +100,79 @@ export default function AIUsage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Статистика AI</h1>
-          <p className="text-gray-600 mt-2">Мониторинг использования ИИ и расходов</p>
+          <h1 className="text-2xl font-bold text-gray-900">Статистика использования ИИ</h1>
+          <p className="text-gray-600">Мониторинг использования токенов и запросов к AI</p>
         </div>
-        <button
-          onClick={loadData}
-          className="btn-secondary flex items-center"
-        >
-          <ArrowPathIcon className="w-5 h-5 mr-2" />
-          Обновить
-        </button>
-      </div>
-
-      {/* Period Selector */}
-      <div className="card">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Период</h3>
+        <div className="flex items-center space-x-4">
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="input-field w-48"
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="current">Текущий месяц</option>
-            <option value="last">Прошлый месяц</option>
-            <option value="last3">Последние 3 месяца</option>
-            <option value="year">За год</option>
+            <option value="previous">Предыдущий месяц</option>
           </select>
+          <button
+            onClick={loadUsageData}
+            className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 flex items-center"
+          >
+            <ArrowTrendingUpIcon className="w-4 h-4 mr-2" />
+            Обновить
+          </button>
         </div>
       </div>
 
-      {/* Monthly Stats Cards */}
-      {monthlyStats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card">
+      {/* Monthly Statistics Cards */}
+      {monthlyUsage && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <ChartBarIcon className="w-8 h-8 text-blue-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-600">Всего токенов</p>
-                <p className="text-2xl font-bold text-gray-900">{formatTokens(monthlyStats.total_tokens)}</p>
-                <p className="text-xs text-gray-500">
-                  {monthlyStats.period.month_year}
-                </p>
+              <div className="flex-shrink-0">
+                <ChartBarIcon className="w-8 h-8 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Всего токенов</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(monthlyUsage.total_tokens)}</p>
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <CpuChipIcon className="w-8 h-8 text-green-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-600">Запросов</p>
-                <p className="text-2xl font-bold text-gray-900">{monthlyStats.total_requests}</p>
-                <p className="text-xs text-gray-500">
-                  {monthlyStats.unique_models} моделей
-                </p>
+              <div className="flex-shrink-0">
+                <CpuChipIcon className="w-8 h-8 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Запросов</p>
+                <p className="text-2xl font-bold text-gray-900">{formatNumber(monthlyUsage.total_requests)}</p>
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <ClockIcon className="w-8 h-8 text-yellow-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-600">Входящие токены</p>
-                <p className="text-2xl font-bold text-gray-900">{formatTokens(monthlyStats.prompt_tokens)}</p>
-                <p className="text-xs text-gray-500">
-                  {((monthlyStats.prompt_tokens / monthlyStats.total_tokens) * 100).toFixed(1)}%
-                </p>
+              <div className="flex-shrink-0">
+                <ArrowTrendingUpIcon className="w-8 h-8 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Уникальных моделей</p>
+                <p className="text-2xl font-bold text-gray-900">{monthlyUsage.unique_models}</p>
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <CurrencyDollarIcon className="w-8 h-8 text-purple-600 mr-3" />
-              <div>
-                <p className="text-sm text-gray-600">Расходы (примерно)</p>
+              <div className="flex-shrink-0">
+                <ClockIcon className="w-8 h-8 text-orange-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Среднее на запрос</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(monthlyStats.model_breakdown.reduce((sum, model) =>
-                    sum + calculateCost(model.tokens, model.model), 0
-                  ))}
-                </p>
-                <p className="text-xs text-gray-500">
-                  На основе тарифов
+                  {monthlyUsage.total_requests > 0
+                    ? formatNumber(Math.round(monthlyUsage.total_tokens / monthlyUsage.total_requests))
+                    : 0
+                  }
                 </p>
               </div>
             </div>
@@ -204,138 +180,131 @@ export default function AIUsage() {
         </div>
       )}
 
-      {/* Model Breakdown */}
-      {monthlyStats && monthlyStats.model_breakdown.length > 0 && (
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Использование по моделям</h3>
-          <div className="space-y-3">
-            {monthlyStats.model_breakdown.map((model, index) => {
-              const percentage = (model.tokens / monthlyStats.total_tokens) * 100;
-              return (
-                <div key={model.model} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-4 h-4 rounded ${getModelColor(index)}`}></div>
-                    <div>
-                      <p className="font-medium text-gray-900">{model.model}</p>
-                      <p className="text-sm text-gray-600">
-                        {model.requests} запросов • {formatTokens(model.tokens)} токенов
-                      </p>
+      {/* Token Distribution */}
+      {monthlyUsage && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Распределение токенов</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{formatNumber(monthlyUsage.prompt_tokens)}</div>
+              <div className="text-sm text-gray-600">Токенов запроса</div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full"
+                  style={{
+                    width: monthlyUsage.total_tokens > 0
+                      ? `${(monthlyUsage.prompt_tokens / monthlyUsage.total_tokens) * 100}%`
+                      : '0%'
+                  }}
+                ></div>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{formatNumber(monthlyUsage.completion_tokens)}</div>
+              <div className="text-sm text-gray-600">Токенов ответа</div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-green-600 h-2 rounded-full"
+                  style={{
+                    width: monthlyUsage.total_tokens > 0
+                      ? `${(monthlyUsage.completion_tokens / monthlyUsage.total_tokens) * 100}%`
+                      : '0%'
+                  }}
+                ></div>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">{formatNumber(monthlyUsage.total_tokens)}</div>
+              <div className="text-sm text-gray-600">Всего токенов</div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                <div className="bg-gray-900 h-2 rounded-full w-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Usage History */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">История использования</h3>
+          <p className="text-sm text-gray-600 mt-1">Последние 30 дней</p>
+        </div>
+
+        <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+          {usageHistory.length === 0 ? (
+            <div className="px-6 py-8 text-center text-gray-500">
+              История использования пуста
+            </div>
+          ) : (
+            usageHistory.map((item) => (
+              <div key={item.id} className="px-6 py-4 hover:bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-3 h-3 rounded-full ${getModelColor(item.model_used)}`}></div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-1">
+                        <span className="text-sm font-medium text-gray-900">{item.model_used}</span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {getEndpointLabel(item.endpoint)}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <span>{formatDate(item.created_at)}</span>
+                        <span>{formatNumber(item.total_tokens)} токенов</span>
+                        <span>ID: {item.request_id}</span>
+                      </div>
                     </div>
                   </div>
+
                   <div className="text-right">
-                    <p className="font-medium text-gray-900">{percentage.toFixed(1)}%</p>
-                    <p className="text-sm text-gray-600">
-                      ~{formatCurrency(calculateCost(model.tokens, model.model))}
-                    </p>
+                    <div className="text-sm font-medium text-gray-900">
+                      {formatNumber(item.total_tokens)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      токенов
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Model Usage Summary */}
+      {usageHistory.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Использование по моделям</h3>
+          <div className="space-y-3">
+            {Object.entries(
+              usageHistory.reduce((acc, item) => {
+                if (!acc[item.model_used]) {
+                  acc[item.model_used] = { tokens: 0, requests: 0 };
+                }
+                acc[item.model_used].tokens += item.total_tokens;
+                acc[item.model_used].requests += 1;
+                return acc;
+              }, {} as Record<string, { tokens: number; requests: number }>)
+            )
+              .sort(([, a], [, b]) => b.tokens - a.tokens)
+              .map(([model, stats]) => (
+                <div key={model} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${getModelColor(model)}`}></div>
+                    <span className="text-sm font-medium text-gray-900">{model}</span>
+                    <span className="text-xs text-gray-500">({stats.requests} запросов)</span>
+                  </div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {formatNumber(stats.tokens)} токенов
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}
-
-      {/* Usage History Chart Placeholder */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">История использования</h3>
-        {usageHistory.length > 0 ? (
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600 mb-4">
-              График использования токенов по дням (плейсхолдер - требуется интеграция с Chart.js или Recharts)
-            </div>
-            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Здесь будет график использования AI</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Требуется добавить библиотеку для графиков (Chart.js, Recharts, или D3.js)
-              </p>
-            </div>
-
-            {/* History Table */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Дата
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Токены
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Запросы
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Расходы
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {usageHistory.slice(0, 10).map((item, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(item.date).toLocaleDateString('ru-RU')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatTokens(item.total_tokens)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {item.total_requests}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(item.cost_usd)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">История использования недоступна</p>
-            <p className="text-sm text-gray-500 mt-1">
-              Данные по истории использования AI не найдены
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Cost Analysis */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Анализ расходов</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium text-gray-900 mb-3">Рекомендации по оптимизации</h4>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li>• Используйте GPT-3.5-turbo для простых задач</li>
-              <li>• Кешируйте частые запросы</li>
-              <li>• Оптимизируйте промпты для меньшего количества токенов</li>
-              <li>• Мониторьте использование по пользователям</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium text-gray-900 mb-3">Прогноз на следующий месяц</h4>
-            <div className="space-y-2 text-sm">
-              <p className="text-gray-600">
-                На основе текущего использования:
-              </p>
-              <p className="font-medium text-gray-900">
-                ~{formatCurrency(
-                  monthlyStats ?
-                  monthlyStats.model_breakdown.reduce((sum, model) =>
-                    sum + calculateCost(model.tokens, model.model), 0
-                  ) : 0
-                )}
-              </p>
-              <p className="text-xs text-gray-500">
-                Расчет основан на средних тарифах провайдеров
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
-}
+};
+
+export default AIUsage;

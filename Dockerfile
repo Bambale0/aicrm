@@ -26,11 +26,11 @@ FROM python:3.11-slim as runtime
 # Установка системных зависимостей для runtime
 RUN apt-get update && apt-get install -y \
     # Для работы с SQLite
-    sqlite3 \
+    #sqlite3 \
     # Для работы с PostgreSQL (если понадобится)
-    # libpq-dev \
+    libpq-dev \
     # Для работы с изображениями (если понадобится)
-    # libjpeg-dev libpng-dev \
+    libjpeg-dev libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Создание непривилегированного пользователя

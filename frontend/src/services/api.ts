@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? ''  // Use relative URLs in production (nginx will proxy to backend)
-  : window.location.protocol + '//' + window.location.hostname + ':8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL ||
+                     (process.env.NODE_ENV === 'production'
+                      ? ''  // Use relative URLs in production (nginx will proxy to backend)
+                      : window.location.protocol + '//' + window.location.hostname + ':8000');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -106,7 +107,7 @@ export interface SystemSettings {
 class ApiService {
   // AI Settings
   async getAIModels() {
-    const response = await api.get('/models');
+    const response = await api.get('/ai/models');
     const modelsData = response.data;
     // Convert dictionary to array if needed
     if (modelsData.models && typeof modelsData.models === 'object') {
@@ -116,22 +117,26 @@ class ApiService {
   }
 
   async getAIStatus() {
-    const response = await api.get<AIStatus>('/status');
+    const response = await api.get<AIStatus>('/ai/status');
     return response.data;
   }
 
   async getAIUsage() {
-    const response = await api.get<AIUsageStats>('/usage/monthly');
+    const response = await api.get<AIUsageStats>('/ai/usage/monthly');
     return response.data;
   }
 
-  async updateAISettings(settings: {
-    default_model?: string;
-    temperature?: number;
-    max_tokens?: number;
-    api_key?: string;
-  }) {
-    const response = await api.put('/settings/ai', settings);
+  async getAIMonthlyUsage() {
+    return this.getAIUsage();
+  }
+
+  async getAIUsageHistory(days: number = 30) {
+    const response = await api.get('/ai/usage/history', { params: { days } });
+    return response.data;
+  }
+
+  async updateAISettings(settings: any) {
+    const response = await api.put('/ai/settings/ai', settings);
     return response.data;
   }
 
@@ -230,7 +235,12 @@ class ApiService {
   }
 
   // Authentication
-  async register(credentials: { username: string; password: string; email?: string }) {
+  async register(credentials: {
+    username: string;
+    password: string;
+    email?: string;
+    company_name?: string;
+  }) {
     const response = await api.post('/auth/register', credentials);
     return response.data;
   }
@@ -436,86 +446,85 @@ class ApiService {
     return response.data;
   }
 
-  async getTelegramCommunications() {
-    const response = await api.get('/telegram/communications');
+  async getAutomationLogs(params?: { date_from?: string; date_to?: string; entity_type?: string; limit?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const response = await api.get(`/automation/logs?${queryParams.toString()}`);
     return response.data;
   }
 
-  async setTelegramWebhook(url: string) {
-    const response = await api.post('/telegram/set-webhook', { url });
+  // Avito chat linking
+  async linkAvitoChatToCustomer(chatId: string, customerId: number) {
+    const response = await api.post(`/avito/messenger/chats/${chatId}/link-customer`, { customer_id: customerId });
     return response.data;
   }
 
-  async deleteTelegramWebhook() {
-    const response = await api.post('/telegram/delete-webhook');
+  async unlinkAvitoChatFromCustomer(chatId: string) {
+    const response = await api.delete(`/avito/messenger/chats/${chatId}/unlink-customer`);
     return response.data;
   }
 
-  // Avito Items and Management
-  async getAvitoItems() {
-    const response = await api.get('/avito/items');
-    return response.data;
+  // System monitoring (placeholder implementations)
+  async getDetailedHealth() {
+    // TODO: Implement detailed health check endpoint
+    return {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      uptime: 3600,
+      services: {
+        database: { status: 'healthy' },
+        redis: { status: 'healthy' },
+        email: { status: 'unknown' },
+        ai: { status: 'unknown' }
+      },
+      system: {
+        cpu_percent: 15.0,
+        memory: {
+          total: 8589934592,
+          available: 4294967296,
+          percent: 50.0
+        },
+        disk: {
+          total: 107374182400,
+          free: 53687091200,
+          percent: 50.0
+        },
+        uptime: 3600
+      }
+    };
   }
 
-  async getAvitoItem(itemId: number) {
-    const response = await api.get(`/avito/items/${itemId}`);
-    return response.data;
+  async getWorkflows() {
+    // TODO: Implement workflows endpoint
+    return { workflows: [] };
   }
 
-  async getAvitoItemPerformance(itemId: number) {
-    const response = await api.get(`/avito/items/${itemId}/performance`);
-    return response.data;
-  }
+  async getMetrics() {
+    // TODO: Implement metrics endpoint
+    return `# Prometheus metrics placeholder
+# HELP cpu_usage System CPU usage
+# TYPE cpu_usage gauge
+cpu_usage 15.0
 
-  async getAvitoItemStats() {
-    const response = await api.get('/avito/items/stats');
-    return response.data;
-  }
+# HELP memory_usage System memory usage percent
+# TYPE memory_usage gauge
+memory_usage_percent 50.0
 
-  async getAvitoAnalytics() {
-    const response = await api.get('/avito/analytics');
-    return response.data;
-  }
+# HELP disk_usage System disk usage percent
+# TYPE disk_usage gauge
+disk_usage_percent 50.0
 
-  async getAvitoItemVasPrices(itemId: number) {
-    const response = await api.get(`/avito/items/${itemId}/vas-prices`);
-    return response.data;
-  }
-
-  async getAvitoItemVas(itemId: number) {
-    const response = await api.get(`/avito/items/${itemId}/vas`);
-    return response.data;
-  }
-
-  async updateAvitoItemVas(itemId: number, vasData: any) {
-    const response = await api.post(`/avito/items/${itemId}/vas`, vasData);
-    return response.data;
-  }
-
-  async updateAvitoItemPrice(itemId: number, price: number) {
-    const response = await api.put(`/avito/items/${itemId}/price`, { price });
-    return response.data;
-  }
-
-  async optimizeAvitoItemPrice(itemId: number) {
-    const response = await api.post(`/avito/items/${itemId}/optimize-price`);
-    return response.data;
-  }
-
-  async promoteAvitoItem(itemId: number, promotionData: any) {
-    const response = await api.post(`/avito/items/${itemId}/promote`, promotionData);
-    return response.data;
-  }
-
-  async getAvitoCallsStats() {
-    const response = await api.get('/avito/calls/stats');
-    return response.data;
-  }
-
-  // Avito Messenger
-  async toggleAvitoChatAi(chatId: string, enabled: boolean) {
-    const response = await api.post(`/avito/messenger/chats/${chatId}/toggle-ai`, { enabled });
-    return response.data;
+# HELP active_connections Current active connections
+# TYPE active_connections gauge
+active_connections 5
+`;
   }
 
   async getAvitoChatMessages(userId: string, chatId: string) {

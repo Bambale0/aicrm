@@ -14,6 +14,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
+import Button from '../../components/ui/Button';
 import { TriggerNode } from './nodes/TriggerNode';
 import { StageNode } from './nodes/StageNode';
 import { ActionNode } from './nodes/ActionNode';
@@ -179,7 +180,7 @@ export const AutomationBoard: React.FC<AutomationBoardProps> = ({
   }, [nodes, activeNodes]);
 
   return (
-    <div className="flex h-full bg-van-gogh-wheat-field/10">
+    <div className="flex h-full bg-gray-900/95">
       {/* Панель инструментов - скрывается на мобильных */}
       <div className={`hidden lg:block ${showToolbox ? 'w-64' : 'w-0'} transition-all duration-300 overflow-hidden`}>
         <AutomationToolbox />
@@ -189,28 +190,31 @@ export const AutomationBoard: React.FC<AutomationBoardProps> = ({
       <div className="flex-1 relative min-w-0">
         {/* Мобильные кнопки управления панелями */}
         <div className="lg:hidden absolute top-4 left-4 z-20 flex gap-2">
-          <button
+          <Button
             onClick={() => setShowToolbox(!showToolbox)}
-            className="px-3 py-2 bg-van-gogh-ultramarine text-white rounded-lg hover:bg-van-gogh-vermilion transition-colors shadow-lg text-sm"
+            variant="primary"
+            className="text-sm"
           >
             🧰 {showToolbox ? 'Скрыть' : 'Инструменты'}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setShowProperties(!showProperties)}
-            className="px-3 py-2 bg-van-gogh-chrome-green text-white rounded-lg hover:bg-van-gogh-vermilion transition-colors shadow-lg text-sm"
+            variant="secondary"
+            className="text-sm"
           >
             ⚙️ {showProperties ? 'Скрыть' : 'Свойства'}
-          </button>
+          </Button>
         </div>
 
         {/* Мобильная панель инструментов (оверлей) */}
         {showToolbox && (
-          <div className="lg:hidden absolute top-16 left-4 z-20 bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-xs">
+          <div className="lg:hidden absolute top-16 left-4 z-20 card p-4 max-w-xs">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900">Инструменты</h3>
+              <h3 className="font-semibold text-van-gogh-starry-night-blue">Инструменты</h3>
               <button
                 onClick={() => setShowToolbox(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors"
+                aria-label="Закрыть"
               >
                 ✕
               </button>
@@ -280,7 +284,7 @@ export const AutomationBoard: React.FC<AutomationBoardProps> = ({
       </div>
 
       {/* Панель свойств - скрывается на мобильных */}
-      <div className={`hidden lg:block ${showProperties ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-l bg-white`}>
+      <div className={`hidden lg:block ${showProperties ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-l border-gray-700 bg-gray-800/95`}>
         <div className="h-full overflow-y-auto">
           <AutomationProperties
             selectedNode={selectedNode}
@@ -302,12 +306,13 @@ export const AutomationBoard: React.FC<AutomationBoardProps> = ({
 
       {/* Мобильная панель свойств (оверлей) */}
       {showProperties && (
-        <div className="lg:hidden fixed top-0 right-0 z-30 h-full w-full sm:w-80 bg-white shadow-lg border-l border-gray-200 overflow-y-auto">
-          <div className="flex items-center justify-between p-4 border-b">
-            <h3 className="font-semibold text-gray-900">Свойства</h3>
+        <div className="lg:hidden fixed top-0 right-0 z-30 h-full w-full sm:w-80 card overflow-y-auto">
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <h3 className="font-semibold text-van-gogh-starry-night-blue">Свойства</h3>
             <button
               onClick={() => setShowProperties(false)}
-              className="text-gray-500 hover:text-gray-700 text-xl"
+              className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors text-xl"
+              aria-label="Закрыть"
             >
               ✕
             </button>

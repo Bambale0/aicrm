@@ -233,52 +233,53 @@ export default function Customers() {
         {filteredCustomers.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCustomers.map((customer) => (
-              <div key={customer.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+              <div key={customer.id} className="card">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <UsersIcon className="w-5 h-5 text-blue-600" />
+                    <div className="w-10 h-10 bg-van-gogh-ultramarine/20 rounded-full flex items-center justify-center">
+                      <UsersIcon className="w-5 h-5 text-van-gogh-ultramarine" />
                     </div>
                     <div className="ml-3">
-                      <h4 className="font-medium text-gray-900">{customer.name}</h4>
-                      <p className="text-sm text-gray-600">ID: {customer.id}</p>
+                      <h4 className="font-medium text-van-gogh-starry-night-blue">{customer.name}</h4>
+                      <p className="text-sm text-van-gogh-chrome-green">ID: {customer.id}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setSelectedCustomer(customer)}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                    className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors"
+                    aria-label={`Просмотреть детали клиента ${customer.name}`}
                   >
-                    <EyeIcon className="w-4 h-4" />
+                    <EyeIcon className="w-5 h-5" />
                   </button>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <EnvelopeIcon className="w-4 h-4 mr-2" />
+                  <div className="flex items-center text-sm text-van-gogh-chrome-green">
+                    <EnvelopeIcon className="w-4 h-4 mr-2 text-van-gogh-vermilion" />
                     {customer.email}
                   </div>
 
                   {customer.phone && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <PhoneIcon className="w-4 h-4 mr-2" />
+                    <div className="flex items-center text-sm text-van-gogh-chrome-green">
+                      <PhoneIcon className="w-4 h-4 mr-2 text-van-gogh-vermilion" />
                       {customer.phone}
                     </div>
                   )}
 
                   {customer.address && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPinIcon className="w-4 h-4 mr-2" />
+                    <div className="flex items-center text-sm text-van-gogh-chrome-green">
+                      <MapPinIcon className="w-4 h-4 mr-2 text-van-gogh-vermilion" />
                       {customer.address}
                     </div>
                   )}
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <div className="flex justify-between text-xs text-gray-500">
+                <div className="mt-3 pt-3 border-t border-gray-700/50">
+                  <div className="flex justify-between text-xs text-gray-400">
                     <span>Заказов: {customer.orders_count || 0}</span>
                     <span>Потрачено: ₽{customer.total_spent || 0}</span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-400 mt-1">
                     Создан: {new Date(customer.created_at).toLocaleDateString('ru-RU')}
                   </div>
                 </div>
@@ -287,9 +288,9 @@ export default function Customers() {
           </div>
         ) : (
           <div className="text-center py-8">
-            <UsersIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">Клиенты не найдены</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <UsersIcon className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+            <p className="text-van-gogh-chrome-green">Клиенты не найдены</p>
+            <p className="text-sm text-gray-400 mt-1">
               {searchQuery ? 'Попробуйте изменить поисковый запрос' : 'Добавьте первого клиента'}
             </p>
           </div>
@@ -298,13 +299,14 @@ export default function Customers() {
 
       {/* Customer Details Modal */}
       {selectedCustomer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Детали клиента</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue">Детали клиента</h3>
               <button
                 onClick={() => setSelectedCustomer(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors"
+                aria-label="Закрыть"
               >
                 ✕
               </button>
@@ -312,77 +314,77 @@ export default function Customers() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Имя</label>
-                <p className="text-gray-900">{selectedCustomer.name}</p>
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Имя</label>
+                <p className="text-van-gogh-starry-night-blue font-medium">{selectedCustomer.name}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="text-gray-900">{selectedCustomer.email}</p>
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Email</label>
+                <p className="text-van-gogh-chrome-green">{selectedCustomer.email}</p>
               </div>
 
               {selectedCustomer.phone && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Телефон</label>
-                  <p className="text-gray-900">{selectedCustomer.phone}</p>
+                  <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Телефон</label>
+                  <p className="text-van-gogh-chrome-green">{selectedCustomer.phone}</p>
                 </div>
               )}
 
               {selectedCustomer.address && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Адрес</label>
-                  <p className="text-gray-900">{selectedCustomer.address}</p>
+                  <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Адрес</label>
+                  <p className="text-van-gogh-chrome-green">{selectedCustomer.address}</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700/50">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Заказов</label>
-                  <p className="text-gray-900">{selectedCustomer.orders_count || 0}</p>
+                  <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Заказов</label>
+                  <p className="text-van-gogh-starry-night-blue font-medium">{selectedCustomer.orders_count || 0}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Потрачено</label>
-                  <p className="text-gray-900">₽{selectedCustomer.total_spent || 0}</p>
+                  <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Потрачено</label>
+                  <p className="text-van-gogh-vermilion font-medium">₽{selectedCustomer.total_spent || 0}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Создан</label>
-                  <p className="text-xs text-gray-600">
+                  <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Создан</label>
+                  <p className="text-xs text-gray-400">
                     {new Date(selectedCustomer.created_at).toLocaleString('ru-RU')}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Обновлен</label>
-                  <p className="text-xs text-gray-600">
+                  <label className="block text-sm font-medium text-van-gogh-chrome-green mb-1">Обновлен</label>
+                  <p className="text-xs text-gray-400">
                     {new Date(selectedCustomer.updated_at).toLocaleString('ru-RU')}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-between mt-6">
-              <button
+            <div className="flex justify-between mt-6 pt-6 border-t border-gray-700/50">
+              <Button
                 onClick={() => handleDeleteCustomer(selectedCustomer)}
-                className="btn-danger"
+                variant="danger"
               >
                 Удалить
-              </button>
+              </Button>
               <div className="flex space-x-3">
-                <button
+                <Button
                   onClick={() => setSelectedCustomer(null)}
-                  className="btn-secondary"
+                  variant="secondary"
                 >
                   Закрыть
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleEditCustomer(selectedCustomer)}
-                  className="btn-primary flex items-center"
+                  variant="primary"
                 >
                   <PencilIcon className="w-4 h-4 mr-2" />
                   Редактировать
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -391,13 +393,14 @@ export default function Customers() {
 
       {/* Create Customer Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Добавить клиента</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue">Добавить клиента</h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors"
+                aria-label="Закрыть"
               >
                 ✕
               </button>
@@ -405,7 +408,7 @@ export default function Customers() {
 
             <form onSubmit={handleCreateCustomer} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Имя *
                 </label>
                 <input
@@ -420,7 +423,7 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Email *
                 </label>
                 <input
@@ -435,7 +438,7 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Телефон
                 </label>
                 <input
@@ -449,7 +452,7 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Адрес
                 </label>
                 <textarea
@@ -463,21 +466,22 @@ export default function Customers() {
               </div>
             </form>
 
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
+            <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-700/50">
+              <Button
                 onClick={closeModals}
-                className="btn-secondary"
+                variant="secondary"
                 disabled={submitting}
               >
                 Отмена
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleCreateCustomer}
-                disabled={submitting || !formData.name || !formData.email}
-                className="btn-primary"
+                variant="primary"
+                loading={submitting}
+                disabled={!formData.name || !formData.email}
               >
-                {submitting ? 'Создание...' : 'Создать клиента'}
-              </button>
+                Создать клиента
+              </Button>
             </div>
           </div>
         </div>
@@ -485,13 +489,14 @@ export default function Customers() {
 
       {/* Edit Customer Modal */}
       {showEditModal && editingCustomer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Редактировать клиента</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue">Редактировать клиента</h3>
               <button
                 onClick={closeModals}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors"
+                aria-label="Закрыть"
               >
                 ✕
               </button>
@@ -499,7 +504,7 @@ export default function Customers() {
 
             <form onSubmit={handleUpdateCustomer} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Имя *
                 </label>
                 <input
@@ -514,7 +519,7 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Email *
                 </label>
                 <input
@@ -529,7 +534,7 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Телефон
                 </label>
                 <input
@@ -543,7 +548,7 @@ export default function Customers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-van-gogh-chrome-green mb-2">
                   Адрес
                 </label>
                 <textarea
@@ -557,21 +562,22 @@ export default function Customers() {
               </div>
             </form>
 
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
+            <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-700/50">
+              <Button
                 onClick={closeModals}
-                className="btn-secondary"
+                variant="secondary"
                 disabled={submitting}
               >
                 Отмена
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleUpdateCustomer}
-                disabled={submitting || !formData.name || !formData.email}
-                className="btn-primary"
+                variant="primary"
+                loading={submitting}
+                disabled={!formData.name || !formData.email}
               >
-                {submitting ? 'Сохранение...' : 'Сохранить изменения'}
-              </button>
+                Сохранить изменения
+              </Button>
             </div>
           </div>
         </div>
@@ -579,44 +585,45 @@ export default function Customers() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && deletingCustomer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Подтверждение удаления</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="card max-w-sm w-full">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue">Подтверждение удаления</h3>
               <button
                 onClick={closeModals}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors"
+                aria-label="Закрыть"
               >
                 ✕
               </button>
             </div>
 
-            <div className="flex items-center mb-4">
-              <ExclamationTriangleIcon className="w-12 h-12 text-red-600 mr-4" />
+            <div className="flex items-center mb-6">
+              <ExclamationTriangleIcon className="w-12 h-12 text-van-gogh-vermilion mr-4 flex-shrink-0" />
               <div>
-                <p className="text-gray-900 font-medium">Удалить клиента?</p>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-van-gogh-starry-night-blue font-medium">Удалить клиента?</p>
+                <p className="text-sm text-van-gogh-chrome-green mt-1">
                   Вы уверены, что хотите удалить клиента "{deletingCustomer.name}"?
                   Это действие нельзя отменить.
                 </p>
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3">
-              <button
+            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-700/50">
+              <Button
                 onClick={closeModals}
-                className="btn-secondary"
+                variant="secondary"
                 disabled={submitting}
               >
                 Отмена
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={confirmDeleteCustomer}
-                disabled={submitting}
-                className="btn-danger"
+                variant="danger"
+                loading={submitting}
               >
-                {submitting ? 'Удаление...' : 'Удалить'}
-              </button>
+                Удалить
+              </Button>
             </div>
           </div>
         </div>

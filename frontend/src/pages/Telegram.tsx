@@ -30,6 +30,13 @@ interface TelegramStats {
   ai_responses: number;
 }
 
+interface Customer {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 export default function Telegram() {
   const navigate = useNavigate();
   const [chats, setChats] = useState<TelegramChat[]>([]);
@@ -38,6 +45,9 @@ export default function Telegram() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedChat, setSelectedChat] = useState<TelegramChat | null>(null);
   const [botStatus, setBotStatus] = useState<'running' | 'stopped' | 'unknown'>('unknown');
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [chatToLink, setChatToLink] = useState<string | null>(null);
 
   useEffect(() => {
     loadTelegramData();
@@ -111,6 +121,30 @@ export default function Telegram() {
     } catch (error) {
       console.error('Failed to stop bot:', error);
       alert('Ошибка при остановке бота');
+    }
+  };
+
+  const loadCustomers = async () => {
+    try {
+      const customersData = await apiService.getCustomers();
+      setCustomers(customersData);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+      alert('Ошибка при загрузке клиентов');
+    }
+  };
+
+  const openCustomerSelection = async (chatId: string) => {
+    setChatToLink(chatId);
+    await loadCustomers();
+    setShowCustomerModal(true);
+  };
+
+  const handleCustomerSelect = async (customerId: number) => {
+    if (chatToLink) {
+      await handleLinkChat(chatToLink, customerId);
+      setShowCustomerModal(false);
+      setChatToLink(null);
     }
   };
 
@@ -264,7 +298,7 @@ export default function Telegram() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleLinkChat(chat.chat_id, 1)} // TODO: Add customer selection
+                        onClick={() => openCustomerSelection(chat.chat_id)}
                         className="p-2 text-green-600 hover:text-green-700 rounded-lg hover:bg-green-50"
                         title="Связать с клиентом"
                       >
@@ -478,6 +512,70 @@ export default function Telegram() {
               <button className="btn-primary flex items-center">
                 <PaperAirplaneIcon className="w-4 h-4 mr-2" />
                 Отправить сообщение
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Selection Modal */}
+      {showCustomerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Выберите клиента для связи с чатом
+              </h3>
+              <button
+                onClick={() => setShowCustomerModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {customers.length > 0 ? (
+                customers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-colors"
+                    onClick={() => handleCustomerSelect(customer.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <UserGroupIcon className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">{customer.name}</h4>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            {customer.email && <p>Email: {customer.email}</p>}
+                            {customer.phone && <p>Телефон: {customer.phone}</p>}
+                          </div>
+                        </div>
+                      </div>
+                      <LinkIcon className="w-5 h-5 text-blue-600" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <UserGroupIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Клиенты не найдены</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Сначала добавьте клиентов в систему
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6 pt-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowCustomerModal(false)}
+                className="btn-secondary"
+              >
+                Отмена
               </button>
             </div>
           </div>

@@ -191,7 +191,7 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
     return (
       <button
         onClick={onToggle}
-        className="absolute top-4 left-4 z-10 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors shadow-lg"
+        className="absolute top-4 left-4 z-10 bg-van-gogh-ultramarine text-white px-4 py-2 rounded-lg hover:bg-van-gogh-vermilion transition-colors shadow-lg"
       >
         🏃 Режим симуляции
       </button>
@@ -199,12 +199,13 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
   }
 
   return (
-    <div className="absolute top-4 left-4 z-10 bg-white p-4 rounded-lg shadow-lg border border-gray-200 max-w-md">
+    <div className="absolute top-4 left-4 z-10 card p-4 max-w-md">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-900">Режим симуляции</h3>
+        <h3 className="font-semibold text-van-gogh-starry-night-blue">Режим симуляции</h3>
         <button
           onClick={onToggle}
-          className="text-gray-500 hover:text-gray-700"
+          className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/10 transition-colors"
+          aria-label="Закрыть"
         >
           ✕
         </button>
@@ -215,7 +216,7 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
         {!isRunning && !isPaused && (
           <button
             onClick={startSimulation}
-            className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
+            className="px-3 py-2 bg-van-gogh-vermilion text-white rounded-lg hover:bg-van-gogh-vermilion/80 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl text-sm font-medium"
           >
             ▶️ Запустить
           </button>
@@ -224,7 +225,7 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
         {isRunning && (
           <button
             onClick={pauseSimulation}
-            className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
+            className="px-3 py-2 bg-van-gogh-sunflower text-white rounded-lg hover:bg-van-gogh-sunflower/80 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl text-sm font-medium"
           >
             ⏸️ Пауза
           </button>
@@ -233,7 +234,7 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
         {isPaused && (
           <button
             onClick={resumeSimulation}
-            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+            className="px-3 py-2 bg-van-gogh-ultramarine text-white rounded-lg hover:bg-van-gogh-ultramarine/80 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl text-sm font-medium"
           >
             ▶️ Продолжить
           </button>
@@ -242,7 +243,7 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
         {(isRunning || isPaused || currentStep > 0) && (
           <button
             onClick={stopSimulation}
-            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+            className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl text-sm font-medium"
           >
             ⏹️ Остановить
           </button>
@@ -250,7 +251,7 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
 
         <button
           onClick={resetSimulation}
-          className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+          className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl text-sm font-medium"
         >
           🔄 Сброс
         </button>
@@ -261,19 +262,19 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
         <button
           onClick={prevStep}
           disabled={currentStep === 0}
-          className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          className="px-2 py-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors"
         >
           ⬅️ Назад
         </button>
 
-        <span className="text-sm font-medium text-gray-900 min-w-[60px] text-center">
+        <span className="text-sm font-medium text-van-gogh-starry-night-blue min-w-[60px] text-center">
           Шаг {currentStep}
         </span>
 
         <button
           onClick={nextStep}
           disabled={isRunning}
-          className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          className="px-2 py-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition-colors"
         >
           Вперед ➡️
         </button>
@@ -281,25 +282,25 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
 
       {/* Информация о текущем шаге */}
       {currentStepInfo && (
-        <div className="mb-3 p-2 bg-blue-50 rounded border">
-          <div className="text-xs font-medium text-blue-900 mb-1">
+        <div className="mb-3 p-2 bg-van-gogh-ultramarine/10 rounded border border-van-gogh-ultramarine/20">
+          <div className="text-xs font-medium text-van-gogh-ultramarine mb-1">
             {currentStepInfo.description}
           </div>
-          <div className="text-xs text-blue-700">
+          <div className="text-xs text-gray-300">
             Активные узлы: {currentStepInfo.nodeDetails.map(node => node.label).join(', ')}
           </div>
         </div>
       )}
 
       {/* Статус */}
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-gray-400">
         {isRunning && "🏃 Симуляция выполняется..."}
         {isPaused && "⏸️ Симуляция на паузе"}
         {!isRunning && !isPaused && currentStep === 0 && "🎯 Готов к запуску"}
         {!isRunning && !isPaused && currentStep > 0 && `✅ Симуляция завершена (${currentStep} шагов)`}
       </div>
 
-      <div className="mt-2 text-xs text-gray-400">
+      <div className="mt-2 text-xs text-gray-500">
         💡 Активные узлы подсвечиваются зелёным цветом
       </div>
     </div>

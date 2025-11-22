@@ -1,0 +1,43 @@
+{
+  "name": "aicrm-monorepo",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "clean:all": "turbo run clean && rm -rf node_modules backend/node_modules frontend/node_modules",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "db:migrate": "turbo run db:migrate",
+    "db:seed": "turbo run db:seed",
+    "deploy": "turbo run deploy",
+    "docker:build": "turbo run docker:build",
+    "docker:push": "turbo run docker:push",
+    "start": "turbo run dev",
+    "format": "turbo run lint:fix",
+    "check": "turbo run lint && turbo run typecheck",
+    "pre-commit": "npm run check && npm run test"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.4"
+  },
+  "packageManager": "npm@10.0.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run pre-commit"
+    }
+  }
+}

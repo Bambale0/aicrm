@@ -1,9 +1,10 @@
 {
   "short_name": "AI CRM",
   "name": "AI CRM System",
+  "version": "1.0.1",
   "icons": [
     {
-      "src": "лого.png",
+      "src": "лого.png?v=1.0.1",
       "sizes": "192x192",
       "type": "image/png"
     }

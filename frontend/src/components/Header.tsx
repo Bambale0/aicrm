@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import React from 'react';
+import { BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
@@ -21,7 +21,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Mobile menu button */}
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 text-gray-400 hover:text-purple-400 rounded-lg hover:bg-purple-600/20 transition-all duration-300"
+              className="lg:hidden p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/20 transition-all duration-300"
             >
               <Bars3Icon className="w-6 h-6" />
             </button>
@@ -38,20 +38,20 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <button className="p-2 text-gray-400 hover:text-purple-400 rounded-lg hover:bg-purple-600/20 transition-all duration-300">
+            <button className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/20 transition-all duration-300">
               <BellIcon className="w-5 h-5" />
             </button>
 
             <div className="flex items-center space-x-2">
               <UserCircleIcon className="w-8 h-8 text-gray-400" />
-              <span className="text-sm font-medium text-gray-300">
+              <span className="text-sm font-medium text-van-gogh-chrome-green">
                 {user?.username || user?.email || 'Пользователь'}
               </span>
             </div>
 
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-red-400 rounded-lg hover:bg-red-600/20 transition-all duration-300"
+              className="p-2 text-gray-400 hover:text-van-gogh-vermilion rounded-lg hover:bg-van-gogh-vermilion/20 transition-all duration-300"
               title="Выйти"
             >
               <ArrowRightOnRectangleIcon className="w-5 h-5" />

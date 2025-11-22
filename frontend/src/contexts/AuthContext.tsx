@@ -5,6 +5,8 @@ interface User {
   id: number;
   email: string;
   username: string;
+  full_name?: string;
+  company_name?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -12,7 +14,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, password: string, email: string) => Promise<void>;
+  register: (username: string, password: string, email: string, companyName?: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -63,10 +65,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (username: string, password: string, email: string) => {
+  const register = async (username: string, password: string, email: string, companyName?: string) => {
     try {
-      await apiService.register({ username, password, email });
-      await login(email, password);
+      await apiService.register({ username, password, email, company_name: companyName });
+      // Не логинимся сразу - пользователю нужно подтвердить email
     } catch (error) {
       throw error;
     }

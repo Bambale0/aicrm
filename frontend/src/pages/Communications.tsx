@@ -71,7 +71,7 @@ export default function Communications() {
       if (searchQuery) params.search = searchQuery;
 
       const commsResponse = await apiService.getCommunications(params);
-      setCommunications(commsResponse);
+      setCommunications(Array.isArray(commsResponse) ? commsResponse : []);
 
       // Загружаем статистику
       const statsResponse = await apiService.getCommunicationStats();
@@ -177,15 +177,15 @@ export default function Communications() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">История коммуникаций</h1>
-          <p className="text-gray-600 mt-2">Объединенная история всех взаимодействий с клиентами</p>
+          <h1 className="text-2xl font-bold text-gray-900">Главная панель коммуникаций</h1>
+          <p className="text-gray-600">Объединенная история всех взаимодействий с клиентами</p>
         </div>
       </div>
 
       {/* Статистика */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="card">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <ChatBubbleLeftRightIcon className="w-8 h-8 text-blue-600 mr-3" />
               <div>
@@ -195,7 +195,7 @@ export default function Communications() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <GlobeAltIcon className="w-8 h-8 text-green-600 mr-3" />
               <div>
@@ -205,7 +205,7 @@ export default function Communications() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <PaperAirplaneIcon className="w-8 h-8 text-purple-600 mr-3" />
               <div>
@@ -215,7 +215,7 @@ export default function Communications() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <FunnelIcon className="w-8 h-8 text-orange-600 mr-3" />
               <div>
@@ -228,7 +228,7 @@ export default function Communications() {
       )}
 
       {/* Фильтры и поиск */}
-      <div className="card">
+      <div className="bg-white rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div className="lg:col-span-2">
             <input
@@ -237,14 +237,14 @@ export default function Communications() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              className="input-field"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <select
             value={selectedChannel}
             onChange={(e) => setSelectedChannel(e.target.value)}
-            className="input-field"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Все каналы</option>
             <option value="telegram">Telegram</option>
@@ -257,7 +257,7 @@ export default function Communications() {
           <select
             value={selectedDirection}
             onChange={(e) => setSelectedDirection(e.target.value)}
-            className="input-field"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Все направления</option>
             <option value="inbound">Входящие</option>
@@ -267,7 +267,7 @@ export default function Communications() {
           <select
             value={selectedSentiment}
             onChange={(e) => setSelectedSentiment(e.target.value)}
-            className="input-field"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Все настроения</option>
             <option value="positive">Положительное</option>
@@ -277,7 +277,7 @@ export default function Communications() {
 
           <button
             onClick={handleSearch}
-            className="btn-primary flex items-center justify-center"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
           >
             <MagnifyingGlassIcon className="w-5 h-5 mr-2" />
             Поиск
@@ -286,7 +286,7 @@ export default function Communications() {
       </div>
 
       {/* Таблица коммуникаций */}
-      <div className="card">
+      <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -395,14 +395,14 @@ export default function Communications() {
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="btn-secondary"
+                className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
               >
                 Предыдущая
               </button>
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                className="btn-secondary"
+                className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
               >
                 Следующая
               </button>

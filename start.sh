@@ -39,16 +39,32 @@ if ! redis-cli ping >/dev/null 2>&1; then
     sleep 2
 fi
 
+# Проверка подключения к Redis
+echo "🔗 Проверка подключения к Redis..."
+if ! redis-cli ping >/dev/null 2>&1; then
+    echo "❌ Redis недоступен. Проверьте конфигурацию."
+    exit 1
+fi
+echo "✅ Redis подключен"
+
 # 3. Запуск backend (FastAPI)
 echo "🔧 Запуск backend (FastAPI)..."
-cd /root/aicrm/src || { echo "❌ Не удалось перейти в директорию /root/aicrm/src"; exit 1; }
+cd /root/aicrm/backend/src || { echo "❌ Не удалось перейти в директорию /root/aicrm/backend/src"; exit 1; }
 
 # Установка переменных окружения для backend
 export HOST=${HOST:-0.0.0.0}
 export PORT=${PORT:-8000}
+export PYTHONPATH=/root/aicrm/backend/src:/root/aicrm/backend:$PYTHONPATH
+# export DATABASE_URL=${DATABASE_URL:-sqlite:///./aicrm.db}  # Using PostgreSQL from config
+export SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+export DEBUG=${DEBUG:-false}
+export OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+export AVITO_CLIENT_ID=${AVITO_CLIENT_ID:-}
+export AVITO_CLIENT_SECRET=${AVITO_CLIENT_SECRET:-}
+export AVITO_USER_ID=${AVITO_USER_ID:-}
 
-# Запуск FastAPI в фоне
-python3 -c "from aicrm.main import app; import uvicorn; uvicorn.run(app, host='${HOST}', port=${PORT})" &
+# Запуск FastAPI через uvicorn в фоне
+uvicorn aicrm.main:app --reload --host $HOST --port $PORT &
 BACKEND_PID=$!
 echo "📝 Backend PID: $BACKEND_PID"
 
@@ -69,7 +85,7 @@ unset HOST
 export PORT=3000
 
 # Запуск React dev server в фоне
-npm start &
+npm run dev &
 FRONTEND_PID=$!
 echo "📝 Frontend PID: $FRONTEND_PID"
 
@@ -97,13 +113,15 @@ echo $FRONTEND_PID > /tmp/aicrm_frontend.pid
 
 echo ""
 echo "🎉 AI CRM система успешно запущена!"
-echo "📊 Backend: http://localhost:$PORT"
-echo "🎨 Frontend: http://localhost:3000"
+echo "📊 Backend (FastAPI): http://localhost:$PORT"
+echo "🎨 Frontend (React): http://localhost:3000"
 echo "📋 API Docs: http://localhost:$PORT/docs"
 echo ""
 echo "💡 Для остановки используйте: ./stop.sh"
 echo ""
 echo "📝 PID процессов сохранены в /tmp/aicrm_*.pid"
+echo ""
+echo "🔄 Для использования Turbopack запустите: ./start_turbo.sh"
 
 # Ожидание завершения (Ctrl+C для остановки)
 trap 'echo ""; echo "🛑 Получен сигнал остановки..."; ./stop.sh; exit 0' INT TERM

@@ -14,7 +14,7 @@ export const AutomationProperties: React.FC<AutomationPropertiesProps> = ({
 }) => {
   if (!selectedNode && !selectedEdge) {
     return (
-      <div className="p-6 text-center text-gray-500">
+      <div className="p-6 text-center text-gray-400">
         <div className="text-4xl mb-2">🎯</div>
         <p>Выберите элемент на доске для настройки</p>
       </div>
@@ -46,30 +46,30 @@ const NodeProperties: React.FC<{ node: Node; onUpdate: (data: any) => void }> = 
 
   return (
     <div className="p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Настройки узла</h3>
+      <h3 className="text-lg font-medium text-van-gogh-starry-night-blue mb-4">Настройки узла</h3>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Название
           </label>
           <input
             type="text"
             value={formData.label || ''}
             onChange={(e) => handleChange('label', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Описание
           </label>
           <textarea
             value={formData.description || ''}
             onChange={(e) => handleChange('description', e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine"
           />
         </div>
 
@@ -104,18 +104,30 @@ const NodeProperties: React.FC<{ node: Node; onUpdate: (data: any) => void }> = 
 
         {/* Цвет узла */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-van-gogh-starry-night-blue mb-2">
             Цвет узла
           </label>
-          <div className="flex space-x-2">
-            {['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'].map((color) => (
+          <div className="flex flex-wrap gap-3">
+            {[
+              { color: '#ef4444', name: 'Красный' },
+              { color: '#3b82f6', name: 'Синий' },
+              { color: '#10b981', name: 'Зеленый' },
+              { color: '#f59e0b', name: 'Оранжевый' },
+              { color: '#8b5cf6', name: 'Фиолетовый' },
+              { color: '#ec4899', name: 'Розовый' },
+              { color: '#6366f1', name: 'Индиго' },
+              { color: '#14b8a6', name: 'Бирюзовый' }
+            ].map(({ color, name }) => (
               <button
                 key={color}
-                className={`w-8 h-8 rounded-full border-2 ${
-                  formData.color === color ? 'border-gray-900' : 'border-gray-300'
+                className={`w-10 h-10 rounded-full border-2 transition-all duration-200 hover:scale-110 ${
+                  formData.color === color
+                    ? 'border-van-gogh-ultramarine shadow-lg shadow-van-gogh-ultramarine/30'
+                    : 'border-gray-600 hover:border-gray-400'
                 }`}
                 style={{ backgroundColor: color }}
                 onClick={() => handleChange('color', color)}
+                title={name}
               />
             ))}
           </div>
@@ -139,13 +151,13 @@ const TriggerConfig: React.FC<{ config: any; onChange: (config: any) => void }> 
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-300 mb-1">
         Тип триггера
       </label>
       <select
         value={config?.type || ''}
         onChange={(e) => onChange({ ...config, type: e.target.value })}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine"
       >
         <option value="">Выберите тип триггера</option>
         {triggerTypes.map((type) => (
@@ -173,13 +185,13 @@ const ActionConfig: React.FC<{ config: any; onChange: (config: any) => void }> =
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-300 mb-1">
           Тип действия
         </label>
         <select
           value={config?.actionType || ''}
           onChange={(e) => onChange({ ...config, actionType: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine"
         >
           <option value="">Выберите действие</option>
           {actionTypes.map((action) => (
@@ -192,10 +204,10 @@ const ActionConfig: React.FC<{ config: any; onChange: (config: any) => void }> =
 
       {config?.actionType === 'send_email' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Шаблон email
           </label>
-          <select className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine">
             <option>Приветственное письмо</option>
             <option>Уведомление о заказе</option>
             <option>Напоминание</option>
@@ -212,13 +224,13 @@ const StageConfig: React.FC<{ config: any; onChange: (config: any) => void }> = 
 }) => {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-300 mb-1">
         Автоматические действия
       </label>
-      <div className="text-sm text-gray-500 mb-2">
+      <div className="text-sm text-gray-400 mb-2">
         Здесь можно настроить роботов для этой стадии
       </div>
-      <button className="w-full px-3 py-2 border border-gray-300 rounded-lg text-left hover:bg-gray-50">
+      <button className="w-full px-3 py-2 border border-gray-600 rounded-lg text-left text-gray-300 hover:bg-gray-700/50 hover:text-gray-100 transition-colors">
         + Добавить действие
       </button>
     </div>
@@ -231,7 +243,7 @@ const ConditionConfig: React.FC<{ config: any; onChange: (config: any) => void }
 }) => {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-300 mb-1">
         Условие
       </label>
       <input
@@ -239,7 +251,7 @@ const ConditionConfig: React.FC<{ config: any; onChange: (config: any) => void }
         placeholder="Например: сумма > 10000"
         value={config?.condition || ''}
         onChange={(e) => onChange({ ...config, condition: e.target.value })}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine"
       />
     </div>
   );
@@ -251,11 +263,11 @@ const EdgeProperties: React.FC<{ edge: Edge; onUpdate: (data: any) => void }> = 
 }) => {
   return (
     <div className="p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Настройки перехода</h3>
+      <h3 className="text-lg font-medium text-van-gogh-starry-night-blue mb-4">Настройки перехода</h3>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Условие перехода
           </label>
           <input
@@ -263,19 +275,19 @@ const EdgeProperties: React.FC<{ edge: Edge; onUpdate: (data: any) => void }> = 
             placeholder="Например: автоматически или по условию"
             value={typeof edge.label === 'string' ? edge.label : ''}
             onChange={(e) => onUpdate({ label: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Задержка (секунды)
           </label>
           <input
             type="number"
             placeholder="0"
             min="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine"
           />
         </div>
       </div>

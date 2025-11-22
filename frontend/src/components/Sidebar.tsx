@@ -25,6 +25,8 @@ import {
 
 interface SidebarProps {
   onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const navigation = [
@@ -33,15 +35,17 @@ const navigation = [
   { name: 'Заказы', href: '/orders', icon: ClipboardDocumentListIcon },
   { name: 'Задачи', href: '/tasks', icon: CheckCircleIcon },
   { name: 'Пользователи', href: '/users', icon: ShieldCheckIcon },
+  { name: 'Этапы производства', href: '/production-steps', icon: WrenchScrewdriverIcon },
 
   {
     name: 'Коммуникации',
     icon: ChatBubbleLeftRightIcon,
     submenu: [
-      { name: 'История', href: '/communications', icon: DocumentTextIcon },
+      { name: 'Главная панель', href: '/communications', icon: ChatBubbleLeftRightIcon },
       { name: 'Avito', href: '/avito', icon: ShoppingBagIcon },
       { name: 'Telegram', href: '/telegram', icon: PaperAirplaneIcon },
       { name: 'Email', href: '/email/management', icon: EnvelopeIcon },
+      { name: 'Управление Email', href: '/email-management', icon: EnvelopeIcon },
     ]
   },
 
@@ -61,23 +65,25 @@ const navigation = [
     icon: Cog6ToothIcon,
     submenu: [
       { name: 'ИИ', href: '/settings/ai', icon: CpuChipIcon },
+      { name: 'Шаблоны ИИ', href: '/settings/ai/templates', icon: DocumentTextIcon },
       { name: 'ИИ Менеджер', href: '/settings/ai-manager', icon: CpuChipIcon },
       { name: 'Статистика ИИ', href: '/ai/usage', icon: CpuChipIcon },
       { name: 'Avito', href: '/settings/avito', icon: ChatBubbleLeftRightIcon },
       { name: 'Telegram', href: '/settings/telegram', icon: PaperAirplaneIcon },
       { name: 'Email', href: '/settings/email', icon: EnvelopeIcon },
       { name: 'Автоматизация', href: '/settings/automation', icon: WrenchScrewdriverIcon },
+      { name: 'Мониторинг', href: '/monitoring', icon: ShieldCheckIcon },
       { name: 'Система', href: '/settings/system', icon: Cog6ToothIcon },
     ]
   },
 ];
 
-export default function Sidebar({ onClose }: SidebarProps) {
+export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
-    'Коммуникации': false,
-    'Автоматизация': false,
+    'Коммуникации': true,
+    'Автоматизация': true,
     'Настройки': false
   });
 
@@ -136,7 +142,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
     return false;
   };
 
-  const renderMenuItem = (item: any, level: number = 0) => {
+  const renderMenuItem = (item: any, level: number = 0, isCollapsed: boolean = false) => {
     const isActive = isMenuActive(item);
     const hasSubmenu = item.submenu && item.submenu.length > 0;
     const marginLeft = level * 32; // 8 * level * 4px
@@ -147,53 +153,63 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <div>
             <button
               onClick={() => toggleMenu(item.name)}
-              className={`sidebar-link w-full text-left ${isActive ? 'active' : ''}`}
+              className={`sidebar-link w-full text-left ${isActive ? 'active' : ''} ${isCollapsed ? 'justify-center px-2' : ''}`}
               style={{ marginLeft: `${marginLeft}px` }}
               aria-expanded={expandedMenus[item.name]}
               aria-haspopup="true"
               aria-controls={`submenu-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
               role="menuitem"
               aria-label={`${item.name}, ${expandedMenus[item.name] ? 'свернуто' : 'развернуто'}`}
+              title={isCollapsed ? item.name : undefined}
             >
-              {item.icon && <item.icon className="w-5 h-5 mr-3" aria-hidden="true" />}
-              {item.name}
-              {item.shortcut && (
-                <span className="ml-2 text-xs text-gray-500" aria-hidden="true">
-                  {item.shortcut}
-                </span>
-              )}
-              {expandedMenus[item.name] ? (
-                <ChevronDownIcon className="w-4 h-4 ml-auto" aria-hidden="true" />
-              ) : (
-                <ChevronRightIcon className="w-4 h-4 ml-auto" aria-hidden="true" />
+              {item.icon && <item.icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} aria-hidden="true" />}
+              {!isCollapsed && (
+                <>
+                  {item.name}
+                  {item.shortcut && (
+                    <span className="ml-2 text-xs text-gray-500" aria-hidden="true">
+                      {item.shortcut}
+                    </span>
+                  )}
+                  {expandedMenus[item.name] ? (
+                    <ChevronDownIcon className="w-4 h-4 ml-auto" aria-hidden="true" />
+                  ) : (
+                    <ChevronRightIcon className="w-4 h-4 ml-auto" aria-hidden="true" />
+                  )}
+                </>
               )}
             </button>
-            {expandedMenus[item.name] && (
+            {expandedMenus[item.name] && !isCollapsed && (
               <ul
                 className="mt-2 space-y-1"
                 role="menu"
                 id={`submenu-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
                 aria-label={`Подменю ${item.name}`}
               >
-                {item.submenu.map((subItem: any) => renderMenuItem(subItem, level + 1))}
+                {item.submenu.map((subItem: any) => renderMenuItem(subItem, level + 1, isCollapsed))}
               </ul>
             )}
           </div>
         ) : item.href ? (
           <Link
             to={item.href}
-            className={`sidebar-link ${isActive ? 'active' : ''}`}
+            className={`sidebar-link ${isActive ? 'active' : ''} ${isCollapsed ? 'justify-center px-2' : ''}`}
             style={{ marginLeft: `${marginLeft}px` }}
             role="menuitem"
             aria-current={isActive ? 'page' : undefined}
             aria-label={`${item.name}${item.shortcut ? ` (${item.shortcut})` : ''}`}
+            title={isCollapsed ? item.name : undefined}
           >
-            {item.icon && <item.icon className="w-5 h-5 mr-3" aria-hidden="true" />}
-            {item.name}
-            {item.shortcut && (
-              <span className="ml-2 text-xs text-gray-500" aria-hidden="true">
-                {item.shortcut}
-              </span>
+            {item.icon && <item.icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} aria-hidden="true" />}
+            {!isCollapsed && (
+              <>
+                {item.name}
+                {item.shortcut && (
+                  <span className="ml-2 text-xs text-gray-500" aria-hidden="true">
+                    {item.shortcut}
+                  </span>
+                )}
+              </>
             )}
           </Link>
         ) : null}
@@ -203,31 +219,49 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
   return (
     <div
-      className="w-64 min-w-64 bg-gray-900/95 backdrop-blur-lg shadow-2xl border-r border-gray-700/50 relative overflow-hidden"
+      className={`${collapsed ? 'w-16 sidebar-collapsed' : 'w-64'} min-w-16 bg-gray-900/95 backdrop-blur-lg shadow-2xl border-r border-gray-700/50 relative overflow-hidden transition-all duration-300`}
       role="navigation"
       aria-label="Основная навигация"
     >
       {/* Background effects */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-transparent to-cyan-900/20"></div>
-      <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 to-cyan-600/5"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-van-gogh-ultramarine/20 via-transparent to-van-gogh-vermilion/20"></div>
+      <div className="absolute inset-0 bg-gradient-to-r from-van-gogh-ultramarine/5 to-van-gogh-vermilion/5"></div>
 
       <div className="relative z-10">
-        <header className="p-6 border-b border-gray-700/30">
-          <h1 className="text-2xl font-bold text-gradient bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
-            AI CRM
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">Панель управления</p>
+        <header className={`border-b border-gray-700/30 ${collapsed ? 'p-3' : 'p-6'}`}>
+          <div className="flex items-center justify-between">
+            {!collapsed && (
+              <div>
+                <h1 className="text-2xl font-bold text-gradient">
+                  AI CRM
+                </h1>
+                <p className="text-sm text-van-gogh-chrome-green mt-1">Панель управления</p>
+              </div>
+            )}
+            {collapsed && (
+              <h1 className="text-xl font-bold text-gradient text-center w-full">
+                AI
+              </h1>
+            )}
+            <button
+              onClick={onToggleCollapse}
+              className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/20 transition-colors"
+              aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
+            >
+              <ChevronRightIcon className={`w-5 h-5 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
         </header>
 
-        <nav className="px-4 py-6" aria-label="Меню навигации">
+        <nav className={`${collapsed ? 'px-2 py-4' : 'px-4 py-6'}`} aria-label="Меню навигации">
           <ul className="space-y-1" role="menubar">
-            {navigation.map((item) => renderMenuItem(item))}
+            {navigation.map((item) => renderMenuItem(item, 0, collapsed))}
           </ul>
         </nav>
 
-        <footer className="px-6 py-4 border-t border-gray-700/30 mt-auto">
-          <div className="text-xs text-gray-500">
-            Версия 0.1.0
+        <footer className={`${collapsed ? 'px-3 py-2' : 'px-6 py-4'} border-t border-gray-700/30 mt-auto`}>
+          <div className={`text-xs text-gray-500 ${collapsed ? 'text-center' : ''}`}>
+            {collapsed ? 'v0.1' : 'Версия 0.1.0'}
           </div>
         </footer>
       </div>

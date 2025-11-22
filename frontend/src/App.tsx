@@ -33,7 +33,9 @@ const TelegramSettings = lazy(() => import('./pages/TelegramSettings'));
 const AutomationSettings = lazy(() => import('./pages/AutomationSettings'));
 const AutomationBoard = lazy(() => import('./pages/AutomationBoard'));
 const SystemSettings = lazy(() => import('./pages/SystemSettings'));
+const SystemMonitoring = lazy(() => import('./pages/SystemMonitoring'));
 const EmailSettings = lazy(() => import('./pages/EmailSettings'));
+const AITemplates = lazy(() => import('./pages/AITemplates'));
 
 // Loading component
 const PageLoader = () => (
@@ -44,6 +46,7 @@ const PageLoader = () => (
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Сайдбар свернут по умолчанию
 
   return (
     <ErrorBoundary>
@@ -59,15 +62,20 @@ function App() {
                   {/* Мобильный overlay для sidebar */}
                   {sidebarOpen && (
                     <div
-                      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 lg:hidden"
+                      className="fixed inset-0 bg-black/70 backdrop-blur-md z-20 lg:hidden"
                       onClick={() => setSidebarOpen(false)}
                     />
                   )}
 
                   <div className="flex min-h-screen">
                     {/* Desktop sidebar */}
-                    <div className="hidden lg:flex lg:w-64 lg:flex-col">
-                      <Sidebar />
+                    <div className={`hidden lg:flex lg:flex-col transition-all duration-300 ${
+                      sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'
+                    }`}>
+                      <Sidebar
+                        collapsed={sidebarCollapsed}
+                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                      />
                     </div>
 
                   {/* Mobile sidebar */}
@@ -77,10 +85,10 @@ function App() {
                     <div className="relative">
                       {/* Mobile sidebar header with close button */}
                       <div className="flex items-center justify-between p-4 border-b border-gray-700/30 lg:hidden">
-                        <h2 className="text-lg font-semibold text-white">Меню</h2>
+                        <h2 className="text-lg font-semibold text-van-gogh-starry-night-blue">Меню</h2>
                         <button
                           onClick={() => setSidebarOpen(false)}
-                          className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/50 transition-colors"
+                          className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/20 transition-colors"
                           aria-label="Закрыть меню"
                         >
                           <XMarkIcon className="w-6 h-6" />
@@ -115,12 +123,14 @@ function App() {
                                 <Route path="/telegram" element={<Telegram />} />
                                 <Route path="/avito" element={<Avito />} />
                                 <Route path="/settings/ai" element={<AISettings />} />
+                                <Route path="/settings/ai/templates" element={<AITemplates />} />
                                 <Route path="/settings/ai-manager" element={<AIManagerSettings />} />
                                 <Route path="/settings/email" element={<EmailSettings />} />
                                 <Route path="/settings/avito" element={<AvitoSettings />} />
                                 <Route path="/settings/telegram" element={<TelegramSettings />} />
                                 <Route path="/settings/automation" element={<AutomationSettings />} />
                                 <Route path="/automation/board" element={<AutomationBoard />} />
+                                <Route path="/monitoring" element={<SystemMonitoring />} />
                                 <Route path="/settings/system" element={<SystemSettings />} />
                               </Routes>
                             </Suspense>

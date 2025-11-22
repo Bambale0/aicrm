@@ -1,20 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { apiService } from '../services/api';
-import {
-  UsersIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  PencilIcon,
-  EyeIcon,
-  EnvelopeIcon,
-  ShieldCheckIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline';
 
 interface User {
   id: number;
   email: string;
-  full_name?: string;
+  full_name: string;
   is_active: boolean;
   is_superuser: boolean;
   role: string;
@@ -22,185 +13,122 @@ interface User {
   updated_at: string;
 }
 
+interface UserFormData {
+  email: string;
+  password: string;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+}
 
-
-export default React.memo(function Users() {
+const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<UserFormData>({
     email: '',
-    full_name: '',
     password: '',
-    is_active: true,
-    is_superuser: false,
-    role: 'user'
+    full_name: '',
+    role: 'user',
+    is_active: true
   });
-  const [submitting, setSubmitting] = useState(false);
-
-  const loadUsers = useCallback(async () => {
-    try {
-      const data = await apiService.getUsers();
-      setUsers(data);
-    } catch (error) {
-      console.error('Failed to load users:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     loadUsers();
-  }, [loadUsers]);
+  }, []);
 
-  // Мемоизированная фильтрация пользователей
-  const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users;
-
-    const query = searchQuery.toLowerCase();
-    return users.filter(user =>
-      user.email.toLowerCase().includes(query) ||
-      (user.full_name && user.full_name.toLowerCase().includes(query)) ||
-      user.role.toLowerCase().includes(query)
-    );
-  }, [users, searchQuery]);
-
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) {
-      await loadUsers();
-      return;
+  const loadUsers = async () => {
+    try {
+      const response = await apiService.getUsers();
+      setUsers(response);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      alert('Ошибка при загрузке пользователей');
+    } finally {
+      setLoading(false);
     }
-    // Поиск на клиенте (в будущем можно добавить API поиск)
-    console.log('Searching for:', searchQuery);
-  }, [searchQuery, loadUsers]);
+  };
 
   const resetForm = () => {
     setFormData({
       email: '',
-      full_name: '',
       password: '',
-      is_active: true,
-      is_superuser: false,
-      role: 'user'
+      full_name: '',
+      role: 'user',
+      is_active: true
     });
+    setEditingUser(null);
   };
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.email || !formData.password) return;
-
-    setSubmitting(true);
-    try {
-      await apiService.createUser(formData);
-      setShowCreateModal(false);
-      resetForm();
-      loadUsers();
-    } catch (error) {
-      console.error('Failed to create user:', error);
-      alert('Ошибка при создании пользователя');
-    } finally {
-      setSubmitting(false);
-    }
+  const openCreateModal = () => {
+    resetForm();
+    setShowModal(true);
   };
 
-  const handleEditUser = useCallback((user: User) => {
-    setEditingUser(user);
+  const openEditModal = (user: User) => {
     setFormData({
       email: user.email,
-      full_name: user.full_name || '',
-      password: '', // Не показываем пароль
-      is_active: user.is_active,
-      is_superuser: user.is_superuser,
-      role: user.role
+      password: '', // Не показываем пароль при редактировании
+      full_name: user.full_name,
+      role: user.role,
+      is_active: user.is_active
     });
-    setShowEditModal(true);
-    setSelectedUser(null);
-  }, []);
+    setEditingUser(user);
+    setShowModal(true);
+  };
 
-  const handleUpdateUser = useCallback(async (e: React.FormEvent) => {
+  const closeModal = () => {
+    setShowModal(false);
+    resetForm();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser || !formData.email) return;
-
-    setSubmitting(true);
     try {
-      const updateData = { ...formData };
-      if (!updateData.password) {
-        // Не обновляем пароль, если он пустой
-        const { password, ...dataWithoutPassword } = updateData;
-        await apiService.updateUser(editingUser.id, dataWithoutPassword);
-      } else {
+      if (editingUser) {
+        // Обновление пользователя
+        const updateData = {
+          email: formData.email,
+          full_name: formData.full_name,
+          role: formData.role,
+          is_active: formData.is_active,
+          ...(formData.password && { password: formData.password })
+        };
         await apiService.updateUser(editingUser.id, updateData);
+        alert('Пользователь успешно обновлен');
+      } else {
+        // Создание нового пользователя
+        await apiService.createUser(formData);
+        alert('Пользователь успешно создан');
       }
-      setShowEditModal(false);
-      setEditingUser(null);
-      resetForm();
+      closeModal();
       loadUsers();
-    } catch (error) {
-      console.error('Failed to update user:', error);
-      alert('Ошибка при обновлении пользователя');
-    } finally {
-      setSubmitting(false);
+    } catch (error: any) {
+      console.error('Error saving user:', error);
+      alert(error.response?.data?.detail || 'Ошибка при сохранении пользователя');
     }
-  }, [editingUser, formData, loadUsers]);
+  };
 
-  const handleDeleteUser = useCallback((user: User) => {
-    setDeletingUser(user);
-    setShowDeleteModal(true);
-    setSelectedUser(null);
-  }, []);
+  const handleDelete = async (userId: number, userEmail: string) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить пользователя ${userEmail}?`)) {
+      return;
+    }
 
-  const confirmDeleteUser = useCallback(async () => {
-    if (!deletingUser) return;
-
-    setSubmitting(true);
     try {
-      await apiService.deleteUser(deletingUser.id);
-      setShowDeleteModal(false);
-      setDeletingUser(null);
+      await apiService.deleteUser(userId);
+      alert('Пользователь успешно удален');
       loadUsers();
-    } catch (error) {
-      console.error('Failed to delete user:', error);
-      alert('Ошибка при удалении пользователя');
-    } finally {
-      setSubmitting(false);
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      alert(error.response?.data?.detail || 'Ошибка при удалении пользователя');
     }
-  }, [deletingUser, loadUsers]);
-
-  const openCreateModal = useCallback(() => {
-    resetForm();
-    setShowCreateModal(true);
-  }, []);
-
-  const closeModals = useCallback(() => {
-    setShowCreateModal(false);
-    setShowEditModal(false);
-    setShowDeleteModal(false);
-    setSelectedUser(null);
-    setEditingUser(null);
-    setDeletingUser(null);
-    resetForm();
-  }, []);
-
-  // Мемоизированная функция для получения цвета роли
-  const getRoleBadgeColor = useCallback((role: string) => {
-    switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'manager': return 'bg-blue-100 text-blue-800';
-      case 'user': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  }, []);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -209,227 +137,121 @@ export default React.memo(function Users() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Пользователи</h1>
-          <p className="text-gray-600 mt-2">Управление пользователями системы</p>
+          <h1 className="text-2xl font-bold text-gray-900">Управление пользователями</h1>
+          <p className="text-gray-600">Управление пользователями системы</p>
         </div>
         <button
           onClick={openCreateModal}
-          className="btn-primary flex items-center"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
         >
-          <PlusIcon className="w-5 h-5 mr-2" />
+          <PlusIcon className="w-4 h-4 mr-2" />
           Добавить пользователя
         </button>
       </div>
 
-      {/* Search */}
-      <div className="card">
-        <div className="flex space-x-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Поиск пользователей по email, имени или роли..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              className="input-field"
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            className="btn-secondary flex items-center"
-          >
-            <MagnifyingGlassIcon className="w-5 h-5 mr-2" />
-            Поиск
-          </button>
-        </div>
-      </div>
-
-      {/* Users List */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Пользователи ({filteredUsers.length})
-          </h3>
-        </div>
-
-        {filteredUsers.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredUsers.map((user) => (
-              <div key={user.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <UsersIcon className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="ml-3">
-                      <h4 className="font-medium text-gray-900">{user.full_name || user.email}</h4>
-                      <p className="text-sm text-gray-600">ID: {user.id}</p>
-                    </div>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Пользователь
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Роль
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Статус
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Создан
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Действия
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {users.map((user) => (
+              <tr key={user.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                    <div className="text-sm text-gray-500">{user.email}</div>
                   </div>
-                  <button
-                    onClick={() => setSelectedUser(user)}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                  >
-                    <EyeIcon className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <EnvelopeIcon className="w-4 h-4 mr-2" />
-                    {user.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    user.is_superuser ? 'bg-red-100 text-red-800' :
+                    user.role === 'admin' ? 'bg-yellow-100 text-yellow-800' :
+                    user.role === 'manager' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {user.is_superuser ? 'Админ' :
+                     user.role === 'admin' ? 'Администратор' :
+                     user.role === 'manager' ? 'Менеджер' : 'Пользователь'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {user.is_active ? 'Активен' : 'Заблокирован'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(user.created_at).toLocaleDateString('ru-RU')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => openEditModal(user)}
+                      className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      <PencilIcon className="w-4 h-4 mr-1" />
+                      Изменить
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.id, user.email)}
+                      className="inline-flex items-center px-3 py-1 border border-red-300 rounded-md text-sm font-medium text-red-700 bg-white hover:bg-red-50"
+                    >
+                      <TrashIcon className="w-4 h-4 mr-1" />
+                      Удалить
+                    </button>
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(user.role)}`}>
-                      {user.role}
-                    </span>
-                    {user.is_superuser && (
-                      <ShieldCheckIcon className="w-4 h-4 text-yellow-600" title="Администратор" />
-                    )}
-                  </div>
-
-                  <div className="flex items-center text-xs text-gray-500">
-                    <span className={user.is_active ? 'text-green-600' : 'text-red-600'}>
-                      {user.is_active ? 'Активен' : 'Неактивен'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <div className="text-xs text-gray-500">
-                    Создан: {new Date(user.created_at).toLocaleDateString('ru-RU')}
-                  </div>
-                </div>
-              </div>
+                </td>
+              </tr>
             ))}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <UsersIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">Пользователи не найдены</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {searchQuery ? 'Попробуйте изменить поисковый запрос' : 'Добавьте первого пользователя'}
-            </p>
-          </div>
-        )}
+          </tbody>
+        </table>
       </div>
 
-      {/* User Details Modal */}
-      {selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Детали пользователя</h3>
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                {editingUser ? 'Редактировать пользователя' : 'Добавить пользователя'}
+              </h3>
               <button
-                onClick={() => setSelectedUser(null)}
+                onClick={closeModal}
                 className="text-gray-400 hover:text-gray-600"
               >
-                ✕
+                <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Имя</label>
-                <p className="text-gray-900">{selectedUser.full_name || 'Не указано'}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="text-gray-900">{selectedUser.email}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Роль</label>
-                <p className="text-gray-900">{selectedUser.role}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Статус</label>
-                  <p className={`text-sm ${selectedUser.is_active ? 'text-green-600' : 'text-red-600'}`}>
-                    {selectedUser.is_active ? 'Активен' : 'Неактивен'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Администратор</label>
-                  <p className={`text-sm ${selectedUser.is_superuser ? 'text-yellow-600' : 'text-gray-600'}`}>
-                    {selectedUser.is_superuser ? 'Да' : 'Нет'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Создан</label>
-                  <p className="text-xs text-gray-600">
-                    {new Date(selectedUser.created_at).toLocaleString('ru-RU')}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Обновлен</label>
-                  <p className="text-xs text-gray-600">
-                    {new Date(selectedUser.updated_at).toLocaleString('ru-RU')}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between mt-6">
-              <button
-                onClick={() => handleDeleteUser(selectedUser)}
-                className="btn-danger"
-              >
-                Удалить
-              </button>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="btn-secondary"
-                >
-                  Закрыть
-                </button>
-                <button
-                  onClick={() => handleEditUser(selectedUser)}
-                  className="btn-primary flex items-center"
-                >
-                  <PencilIcon className="w-4 h-4 mr-2" />
-                  Редактировать
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create User Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Добавить пользователя</h3>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateUser} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
+                  Email
                 </label>
                 <input
                   type="email"
+                  required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="input-field"
-                  placeholder="user@example.com"
-                  required
-                  disabled={submitting}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -439,26 +261,24 @@ export default React.memo(function Users() {
                 </label>
                 <input
                   type="text"
+                  required
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="input-field"
-                  placeholder="Иванов Иван Иванович"
-                  disabled={submitting}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Пароль *
+                  Пароль {!editingUser && '(обязательно)'}
                 </label>
                 <input
                   type="password"
+                  required={!editingUser}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="input-field"
-                  placeholder="••••••••"
-                  required
-                  disabled={submitting}
+                  placeholder={editingUser ? 'Оставьте пустым, чтобы не менять' : ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -469,8 +289,7 @@ export default React.memo(function Users() {
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="input-field"
-                  disabled={submitting}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="user">Пользователь</option>
                   <option value="manager">Менеджер</option>
@@ -481,205 +300,37 @@ export default React.memo(function Users() {
               <div className="flex items-center">
                 <input
                   type="checkbox"
-                  id="is_superuser"
-                  checked={formData.is_superuser}
-                  onChange={(e) => setFormData({ ...formData, is_superuser: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  disabled={submitting}
-                />
-                <label htmlFor="is_superuser" className="ml-2 block text-sm text-gray-900">
-                  Супер администратор
-                </label>
-              </div>
-            </form>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={closeModals}
-                className="btn-secondary"
-                disabled={submitting}
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleCreateUser}
-                disabled={submitting || !formData.email || !formData.password}
-                className="btn-primary"
-              >
-                {submitting ? 'Создание...' : 'Создать пользователя'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Редактировать пользователя</h3>
-              <button
-                onClick={closeModals}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="input-field"
-                  placeholder="user@example.com"
-                  required
-                  disabled={submitting}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Полное имя
-                </label>
-                <input
-                  type="text"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="input-field"
-                  placeholder="Иванов Иван Иванович"
-                  disabled={submitting}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Новый пароль (оставьте пустым, чтобы не менять)
-                </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="input-field"
-                  placeholder="••••••••"
-                  disabled={submitting}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Роль
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="input-field"
-                  disabled={submitting}
-                >
-                  <option value="user">Пользователь</option>
-                  <option value="manager">Менеджер</option>
-                  <option value="admin">Администратор</option>
-                </select>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="edit_is_superuser"
-                  checked={formData.is_superuser}
-                  onChange={(e) => setFormData({ ...formData, is_superuser: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  disabled={submitting}
-                />
-                <label htmlFor="edit_is_superuser" className="ml-2 block text-sm text-gray-900">
-                  Супер администратор
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="edit_is_active"
+                  id="is_active"
                   checked={formData.is_active}
                   onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  disabled={submitting}
                 />
-                <label htmlFor="edit_is_active" className="ml-2 block text-sm text-gray-900">
+                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-900">
                   Активен
                 </label>
               </div>
-            </form>
 
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={closeModals}
-                className="btn-secondary"
-                disabled={submitting}
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleUpdateUser}
-                disabled={submitting || !formData.email}
-                className="btn-primary"
-              >
-                {submitting ? 'Сохранение...' : 'Сохранить изменения'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && deletingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Подтверждение удаления</h3>
-              <button
-                onClick={closeModals}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex items-center mb-4">
-              <ExclamationTriangleIcon className="w-12 h-12 text-red-600 mr-4" />
-              <div>
-                <p className="text-gray-900 font-medium">Удалить пользователя?</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Вы уверены, что хотите удалить пользователя "{deletingUser.full_name || deletingUser.email}"?
-                  Это действие нельзя отменить.
-                </p>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  {editingUser ? 'Сохранить' : 'Создать'}
+                </button>
               </div>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={closeModals}
-                className="btn-secondary"
-                disabled={submitting}
-              >
-                Отмена
-              </button>
-              <button
-                onClick={confirmDeleteUser}
-                disabled={submitting}
-                className="btn-danger"
-              >
-                {submitting ? 'Удаление...' : 'Удалить'}
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
     </div>
   );
-});
+};
+
+export default Users;
