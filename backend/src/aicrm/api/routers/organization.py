@@ -1,10 +1,11 @@
 """
 Маршруты для управления организациями в мультитенантной системе
 """
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, constr
-from typing import Optional
+from typing import Optional, List
 
 from ...core.database import get_master_db
 from ...services.organization_service import organization_service
@@ -178,7 +179,7 @@ class OrganizationAdminResponse(BaseModel):
 
 
 # API для администрирования организаций
-@router.get("/", response_model=list[OrganizationAdminResponse])
+@router.get("/", response_model=List[OrganizationAdminResponse])
 async def list_organizations(
     skip: int = 0,
     limit: int = 100,
@@ -204,7 +205,7 @@ async def list_organizations(
 
     organizations = query.offset(skip).limit(limit).all()
 
-    return [OrganizationAdminResponse.from_orm(org) for org in organizations]
+    return [OrganizationAdminResponse.model_validate(org.__dict__) for org in organizations]
 
 
 @router.get("/{organization_id}", response_model=OrganizationAdminResponse)
