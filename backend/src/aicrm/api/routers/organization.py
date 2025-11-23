@@ -234,7 +234,7 @@ async def get_organization(
             detail="Organization not found"
         )
 
-    return OrganizationAdminResponse..model_validate(organization)
+    return OrganizationAdminResponse.model_validate(organization.__dict__)
 
 
 @router.put("/{organization_id}", response_model=OrganizationAdminResponse)
@@ -289,7 +289,7 @@ async def update_organization(
 
     logger.info(f"Organization updated: {organization.name} (ID: {organization.id})")
 
-    return OrganizationAdminResponse..model_validate(organization)
+    return OrganizationAdminResponse.model_validate(organization.__dict__)
 
 
 @router.post("/{organization_id}/activate")
