@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { apiService, AIStatus, AIUsageStats } from '../services/api';
 import {
-  CpuChipIcon,
-  Cog6ToothIcon,
-  ChartBarIcon,
-  KeyIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
   ArrowPathIcon,
-  DocumentTextIcon,
-  ChatBubbleLeftRightIcon
+  ChartBarIcon,
+  CheckCircleIcon,
+  Cog6ToothIcon,
+  CpuChipIcon,
+  ExclamationTriangleIcon,
+  KeyIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useState } from 'react';
+import { AIStatus, AIUsageStats, apiService } from '../services/api';
 
 interface AIModel {
   id: string;

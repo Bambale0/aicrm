@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MagnifyingGlassIcon, FunnelIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, FunnelIcon, InformationCircleIcon, MagnifyingGlassIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import React, { useCallback, useEffect, useState } from 'react';
 import { apiService } from '../services/api';
 
 interface AutomationLog {
@@ -25,11 +25,7 @@ const AutomationLogs: React.FC = () => {
 
   const logsPerPage = 50;
 
-  useEffect(() => {
-    loadLogs();
-  }, [currentPage, levelFilter, dateFrom, dateTo]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       const params: any = {
         skip: (currentPage - 1) * logsPerPage,
@@ -49,7 +45,11 @@ const AutomationLogs: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, levelFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const handleSearch = () => {
     setCurrentPage(1);

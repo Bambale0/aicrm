@@ -23,6 +23,10 @@ from .automation import (
 )
 from .automation_log import AutomationLog
 from .email_template import EmailTemplate
+from .plugin import (
+    Plugin, PluginAction, PluginHook, PluginPermission,
+    PluginRegistry, PluginTemplate
+)
 
 __all__ = [
     "Base",

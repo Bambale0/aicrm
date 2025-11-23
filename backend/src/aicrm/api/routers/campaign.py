@@ -15,7 +15,7 @@ from ..schemas.campaign import (
     CampaignCreate, CampaignUpdate, CampaignResponse, CampaignListResponse,
     CampaignAISettingsCreate, CampaignAISettingsUpdate, CampaignAISettingsResponse
 )
-from ..routers.auth import get_current_user
+from ...core.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/campaigns",

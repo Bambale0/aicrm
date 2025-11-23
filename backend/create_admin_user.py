@@ -16,9 +16,9 @@ from sqlalchemy.orm import sessionmaker
 
 def create_admin_user():
     """Создание администратора"""
-    # Force SQLite for consistency with app
+    # Force postgres consistency with app
     import os
-    os.environ['DATABASE_URL'] = 'sqlite:///aicrm.db'
+    osiron['DATABASE_URL'] = 'postgresql+psycopg2://aicrm_user:aicrm_password@localhost:5432/aicrm'
 
     # Создаем таблицы, если они не существуют
     engine = get_default_engine()

@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { apiService } from '../services/api';
 import {
-  DocumentTextIcon,
   ChatBubbleLeftRightIcon,
-  Cog6ToothIcon,
   CheckCircleIcon,
+  DocumentTextIcon,
   EyeIcon,
   PencilIcon
 } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useState } from 'react';
 
 interface IntentTemplate {
   id: string;

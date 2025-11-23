@@ -161,6 +161,7 @@ export default function Communications() {
   };
 
   const truncateMessage = (message: string, maxLength: number = 100) => {
+    if (!message || typeof message !== 'string') return '';
     if (message.length <= maxLength) return message;
     return message.substring(0, maxLength) + '...';
   };
@@ -220,7 +221,7 @@ export default function Communications() {
               <FunnelIcon className="w-8 h-8 text-orange-600 mr-3" />
               <div>
                 <p className="text-sm text-gray-600">Каналов</p>
-                <p className="text-2xl font-bold text-gray-900">{Object.keys(stats.channels_breakdown).length}</p>
+                <p className="text-2xl font-bold text-gray-900">{Object.keys(stats.channels_breakdown || {}).length}</p>
               </div>
             </div>
           </div>

@@ -72,10 +72,13 @@ export default function AvitoSettings() {
 
   const loadSettings = async () => {
     try {
+      // Load AI settings from OpenRouter client first
+      const aiSettings = await apiService.getAISettings();
+
       const settingsData = await apiService.getAvitoSettings();
       setSettings({
-        client_id: settingsData.client_id || '',
-        client_secret: settingsData.client_secret || '',
+        client_id: '', // Avito uses different client ID, not from OpenRouter
+        client_secret: aiSettings.openrouter_api_key || '', // Use OpenRouter API key as client secret
         access_token: settingsData.access_token || '',
         refresh_token: settingsData.refresh_token || '',
         token_expires_at: settingsData.token_expires_at || undefined,

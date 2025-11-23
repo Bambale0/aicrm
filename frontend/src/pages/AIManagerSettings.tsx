@@ -468,7 +468,7 @@ export default function AIManagerSettings() {
                 </div>
                 <p className="text-sm text-gray-600 mb-2">{prompt.category}</p>
                 <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
-                  {prompt.content.length > 200 ? `${prompt.content.substring(0, 200)}...` : prompt.content}
+                  {prompt.content && typeof prompt.content === 'string' ? (prompt.content.length > 200 ? `${prompt.content.substring(0, 200)}...` : prompt.content) : ''}
                 </p>
                 <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
                   <span>Создан: {new Date(prompt.created_at).toLocaleDateString('ru-RU')}</span>

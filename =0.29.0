@@ -1,6 +1,0 @@
-Collecting asyncpg
-  Downloading asyncpg-0.30.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.9 MB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.9/2.9 MB 11.9 MB/s eta 0:00:00
-Requirement already satisfied: async-timeout>=4.0.3 in /usr/local/lib/python3.10/dist-packages (from asyncpg) (5.0.1)
-Installing collected packages: asyncpg
-Successfully installed asyncpg-0.30.0

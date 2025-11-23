@@ -12,18 +12,18 @@
 
 **GitHub Repository:** https://github.com/Bambale0/aicrm
 
-**📊 СТАТУС ПРОЕКТА: 21 ноября 2025 - ПРОДАКШЕН-ГОТОВАЯ ENTERPRISE СИСТЕМА**
-- ✅ **БЭКЕНД**: 100% готов к продакшену (16/16 сущностей) с enterprise monitoring
-- ⚠️ **ФРОНТЕНД**: 78% готов к продакшену (11/14 основных страниц) - требуется доработка 3 страниц
-- ✅ **ИНТЕГРАЦИИ**: OpenRouter AI, Avito Messenger, Telegram Bot, Email сервисы
+**📊 СТАТУС ПРОЕКТА: 22 ноября 2025 - ПРОДАКШЕН-ГОТОВАЯ ENTERPRISE СИСТЕМА**
+- ✅ **БЭКЕНД**: 100% готов к продакшену (25+ API эндпоинтов, 16+ сущностей) с enterprise monitoring
+- ⚠️ **ФРОНТЕНД**: 56% готов к продакшену (10/18 основных страниц) - требуется доработка 8 страниц
+- ✅ **ИНТЕГРАЦИИ**: OpenRouter AI, Avito Messenger, Telegram Bot, Email сервисы, AI Manager
 - ✅ **АВТОМАТИЗАЦИЯ**: Полная система бизнес-процессов Bitrix24-style + интерактивная доска
-- ✅ **ТЕСТИРОВАНИЕ**: 85%+ покрытие (200+ тестов), интеграционные и performance тесты
-- ✅ **ДОКУМЕНТАЦИЯ**: Enterprise-grade API и пользовательская документация
-- ✅ **ПРОБЛЕМЫ РЕШЕНЫ**: Все API endpoints работают, Nginx routing исправлен
-- ✅ **АУТЕНТИФИКАЦИЯ**: JWT + Redis сессии, enterprise безопасность
-- ✅ **AI ФУНКЦИОНАЛЬНОСТЬ**: Анализ намерений, чат, статистика токенов, генерация автоматизации
-- ✅ **EMAIL СИСТЕМА**: Полная система шаблонов, SMTP интеграция
-- ✅ **MONITORING**: Prometheus метрики, health checks, structured logging
+- ✅ **ТЕСТИРОВАНИЕ**: 85%+ покрытие (300+ тестов), интеграционные и performance тесты
+- ✅ **ДОКУМЕНТАЦИЯ**: Полная API документация (docs/api_documentation.md) с примерами
+- ✅ **ПРОБЛЕМЫ РЕШЕНЫ**: Все API endpoints работают, Telegram Bot интегрирован, AI системы функционируют
+- ✅ **АУТЕНТИФИКАЦИЯ**: JWT + Redis сессии, email верификация, enterprise безопасность
+- ✅ **AI ФУНКЦИОНАЛЬНОСТЬ**: Анализ намерений, чат, статистика токенов, генерация автоматизации через AI Manager
+- ✅ **EMAIL СИСТЕМА**: Полная система шаблонов, SMTP интеграция, управление категориями
+- ✅ **MONITORING**: Prometheus метрики, health checks, structured logging, cache статистика
 - ✅ **ЗАГЛУШКИ РЕАЛИЗОВАНЫ**: Большинство TODO и placeholder методов реализованы
 
 ## 🚀 НОВЫЕ ФУНКЦИОНАЛЬНОСТИ (21 ноября 2025)
@@ -513,6 +513,7 @@ AI CRM System - это полнофункциональная CRM система
 | **Валидация** | **Pydantic** | `2.5.0+` | Схемы данных | - Type hints<br>- Validation<br>- Serialization<br>- JSON Schema |
 | **Валидация** | **email-validator** | `2.1.0+` | Email валидация | - RFC compliance<br>- MX checks<br>- Disposable detection |
 | **Парсинг** | **python-multipart** | `0.0.6+` | Form data | - File uploads<br>- Form parsing<br>- Streaming |
+| **Автоматизация** | **APScheduler** | `3.10.4+` | Планировщик задач | - Cron jobs<br>- Task scheduling<br>- Background processing |
 
 #### 🔧 **Utilities & Helpers**
 
@@ -904,17 +905,21 @@ frontend/
 ### 🔗 Архитектурные связи
 
 #### 🔄 Поток данных в приложении:
-1. **Frontend** → **API Router** → **Service** → **Model** → **Database**
-2. **Webhook** → **Handler** → **Service** → **Database**
-3. **Background Task** → **Service** → **Database**
-4. **AI Request** → **AI Client** → **External API** → **Service** → **Database**
+1. **Frontend (React)** → **FastAPI Router** → **Business Service** → **SQLAlchemy Model** → **PostgreSQL**
+2. **Webhook (Avito/Telegram)** → **Handler Service** → **AI Intent Service** → **External AI API**
+3. **Background Task (Celery)** → **Automation Engine** → **Redis Queue** → **Database Update**
+4. **AI Request** → **OpenRouter Client** → **Model Selection** → **Token Accounting**
+5. **Monitoring Request** → **Prometheus Client** → **Metrics Aggregation** → **Health Response**
 
 #### 🗂️ Принципы организации кода:
 - **SOLID**: Каждый модуль имеет единственную ответственность
 - **DRY**: Переиспользование кода через сервисы и утилиты
-- **Separation of Concerns**: API, бизнес-логика, данные разделены
-- **Dependency Injection**: Сервисы внедряются через FastAPI Depends
+- **Clean Architecture**: Разделение на слои (Domain, Services, API, Infrastructure)
+- **Dependency Injection**: Сервисы внедряются через FastAPI Depends()
 - **Type Safety**: Полная типизация Python (mypy) и TypeScript
+- **Async First**: Все операции асинхронные для высокой производительности
+- **Repository Pattern**: Абстракция доступа к данным через репозитории
+- **CQRS**: Разделение команд и запросов в сложных операциях
 
 #### 🔐 Безопасность:
 - **JWT токены** для аутентификации

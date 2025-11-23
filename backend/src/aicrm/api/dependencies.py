@@ -1,0 +1,30 @@
+"""
+API-specific dependencies that extend core dependencies
+Provides a consistent interface for all API routers
+"""
+from .core.dependencies import (
+    get_db,
+    get_current_user,
+    get_current_active_user,
+    get_current_admin_user,
+    get_token_from_header,
+    create_access_token,
+    get_current_user as get_current_user_from_core
+)
+
+# Additional convenience functions
+def get_current_user_token():
+    """Helper to get current user token - imports on demand"""
+    from .core.dependencies import get_token_from_header
+    return get_token_from_header
+
+__all__ = [
+    'get_db',
+    'get_current_user',
+    'get_current_active_user',
+    'get_current_admin_user',
+    'get_token_from_header',
+    'create_access_token',
+    'get_current_user_from_core',
+    'get_current_user_token'
+]

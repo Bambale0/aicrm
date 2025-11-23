@@ -35,7 +35,9 @@ const navigation = [
   { name: 'Заказы', href: '/orders', icon: ClipboardDocumentListIcon },
   { name: 'Задачи', href: '/tasks', icon: CheckCircleIcon },
   { name: 'Пользователи', href: '/users', icon: ShieldCheckIcon },
+  { name: 'Кампании', href: '/campaigns', icon: PaperAirplaneIcon },
   { name: 'Этапы производства', href: '/production-steps', icon: WrenchScrewdriverIcon },
+  { name: 'Организации', href: '/organizations', icon: ShieldCheckIcon },
 
   {
     name: 'Коммуникации',
@@ -46,6 +48,7 @@ const navigation = [
       { name: 'Telegram', href: '/telegram', icon: PaperAirplaneIcon },
       { name: 'Email', href: '/email/management', icon: EnvelopeIcon },
       { name: 'Управление Email', href: '/email-management', icon: EnvelopeIcon },
+      { name: 'Email шаблоны', href: '/email-templates', icon: DocumentTextIcon },
     ]
   },
 
@@ -56,6 +59,7 @@ const navigation = [
       { name: 'Доска', href: '/automation/board', icon: PuzzlePieceIcon },
       { name: 'Стадии', href: '/stages', icon: Squares2X2Icon },
       { name: 'Триггеры', href: '/triggers', icon: BoltIcon },
+      { name: 'Плагины', href: '/automation/plugins', icon: CpuChipIcon },
       { name: 'Логи', href: '/automation/logs', icon: DocumentTextIcon },
     ]
   },

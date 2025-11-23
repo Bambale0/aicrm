@@ -11,7 +11,6 @@ const Login: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
 
   const { login, register } = useAuth();
   const navigate = useNavigate();
@@ -27,7 +26,6 @@ const Login: React.FC = () => {
         navigate('/dashboard');
       } else {
         await register(username, password, email, companyName);
-        setShowVerificationMessage(true);
         // Не переходим сразу на dashboard - показываем сообщение о верификации
         setIsLogin(true); // Переключаемся на форму входа
       }

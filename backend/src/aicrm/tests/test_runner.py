@@ -21,11 +21,11 @@ def run_all_tests():
         "--tb=short",
         "--strict-markers",
         "--asyncio-mode=auto",
-        "--cov=src/aicrm",
+        "--cov=backend/src/aicrm",
         "--cov-report=term-missing",
         "--cov-report=html:htmlcov",
         "--cov-fail-under=80",
-        "src/aicrm/tests/"
+        "backend/src/aicrm/tests/"
     ]
 
     # Запуск тестов
@@ -49,7 +49,7 @@ def run_unit_tests():
         "-m", "not integration",
         "--verbose",
         "--tb=short",
-        "src/aicrm/tests/"
+        "backend/src/aicrm/tests/"
     ]
 
     return pytest.main(pytest_args)
@@ -63,7 +63,7 @@ def run_integration_tests():
         "-m", "integration",
         "--verbose",
         "--tb=short",
-        "src/aicrm/tests/"
+        "backend/src/aicrm/tests/"
     ]
 
     return pytest.main(pytest_args)
@@ -73,7 +73,7 @@ def run_specific_test(test_file):
     print(f"🎯 Запуск тестов из файла: {test_file}")
     print("-" * 40)
 
-    test_path = f"src/aicrm/tests/{test_file}"
+    test_path = f"backend/src/aicrm/tests/{test_file}"
     if not os.path.exists(test_path):
         print(f"❌ Файл {test_path} не найден")
         return 1
@@ -92,13 +92,13 @@ def run_with_coverage():
     print("-" * 40)
 
     pytest_args = [
-        "--cov=src/aicrm",
+        "--cov=backend/src/aicrm",
         "--cov-report=term-missing",
         "--cov-report=html:htmlcov",
         "--cov-report=xml",
         "--verbose",
         "--tb=short",
-        "src/aicrm/tests/"
+        "backend/src/aicrm/tests/"
     ]
 
     exit_code = pytest.main(pytest_args)

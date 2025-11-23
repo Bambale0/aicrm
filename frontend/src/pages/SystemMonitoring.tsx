@@ -49,6 +49,7 @@ interface WorkflowData {
     description: string;
     steps_count: number;
   }>;
+  // Temporarily disabled - no backend API
 }
 
 interface MetricsData {
@@ -65,14 +66,14 @@ function SystemMonitoring() {
   const loadMonitoringData = async () => {
     try {
       setRefreshing(true);
-      const [healthResponse, workflowsResponse, metricsResponse] = await Promise.all([
+      const [healthResponse, metricsResponse] = await Promise.all([
         apiService.getDetailedHealth(),
-        apiService.getWorkflows(),
         apiService.getMetrics()
       ]);
 
       setHealthData(healthResponse);
-      setWorkflows(workflowsResponse);
+      // Workflow temporarily disabled - no backend API
+      setWorkflows({ workflows: [] });
       setMetrics(metricsResponse);
     } catch (error) {
       console.error('Failed to load monitoring data:', error);

@@ -9,7 +9,7 @@ from ...core.dependencies import get_db
 from ...services.ai.intent_service import AIIntentService, IntentType
 from ...services.ai.client import UnifiedAIClient
 from ...services.ai_usage_service import AIUsageService
-from ...api.routers.auth import get_current_user
+from ...core.dependencies import get_current_user
 from ...utils.logging import get_logger
 from ..schemas.auth import User
 from ..schemas.ai import (
@@ -18,7 +18,6 @@ from ..schemas.ai import (
 )
 
 router = APIRouter(
-    prefix="/ai",
     tags=["AI"],
     responses={
         400: {"description": "Bad Request - Неверные параметры запроса"},
@@ -27,6 +26,7 @@ router = APIRouter(
         404: {"description": "Not Found - Ресурс не найден"},
         422: {"description": "Validation Error - Ошибка валидации данных"},
         500: {"description": "Internal Server Error - Внутренняя ошибка сервера"},
+        502: {"description": "Bad Gateway - Ошибка внешнего сервиса"},
         502: {"description": "Bad Gateway - Ошибка внешнего сервиса"},
         503: {"description": "Service Unavailable - Сервис временно недоступен"}
     }

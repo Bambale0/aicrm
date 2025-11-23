@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useReactFlow } from 'reactflow';
 
 interface SimulationModeProps {
@@ -117,7 +117,7 @@ export const SimulationMode: React.FC<SimulationModeProps> = ({
     if (currentHistoryStep) {
       simulateStep(currentStep, currentHistoryStep.activeNodes);
     }
-  }, [simulationHistory, currentStep]);
+  }, [simulationHistory, currentStep, simulateStep]);
 
   const nextStep = useCallback(() => {
     if (currentStep >= simulationHistory.length - 1) {

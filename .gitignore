@@ -201,6 +201,11 @@ nginx.conf.backup
 *.sublime-project
 *.sublime-workspace
 
+# Admin scripts with credentials
+backend/create_admin_user.py
+backend/create_test_user_igor.py
+backend/create_user_company_migration.py
+
 # OS specific
 .DS_Store
 .DS_Store?

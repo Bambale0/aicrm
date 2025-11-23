@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL ||
                      (process.env.NODE_ENV === 'production'
-                      ? ''  // Use relative URLs in production (nginx will proxy to backend)
+                      ? '/api'  // Use /api prefix for production (nginx proxies to backend)
                       : window.location.protocol + '//' + window.location.hostname + ':8000');
 
 const api = axios.create({
@@ -135,8 +135,46 @@ class ApiService {
     return response.data;
   }
 
+  async getAISettings() {
+    const response = await api.get('/ai/settings/ai');
+    return response.data;
+  }
+
   async updateAISettings(settings: any) {
     const response = await api.put('/ai/settings/ai', settings);
+    return response.data;
+  }
+
+  // Organizations - additional methods for list management
+  async getOrganizations(params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    const response = await api.get(`/organizations/?${queryParams.toString()}`);
+    return response.data;
+  }
+
+  async updateOrganization(orgId: number, orgData: any) {
+    const response = await api.put(`/organizations/${orgId}`, orgData);
+    return response.data;
+  }
+
+  async deleteOrganization(orgId: number) {
+    const response = await api.delete(`/organizations/${orgId}`);
+    return response.data;
+  }
+
+  async getOrganization(orgId: number) {
+    const response = await api.get(`/organizations/${orgId}`);
     return response.data;
   }
 
@@ -470,62 +508,18 @@ class ApiService {
     return response.data;
   }
 
-  // System monitoring (placeholder implementations)
+  // System monitoring - production ready
   async getDetailedHealth() {
-    // TODO: Implement detailed health check endpoint
-    return {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      uptime: 3600,
-      services: {
-        database: { status: 'healthy' },
-        redis: { status: 'healthy' },
-        email: { status: 'unknown' },
-        ai: { status: 'unknown' }
-      },
-      system: {
-        cpu_percent: 15.0,
-        memory: {
-          total: 8589934592,
-          available: 4294967296,
-          percent: 50.0
-        },
-        disk: {
-          total: 107374182400,
-          free: 53687091200,
-          percent: 50.0
-        },
-        uptime: 3600
-      }
-    };
-  }
-
-  async getWorkflows() {
-    // TODO: Implement workflows endpoint
-    return { workflows: [] };
+    const response = await api.get('/health/detailed');
+    return response.data;
   }
 
   async getMetrics() {
-    // TODO: Implement metrics endpoint
-    return `# Prometheus metrics placeholder
-# HELP cpu_usage System CPU usage
-# TYPE cpu_usage gauge
-cpu_usage 15.0
-
-# HELP memory_usage System memory usage percent
-# TYPE memory_usage gauge
-memory_usage_percent 50.0
-
-# HELP disk_usage System disk usage percent
-# TYPE disk_usage gauge
-disk_usage_percent 50.0
-
-# HELP active_connections Current active connections
-# TYPE active_connections gauge
-active_connections 5
-`;
+    const response = await api.get('/metrics', { responseType: 'text' });
+    return response.data;
   }
+
+
 
   async getAvitoChatMessages(userId: string, chatId: string) {
     const response = await api.get(`/avito/messenger/v1/accounts/${userId}/chats/${chatId}/messages`);
@@ -649,6 +643,55 @@ active_connections 5
 
   async suggestAutomationImprovements() {
     const response = await api.get('/automation/ai/suggest-improvements');
+    return response.data;
+  }
+
+  // Legacy AI endpoints for backward compatibility
+  async getAIModelsLegacy() {
+    const response = await api.get('/api/models');
+    return response.data;
+  }
+
+  async getAIStatusLegacy() {
+    const response = await api.get('/api/status');
+    return response.data;
+  }
+
+  async getAIUsageHistoryLegacy(days: number = 30) {
+    const response = await api.get(`/api/usage/history?days=${days}`);
+    return response.data;
+  }
+
+  // Avito background tasks
+  async getAvitoBackgroundTasksLegacy() {
+    const response = await api.get('/api/avito/background/tasks');
+    return response.data;
+  }
+
+  async testIMAPConnectionLegacy(settings: any) {
+    const response = await api.post('/api/email/test-imap', settings);
+    return response.data;
+  }
+
+  // Automation robots legacy
+  async getAutomationRobotsLegacy() {
+    const response = await api.get('/api/automation/robots/');
+    return response.data;
+  }
+
+  // AI Manager legacy
+  async getAIMServicesLegacy() {
+    const response = await api.get('/api/ai-manager/services');
+    return response.data;
+  }
+
+  async getAIMProductsLegacy() {
+    const response = await api.get('/api/ai-manager/products');
+    return response.data;
+  }
+
+  async createAIProductLegacy(productData: any) {
+    const response = await api.post('/api/ai-manager/products', productData);
     return response.data;
   }
 
@@ -838,6 +881,152 @@ active_connections 5
     return response.data;
   }
 
+  // Organizations
+  async checkOrganizationSlug(slug: string) {
+    const response = await api.get(`/organizations/check-slug/${slug}`);
+    return response.data;
+  }
+
+  async createOrganization(orgData: any) {
+    // Note: This API endpoint doesn't exist yet - it's a placeholder for future implementation
+    // The organizations API only supports registration via /organizations/register
+    // which requires admin privileges and creates databases automatically
+    throw new Error('Organization creation requires admin privileges. Contact support.');
+  }
+
+  // Campaigns
+  async getCampaigns(params?: {
+    organization_id?: number;
+    status?: string;
+    is_active?: boolean;
+    page?: number;
+    per_page?: number;
+  }) {
+    const response = await api.get('/campaigns/', { params });
+    return response.data;
+  }
+
+  async createCampaign(campaignData: any) {
+    const response = await api.post('/campaigns/', campaignData);
+    return response.data;
+  }
+
+  async getCampaign(campaignId: number) {
+    const response = await api.get(`/campaigns/${campaignId}`);
+    return response.data;
+  }
+
+  async updateCampaign(campaignId: number, campaignData: any) {
+    const response = await api.put(`/campaigns/${campaignId}`, campaignData);
+    return response.data;
+  }
+
+  async deleteCampaign(campaignId: number) {
+    const response = await api.delete(`/campaigns/${campaignId}`);
+    return response.data;
+  }
+
+  async getCampaignAISettings(campaignId: number) {
+    const response = await api.get(`/campaigns/${campaignId}/ai-settings`);
+    return response.data;
+  }
+
+  async updateCampaignAISettings(campaignId: number, aiSettings: any) {
+    const response = await api.put(`/campaigns/${campaignId}/ai-settings`, aiSettings);
+    return response.data;
+  }
+
+  // Email Templates
+  async getEmailTemplates(params?: {
+    category?: string;
+    is_active?: boolean;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const response = await api.get('/email-templates/', { params });
+    return response.data;
+  }
+
+  async createEmailTemplate(templateData: any) {
+    const response = await api.post('/email-templates/', templateData);
+    return response.data;
+  }
+
+  async getEmailTemplate(templateId: number) {
+    const response = await api.get(`/email-templates/${templateId}`);
+    return response.data;
+  }
+
+  async updateEmailTemplate(templateId: number, templateData: any) {
+    const response = await api.put(`/email-templates/${templateId}`, templateData);
+    return response.data;
+  }
+
+  async deleteEmailTemplate(templateId: number) {
+    const response = await api.delete(`/email-templates/${templateId}`);
+    return response.data;
+  }
+
+  async duplicateEmailTemplate(templateId: number, duplicateData: any) {
+    const response = await api.post(`/email-templates/${templateId}/duplicate`, duplicateData);
+    return response.data;
+  }
+
+  async renderEmailTemplate(templateId: number, variables: any) {
+    const response = await api.post(`/email-templates/${templateId}/render`, variables);
+    return response.data;
+  }
+
+  async getEmailTemplateByName(name: string) {
+    const response = await api.get(`/email-templates/by-name/${name}`);
+    return response.data;
+  }
+
+  async getEmailTemplatesByCategory(category: string) {
+    const response = await api.get(`/email-templates/categories/${category}`);
+    return response.data;
+  }
+
+  async getDefaultEmailTemplate(category: string) {
+    const response = await api.get(`/email-templates/categories/${category}/default`);
+    return response.data;
+  }
+
+  async getEmailTemplateStats() {
+    const response = await api.get('/email-templates/stats/overview');
+    return response.data;
+  }
+
+  async initializeDefaultEmailTemplates() {
+    const response = await api.post('/email-templates/initialize-defaults');
+    return response.data;
+  }
+
+  async exportEmailTemplates(category?: string) {
+    const response = await api.get('/email-templates/export/all', {
+      params: category ? { category } : {}
+    });
+    return response.data;
+  }
+
+  async importEmailTemplates(importData: any, overwriteExisting: boolean = false) {
+    const response = await api.post('/email-templates/import', importData, {
+      params: { overwrite_existing: overwriteExisting }
+    });
+    return response.data;
+  }
+
+  async getEmailTemplateVariables(templateId: number) {
+    const response = await api.get(`/email-templates/${templateId}/variables`);
+    return response.data;
+  }
+
+  async validateEmailTemplateVariables(templateId: number, variables: any) {
+    const response = await api.post(`/email-templates/${templateId}/validate-variables`, variables);
+    return response.data;
+  }
+
   // Communications
   async getCommunications(params?: {
     skip?: number;
@@ -922,10 +1111,6 @@ active_connections 5
     return response.data;
   }
 
-  async getEmailTemplates() {
-    const response = await api.get('/email/templates');
-    return response.data;
-  }
 
   async getEmailSettings() {
     const response = await api.get('/email/settings');
@@ -944,6 +1129,57 @@ active_connections 5
 
   async getEmailStats() {
     const response = await api.get('/email/stats');
+    return response.data;
+  }
+
+  // System Settings
+  async getAIOpenRouterConfig() {
+    const response = await api.get('/settings/ai/openrouter');
+    return response.data;
+  }
+
+  async updateAIOpenRouterConfig(config: any) {
+    const response = await api.put('/settings/ai/openrouter', config);
+    return response.data;
+  }
+
+  async getAIUsageLimits() {
+    const response = await api.get('/settings/ai/limits');
+    return response.data;
+  }
+
+  async updateAIUsageLimits(limits: any) {
+    const response = await api.put('/settings/ai/limits', limits);
+    return response.data;
+  }
+
+  async getEmailSMTPConfig() {
+    const response = await api.get('/settings/email/smtp');
+    return response.data;
+  }
+
+  async updateEmailSMTPConfig(config: any) {
+    const response = await api.put('/settings/email/smtp', config);
+    return response.data;
+  }
+
+  async getTelegramConfig() {
+    const response = await api.get('/settings/telegram');
+    return response.data;
+  }
+
+  async updateTelegramConfig(config: any) {
+    const response = await api.put('/settings/telegram', config);
+    return response.data;
+  }
+
+  async getSystemConfig() {
+    const response = await api.get('/settings/system/general');
+    return response.data;
+  }
+
+  async updateSystemConfig(config: any) {
+    const response = await api.put('/settings/system/general', config);
     return response.data;
   }
 }

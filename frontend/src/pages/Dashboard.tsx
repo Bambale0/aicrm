@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import {
+  ArrowDownIcon,
+  ArrowPathIcon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  CpuChipIcon,
+  ExclamationTriangleIcon,
+  LightBulbIcon,
+  ServerIcon,
+  WrenchScrewdriverIcon,
+  XCircleIcon
+} from '@heroicons/react/24/outline';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiService, AIStatus, AIUsageStats, SystemSettings } from '../services/api';
 import Button from '../components/ui/Button';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import {
-  CpuChipIcon,
-  ChatBubbleLeftRightIcon,
-  WrenchScrewdriverIcon,
-  ServerIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
-  ArrowPathIcon,
-  ArrowDownIcon,
-  LightBulbIcon
-} from '@heroicons/react/24/outline';
+import { AIStatus, AIUsageStats, apiService, SystemSettings } from '../services/api';
 
 interface DashboardStats {
   totalRobots: number;
@@ -32,7 +32,6 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [aiStatusError, setAiStatusError] = useState(false);
-  const [aiUsageError, setAiUsageError] = useState(false);
   const [systemHealthError, setSystemHealthError] = useState(false);
 
   const loadDashboardData = async () => {
@@ -53,10 +52,8 @@ function Dashboard() {
       try {
         const aiUsageData = await apiService.getAIUsage();
         setAiUsage(aiUsageData);
-        setAiUsageError(false);
       } catch (error) {
         console.warn('AI usage data not available:', error);
-        setAiUsageError(true);
         setAiUsage({
           period: { year: 0, month: 0, month_year: '0000-00' },
           total_tokens: 0,

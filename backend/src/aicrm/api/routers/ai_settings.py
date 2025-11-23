@@ -58,203 +58,194 @@ class AISettingsResponse(BaseModel):
 
 
 router = APIRouter(
-    prefix="/ai-settings",
+    prefix="/ai/settings",
     tags=["AI Settings"],
     responses={404: {"description": "Not found"}},
 )
 
+# Импорты для аутентификации
+from ...core.dependencies import get_current_user
+from ...models.user import User
 
 @router.get("/", response_model=AISettingsResponse)
-async def get_ai_settings(db: Session = Depends(get_db)):
-    """Получить текущие настройки AI"""
-    settings = AISettingsService.get_or_create_settings(db)
-    # Конвертируем datetime в строки
-    settings_dict = {
-        "id": settings.id,
-        "default_model": settings.default_model,
-        "temperature": settings.temperature,
-        "max_tokens": settings.max_tokens,
-        "provider": settings.provider,
-        "auto_reply_enabled": settings.auto_reply_enabled,
-        "auto_reply_temperature": settings.auto_reply_temperature,
-        "auto_reply_max_tokens": settings.auto_reply_max_tokens,
-        "rate_limit_per_minute": settings.rate_limit_per_minute,
-        "cache_enabled": settings.cache_enabled,
-        "log_level": settings.log_level,
-        "fallback_model": settings.fallback_model,
-        "premium_model": settings.premium_model,
-        "created_at": settings.created_at.isoformat() if settings.created_at else None,
-        "updated_at": settings.updated_at.isoformat() if settings.updated_at else None
-    }
-    return AISettingsResponse(**settings_dict)
-
+async def get_ai_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> AISettingsResponse:
+    """
+    Получить текущие настройки AI
+    """
+    service = AISettingsService()
+    settings = service.get_or_create_settings(db)
+    return AISettingsResponse.from_orm(settings)
 
 @router.put("/", response_model=AISettingsResponse)
 async def update_ai_settings(
     updates: AISettingsUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> AISettingsResponse:
+    """
+    Обновить настройки AI
+    """
+    service = AISettingsService()
+
+    # Проверка прав администратора для обновления API ключей
+    if any(key in updates.dict(exclude_unset=True) for key in ['openrouter_api_key', 'openai_api_key', 'huggingface_api_key']):
+        if not hasattr(current_user, 'role') or current_user.role != 'admin':
+            raise HTTPException(status_code=403, detail="Admin required to update API keys")
+
+    settings = service.get_or_create_settings(db)
+    updated = service.update_settings(db, settings.id, updates.dict(exclude_unset=True))
+
+    if not updated:
+        raise HTTPException(status_code=400, detail="No valid updates provided")
+
+    return AISettingsResponse.from_orm(updated)
+
+@router.post("/reset")
+async def reset_ai_settings_to_defaults(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Обновить настройки AI"""
-    # Получаем текущие настройки
-    current_settings = AISettingsService.get_or_create_settings(db)
-
-    # Получаем данные для обновления, исключая None значения
-    update_data = {k: v for k, v in updates.dict().items() if v is not None}
-
-    if update_data:  # Проверяем, что есть что обновлять
-        updated_settings = AISettingsService.update_settings(
-            db, current_settings.id, update_data
-        )
-        if not updated_settings:
-            raise HTTPException(status_code=400, detail="Не удалось обновить настройки")
-    else:
-        # Если нет изменений, возвращаем текущие настройки
-        updated_settings = current_settings
-
-    # Конвертируем datetime в строки для ответа
-    settings_dict = {
-        "id": updated_settings.id,
-        "default_model": updated_settings.default_model,
-        "temperature": updated_settings.temperature,
-        "max_tokens": updated_settings.max_tokens,
-        "provider": updated_settings.provider,
-        "auto_reply_enabled": updated_settings.auto_reply_enabled,
-        "auto_reply_temperature": updated_settings.auto_reply_temperature,
-        "auto_reply_max_tokens": updated_settings.auto_reply_max_tokens,
-        "rate_limit_per_minute": updated_settings.rate_limit_per_minute,
-        "cache_enabled": updated_settings.cache_enabled,
-        "log_level": updated_settings.log_level,
-        "fallback_model": updated_settings.fallback_model,
-        "premium_model": updated_settings.premium_model,
-        "created_at": updated_settings.created_at.isoformat() if updated_settings.created_at else None,
-        "updated_at": updated_settings.updated_at.isoformat() if updated_settings.updated_at else None
+    """
+    Сбросить настройки AI к значениям по умолчанию
+    """
+    service = AISettingsService()
+    default_settings = service.reset_to_defaults(db)
+    return {
+        "message": "AI settings reset to defaults",
+        "settings": AISettingsResponse.from_orm(default_settings)
     }
-    return AISettingsResponse(**settings_dict)
 
+@router.get("/models", response_model=Dict[str, Any])
+async def get_available_models(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Получить список доступных моделей AI
+    """
+    service = AISettingsService()
+    return {
+        "models": service.get_model_list(db),
+        "current": service.get_current_model_config(db)
+    }
 
-@router.post("/update", response_model=AISettingsResponse)
-async def partial_update_ai_settings(
-    updates: Dict[str, Any],
-    db: Session = Depends(get_db)
+@router.post("/validate-keys")
+async def validate_api_keys(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Частично обновить настройки AI (POST для совместимости)"""
-    # Получаем текущие настройки
-    current_settings = AISettingsService.get_or_create_settings(db)
-
-    # Фильтруем только допустимые поля
-    allowed_fields = {
-        'default_model', 'temperature', 'max_tokens',
-        'openrouter_api_key', 'openai_api_key', 'huggingface_api_key',
-        'provider', 'auto_reply_enabled', 'auto_reply_temperature',
-        'auto_reply_max_tokens', 'rate_limit_per_minute',
-        'cache_enabled', 'log_level', 'fallback_model', 'premium_model'
+    """
+    Проверить валидность API ключей
+    """
+    service = AISettingsService()
+    validation_results = service.validate_api_keys(db)
+    return {
+        "validation": validation_results,
+        "valid_keys": [k for k, v in validation_results.items() if v]
     }
 
-    update_data = {k: v for k, v in updates.items() if k in allowed_fields}
-
-    if update_data:  # Проверяем, что есть что обновлять
-        updated_settings = AISettingsService.update_settings(
-            db, current_settings.id, update_data
-        )
-        if not updated_settings:
-            raise HTTPException(status_code=400, detail="Не удалось обновить настройки")
-    else:
-        # Если нет изменений, возвращаем текущие настройки
-        updated_settings = current_settings
-
-    # Конвертируем datetime в строки для ответа
-    settings_dict = {
-        "id": updated_settings.id,
-        "default_model": updated_settings.default_model,
-        "temperature": updated_settings.temperature,
-        "max_tokens": updated_settings.max_tokens,
-        "provider": updated_settings.provider,
-        "auto_reply_enabled": updated_settings.auto_reply_enabled,
-        "auto_reply_temperature": updated_settings.auto_reply_temperature,
-        "auto_reply_max_tokens": updated_settings.auto_reply_max_tokens,
-        "rate_limit_per_minute": updated_settings.rate_limit_per_minute,
-        "cache_enabled": updated_settings.cache_enabled,
-        "log_level": updated_settings.log_level,
-        "fallback_model": updated_settings.fallback_model,
-        "premium_model": updated_settings.premium_model,
-        "created_at": updated_settings.created_at.isoformat() if updated_settings.created_at else None,
-        "updated_at": updated_settings.updated_at.isoformat() if updated_settings.updated_at else None
-    }
-    return AISettingsResponse(**settings_dict)
-
-
-@router.patch("/", response_model=AISettingsResponse)
-async def patch_ai_settings(
-    updates: Dict[str, Any],
-    db: Session = Depends(get_db)
+@router.get("/config")
+async def get_model_config(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """Частично обновить настройки AI"""
-    # Получаем текущие настройки
-    current_settings = AISettingsService.get_or_create_settings(db)
+    """
+    Получить текущую конфигурацию модели для API
+    """
+    service = AISettingsService()
+    return service.get_current_model_config(db)
 
-    # Фильтруем только допустимые поля
-    allowed_fields = {
-        'default_model', 'temperature', 'max_tokens',
-        'openrouter_api_key', 'openai_api_key', 'huggingface_api_key',
-        'provider', 'auto_reply_enabled', 'auto_reply_temperature',
-        'auto_reply_max_tokens', 'rate_limit_per_minute',
-        'cache_enabled', 'log_level', 'fallback_model', 'premium_model'
+@router.get("/auto-reply/config")
+async def get_auto_reply_config(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить конфигурацию автоответов
+    """
+    service = AISettingsService()
+    return service.get_auto_reply_config(db)
+
+# Специфические эндпоинты для разных настроек
+class OpenRouterSettingsUpdate(BaseModel):
+    """Модель для обновления настроек OpenRouter"""
+    openrouter_api_key: Optional[str] = Field(None, description="API ключ OpenRouter")
+    default_model: Optional[str] = Field(None, description="Модель по умолчанию")
+    temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Температура генерации")
+
+@router.get("/openrouter", response_model=OpenRouterSettingsUpdate)
+async def get_openrouter_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить настройки OpenRouter
+    """
+    service = AISettingsService()
+    settings = service.get_or_create_settings(db)
+    return {
+        "openrouter_api_key": getattr(settings, 'openrouter_api_key', None),
+        "default_model": settings.default_model,
+        "temperature": settings.temperature
     }
 
-    update_data = {k: v for k, v in updates.items() if k in allowed_fields}
+@router.put("/openrouter")
+async def update_openrouter_settings(
+    updates: OpenRouterSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Обновить настройки OpenRouter
+    """
+    if not hasattr(current_user, 'role') or current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin required")
 
-    if update_data:  # Проверяем, что есть что обновлять
-        updated_settings = AISettingsService.update_settings(
-            db, current_settings.id, update_data
-        )
-        if not updated_settings:
-            raise HTTPException(status_code=400, detail="Не удалось обновить настройки")
-    else:
-        # Если нет изменений, возвращаем текущие настройки
-        updated_settings = current_settings
+    service = AISettingsService()
+    settings = service.get_or_create_settings(db)
+    update_dict = updates.dict(exclude_unset=True)
+    updated = service.update_settings(db, settings.id, update_dict)
 
-    # Конвертируем datetime в строки для ответа
-    settings_dict = {
-        "id": updated_settings.id,
-        "default_model": updated_settings.default_model,
-        "temperature": updated_settings.temperature,
-        "max_tokens": updated_settings.max_tokens,
-        "provider": updated_settings.provider,
-        "auto_reply_enabled": updated_settings.auto_reply_enabled,
-        "auto_reply_temperature": updated_settings.auto_reply_temperature,
-        "auto_reply_max_tokens": updated_settings.auto_reply_max_tokens,
-        "rate_limit_per_minute": updated_settings.rate_limit_per_minute,
-        "cache_enabled": updated_settings.cache_enabled,
-        "log_level": updated_settings.log_level,
-        "fallback_model": updated_settings.fallback_model,
-        "premium_model": updated_settings.premium_model,
-        "created_at": updated_settings.created_at.isoformat() if updated_settings.created_at else None,
-        "updated_at": updated_settings.updated_at.isoformat() if updated_settings.updated_at else None
+    return {"message": "OpenRouter settings updated"}
+
+class RateLimitSettings(BaseModel):
+    """Модель для настроек лимитов"""
+    rate_limit_per_minute: Optional[int] = Field(None, gt=0, description="Лимит запросов в минуту")
+    cache_enabled: Optional[bool] = Field(None, description="Включить кеширование")
+
+@router.get("/limits", response_model=RateLimitSettings)
+async def get_limits_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить настройки лимитов
+    """
+    service = AISettingsService()
+    settings = service.get_or_create_settings(db)
+    return {
+        "rate_limit_per_minute": settings.rate_limit_per_minute,
+        "cache_enabled": settings.cache_enabled
     }
-    return AISettingsResponse(**settings_dict)
 
+@router.put("/limits")
+async def update_limits_settings(
+    updates: RateLimitSettings,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Обновить настройки лимитов
+    """
+    if not hasattr(current_user, 'role') or current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin required")
 
-@router.get("/model-config")
-async def get_model_config(db: Session = Depends(get_db)):
-    """Получить конфигурацию текущей модели"""
-    return AISettingsService.get_current_model_config(db)
+    service = AISettingsService()
+    settings = service.get_or_create_settings(db)
+    update_dict = updates.dict(exclude_unset=True)
+    updated = service.update_settings(db, settings.id, update_dict)
 
-
-@router.get("/auto-reply-config")
-async def get_auto_reply_config(db: Session = Depends(get_db)):
-    """Получить конфигурацию автоответов"""
-    return AISettingsService.get_auto_reply_config(db)
-
-
-@router.get("/rate-limit")
-async def get_rate_limit(db: Session = Depends(get_db)):
-    """Получить текущий лимит запросов"""
-    rate_limit = AISettingsService.get_rate_limit(db)
-    return {"rate_limit_per_minute": rate_limit}
-
-
-@router.get("/cache-enabled")
-async def is_cache_enabled(db: Session = Depends(get_db)):
-    """Проверить, включено ли кеширование"""
-    cache_enabled = AISettingsService.is_cache_enabled(db)
-    return {"cache_enabled": cache_enabled}
+    return {"message": "Limits settings updated"}

@@ -1,5 +1,6 @@
 import React, { useState, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
 // Core components - load immediately
@@ -36,6 +37,10 @@ const SystemSettings = lazy(() => import('./pages/SystemSettings'));
 const SystemMonitoring = lazy(() => import('./pages/SystemMonitoring'));
 const EmailSettings = lazy(() => import('./pages/EmailSettings'));
 const AITemplates = lazy(() => import('./pages/AITemplates'));
+const Campaigns = lazy(() => import('./pages/Campaigns'));
+const EmailTemplates = lazy(() => import('./pages/EmailTemplates'));
+const Organizations = lazy(() => import('./pages/Organizations'));
+const PluginManager = lazy(() => import('./pages/PluginManager'));
 
 // Loading component
 const PageLoader = () => (
@@ -48,9 +53,26 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Сайдбар свернут по умолчанию
 
+  // Create a client
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        refetchOnWindowFocus: false,
+        retry: (failureCount, error: any) => {
+          if (error?.response?.status === 401 || error?.response?.status === 403) {
+            return false;
+          }
+          return failureCount < 3;
+        },
+      },
+    },
+  });
+
   return (
-    <ErrorBoundary>
-      <Suspense fallback={<PageLoader />}>
+    <QueryClientProvider client={queryClient}>
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
@@ -132,6 +154,10 @@ function App() {
                                 <Route path="/automation/board" element={<AutomationBoard />} />
                                 <Route path="/monitoring" element={<SystemMonitoring />} />
                                 <Route path="/settings/system" element={<SystemSettings />} />
+                                <Route path="/campaigns" element={<Campaigns />} />
+                                <Route path="/email-templates" element={<EmailTemplates />} />
+                                <Route path="/organizations" element={<Organizations />} />
+                                <Route path="/automation/plugins" element={<PluginManager />} />
                               </Routes>
                             </Suspense>
                           </ErrorBoundary>
@@ -146,6 +172,7 @@ function App() {
         </Routes>
       </Suspense>
     </ErrorBoundary>
+  </QueryClientProvider>
   );
 }
 

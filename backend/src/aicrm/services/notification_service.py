@@ -9,6 +9,17 @@ from enum import Enum
 from .email_service import email_service, EmailMessage
 from .sms_service import sms_service
 
+# Импорт WebSocket менеджеров
+try:
+    from ..api.routers.websocket import ws_manager, notify_chat, notify_user, broadcast_system_message
+    WEBSOCKET_AVAILABLE = True
+except ImportError:
+    WEBSOCKET_AVAILABLE = False
+    ws_manager = None
+    notify_chat = None
+    notify_user = None
+    broadcast_system_message = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,6 +28,7 @@ class NotificationChannel(Enum):
     EMAIL = "email"
     SMS = "sms"
     TELEGRAM = "telegram"
+    WEBSOCKET = "websocket"
 
 
 class NotificationPriority(Enum):
@@ -100,6 +112,12 @@ class NotificationService:
                         recipient, message, notification_type, priority
                     )
                     results["telegram"] = result
+
+                elif channel == NotificationChannel.WEBSOCKET:
+                    result = await self._send_websocket_notification(
+                        recipient, message, notification_type, priority
+                    )
+                    results["websocket"] = result
 
             except Exception as e:
                 error_msg = f"Ошибка отправки через {channel.value}: {str(e)}"
@@ -242,6 +260,52 @@ class NotificationService:
             logger.error(f"Ошибка отправки Telegram уведомления: {e}")
             return {"success": False, "error": str(e)}
 
+    async def _send_websocket_notification(
+        self,
+        recipient: Union[str, Dict[str, str]],
+        message: str,
+        notification_type: NotificationType,
+        priority: NotificationPriority
+    ) -> Dict[str, Any]:
+        """Отправка WebSocket уведомления"""
+        if not WEBSOCKET_AVAILABLE:
+            return {"success": False, "error": "WebSocket сервис недоступен"}
+
+        try:
+            # Извлекаем user_id получателя
+            user_id = self._extract_websocket_user_id(recipient)
+            if not user_id:
+                return {"success": False, "error": "User ID для WebSocket не найден"}
+
+            # Формируем WebSocket сообщение
+            ws_message = {
+                "type": notification_type.value,
+                "message": message,
+                "priority": priority.value,
+                "timestamp": __import__("asyncio").get_event_loop().time()
+            }
+
+            # Определяем тип отправки: персональное уведомление или системное
+            if isinstance(recipient, dict) and recipient.get("broadcast"):
+                # Системное сообщение для всех
+                success = await broadcast_system_message(ws_message)
+                recipient_info = "all_users"
+            else:
+                # Персональное уведомление
+                success = await notify_user(int(user_id), ws_message)
+                recipient_info = user_id
+
+            return {
+                "success": success,
+                "recipient": recipient_info,
+                "message_length": len(message),
+                "notification_type": notification_type.value
+            }
+
+        except Exception as e:
+            logger.error(f"Ошибка отправки WebSocket уведомления: {e}")
+            return {"success": False, "error": str(e)}
+
     def _extract_email(self, recipient: Union[str, Dict[str, str]]) -> Optional[str]:
         """Извлечение email из данных получателя"""
         if isinstance(recipient, str):
@@ -267,6 +331,15 @@ class NotificationService:
             return recipient if recipient.isdigit() else None
         elif isinstance(recipient, dict):
             return recipient.get("telegram_id") or recipient.get("chat_id")
+        return None
+
+    def _extract_websocket_user_id(self, recipient: Union[str, Dict[str, str]]) -> Optional[str]:
+        """Извлечение User ID для WebSocket из данных получателя"""
+        if isinstance(recipient, str):
+            # Предполагаем что это user_id если состоит из цифр
+            return recipient if recipient.isdigit() else None
+        elif isinstance(recipient, dict):
+            return recipient.get("user_id") or recipient.get("websocket_id") or recipient.get("id")
         return None
 
     def _generate_subject(self, notification_type: NotificationType, priority: NotificationPriority) -> str:

@@ -19,10 +19,14 @@ from .email_templates import router as email_templates_router
 from .production import router as production_router
 from .catalog import router as catalog_router
 from .organization import router as organization_router
+from .campaign import router as campaign_router
+from .plugin import router as plugin_router
+from .websocket import router as websocket_router
+from .system_settings import router as system_settings_router
 
 __all__ = [
     "auth_router",
-    "customer_router", 
+    "customer_router",
     "communication_router",
     "ai_router",
     "ai_manager_router",
@@ -39,4 +43,8 @@ __all__ = [
     "production_router",
     "catalog_router",
     "organization_router",
+    "campaign_router",
+    "plugin_router",
+    "websocket_router",
+    "system_settings_router",
 ]

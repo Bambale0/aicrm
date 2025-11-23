@@ -518,3 +518,29 @@ class TelegramBotService:
             "total_messages": total_messages,
             "bot_running": self.application is not None
         }
+
+
+# Глобальный экземпляр сервиса для использования в роботах автоматизации
+# В продакшене рекомендуется использовать dependency injection вместо глобальной переменной
+telegram_bot_service = None
+
+
+def get_telegram_bot_service(db_session=None) -> TelegramBotService:
+    """
+    Получение глобального экземпляра сервиса Telegram бота
+
+    Args:
+        db_session: Сессия базы данных (SqlAlchemy Session)
+
+    Returns:
+        TelegramBotService: Экземпляр сервиса
+    """
+    global telegram_bot_service
+    if telegram_bot_service is None:
+        if db_session is None:
+            # Используем паттерн singleton с lazy инициализацией
+            # Для реального использования нужно передать db_session
+            telegram_bot_service = TelegramBotService(None)
+        else:
+            telegram_bot_service = TelegramBotService(db_session)
+    return telegram_bot_service
