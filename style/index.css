@@ -1,0 +1,237 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  body {
+    background-color: #0a0e23;
+    color: #fff;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.9;
+    animation: twinkle 3s infinite ease-in-out, drift 20s infinite linear;
+  }
+
+  .star.small {
+    width: 1px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  .star.medium {
+    width: 2px;
+    height: 2px;
+    background: rgba(136, 211, 206, 0.9);
+  }
+
+  .star.large {
+    width: 3px;
+    height: 3px;
+    background: rgba(255, 237, 78, 0.8);
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes drift {
+    0%, 100% { transform: translateX(0px) translateY(0px); }
+    25% { transform: translateX(5px) translateY(-3px); }
+    50% { transform: translateX(-3px) translateY(5px); }
+    75% { transform: translateX(3px) translateY(2px); }
+  }
+
+  .swirl-bg {
+    background: linear-gradient(
+      135deg,
+      rgba(124, 58, 237, 0.2) 0%,
+      rgba(232, 121, 249, 0.15) 50%,
+      rgba(124, 58, 237, 0.2) 100%
+    );
+    position: relative;
+    overflow: hidden;
+  }
+
+  .swirl-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: inherit;
+    filter: blur(15px) brightness(0.3);
+    z-index: -1;
+    opacity: 0.6;
+  }
+
+  .swirl-bg::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      45deg,
+      rgba(124, 58, 237, 0.15) 0%,
+      transparent 40%,
+      transparent 60%,
+      rgba(232, 121, 249, 0.15) 100%
+    );
+    z-index: -1;
+  }
+
+  .swirl-effect {
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background:
+      radial-gradient(circle at 75% 30%, rgba(124, 58, 237, 0.08) 0%, transparent 30%),
+      radial-gradient(circle at 25% 70%, rgba(232, 121, 249, 0.08) 0%, transparent 30%);
+    animation: swirl 40s linear infinite alternate;
+    transform: rotate(0deg);
+    opacity: 1;
+    mix-blend-mode: overlay;
+  }
+
+  @keyframes swirl {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .btn-primary {
+    background: linear-gradient(45deg, #1a1a2e, #16213e);
+    border: 1px solid #7c3aed;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    color: #e879f9;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(124, 58, 237, 0.4);
+    background: linear-gradient(45deg, #7c3aed, #a855f7);
+    color: #ffffff;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-800/80 hover:bg-gray-700/80 text-van-gogh-chrome-green font-medium py-2 px-4 rounded-lg transition-all duration-300 border border-gray-600/50;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-gray-700/90 border-gray-500/50;
+  }
+
+  .btn-danger {
+    @apply bg-red-900/80 hover:bg-red-800/80 text-red-300 font-medium py-2 px-4 rounded-lg transition-all duration-300 border border-red-700/50;
+  }
+
+  .btn-danger:hover {
+    @apply bg-red-800/90 border-red-600/50 text-red-200;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border-2 border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-van-gogh-ultramarine focus:border-van-gogh-ultramarine bg-gray-900/80 backdrop-blur-sm text-van-gogh-chrome-green placeholder-gray-500;
+  }
+
+  .card {
+    @apply bg-gray-900/95 backdrop-blur-md rounded-xl shadow-2xl p-6 border border-gray-700/50;
+  }
+
+  .sidebar-link {
+    @apply flex items-center px-4 py-3 text-van-gogh-chrome-green hover:bg-van-gogh-ultramarine/20 hover:text-van-gogh-ultramarine rounded-lg transition-all duration-300;
+    /* Mobile touch targets - minimum 44px height */
+    min-height: 44px;
+  }
+
+  /* Collapsed sidebar styles */
+  .sidebar-collapsed .sidebar-link {
+    @apply justify-center px-2;
+  }
+
+  .sidebar-collapsed .sidebar-link .mr-3 {
+    @apply mr-0;
+  }
+
+  .sidebar-link.active {
+    @apply bg-van-gogh-ultramarine/20 text-van-gogh-ultramarine border-r-2 border-van-gogh-ultramarine shadow-lg;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .sidebar-link.active {
+      @apply bg-van-gogh-ultramarine/20 text-van-gogh-ultramarine border-r-2 border-van-gogh-ultramarine shadow-lg;
+    }
+  }
+
+  /* Mobile-specific styles */
+  @media (max-width: 767px) {
+    .sidebar-link {
+      @apply px-6 py-4 text-base;
+      min-height: 48px; /* Larger touch targets on mobile */
+    }
+
+    .card {
+      @apply p-4 m-2; /* Reduce padding and add margin for mobile */
+    }
+
+    .navbar {
+      @apply px-4 py-3;
+    }
+  }
+
+  /* Touch device optimizations */
+  @media (hover: none) and (pointer: coarse) {
+    .sidebar-link {
+      @apply hover:translate-x-0; /* Remove hover transform on touch devices */
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover {
+      @apply transform-none; /* Remove hover scale on touch devices */
+    }
+  }
+
+  .text-gradient {
+    background: linear-gradient(45deg, #7c3aed, #e879f9);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .navbar {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background-color: rgba(10, 14, 35, 0.8);
+    border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+    padding: 1.5rem 2rem; /* Match sidebar header padding */
+    min-height: 88px; /* Ensure consistent height with sidebar */
+  }
+
+  .navbar a {
+    position: relative;
+  }
+
+  .navbar a:hover::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(45deg, #7c3aed, #e879f9);
+    bottom: -4px;
+    left: 0;
+  }
+}

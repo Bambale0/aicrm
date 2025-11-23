@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: aicrm_postgres
+    environment:
+      POSTGRES_DB: aicrm
+      POSTGRES_USER: aicrm_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - aicrm_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aicrm_user -d aicrm"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis для кэширования
+  redis:
+    image: redis:7-alpine
+    container_name: aicrm_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - aicrm_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aicrm_backend
+    environment:
+      - DATABASE_URL=postgresql://aicrm_user:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/aicrm
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=production
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - AVITO_CLIENT_ID=${AVITO_CLIENT_ID}
+      - AVITO_CLIENT_SECRET=${AVITO_CLIENT_SECRET}
+      - SMTP_SERVER=${SMTP_SERVER:-smtp.gmail.com}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aicrm_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (React production build)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: aicrm_frontend
+    environment:
+      - REACT_APP_API_URL=https://dev.chillcreative.ru
+    depends_on:
+      - backend
+    networks:
+      - aicrm_network
+    restart: unless-stopped
+
+  # Nginx reverse proxy с SSL
+  nginx:
+    image: nginx:alpine
+    container_name: aicrm_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt/live/dev.chillcreative.ru:/etc/ssl/certs:ro
+      - frontend_static:/var/www/aicrm
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - aicrm_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  frontend_static:
+
+networks:
+  aicrm_network:
+    driver: bridge

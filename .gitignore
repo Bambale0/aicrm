@@ -1,0 +1,273 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbnails.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets and sensitive data
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+secrets.json
+config/secrets.py
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Frontend secrets
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.staging
+
+# API keys and tokens
+*_API_KEY*
+*_SECRET*
+*_TOKEN*
+*OPENROUTER*
+*AVITO*
+
+# Test database
+src/test.db
+test.db
+*.db-journal
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+*.log
+logs/
+*.pid
+*.lock
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Frontend build
+frontend/build/
+frontend/dist/
+frontend/node_modules/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Nginx logs and configs
+/var/log/nginx/
+nginx.conf.backup
+*.conf.backup
+
+# Docker
+.dockerignore
+
+# Development files
+.vscode/settings.json
+.idea/workspace.xml
+*.sublime-project
+*.sublime-workspace
+
+# Admin scripts with credentials
+backend/create_admin_user.py
+backend/create_test_user_igor.py
+backend/create_user_company_migration.py
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbnails.db
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# Redis dumps
+dump.rdb
+appendonly.aof
+
+# PostgreSQL
+postgresql.conf
+pg_hba.conf
+*.log
+
+# System files
+core
+core.*
+
+# Additional TypeScript
+*.tsbuildinfo
+
+# Ruff
+.ruff_cache/
+
+# Direnv
+.direnv/
+.envrc
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Docker overrides
+docker-compose.override.yml
+
+# Ngrok archives
+*.tgz
+
+# Additional caches
+.eslintcache
+.yarn/
+.pnpm/
+.docker/
+
+# Serverless
+.serverless/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfvars
+
+# Coverage additional
+coverage/
