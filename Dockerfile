@@ -15,7 +15,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Копирование и установка зависимостей Python
 WORKDIR /app
-COPY backend/pyproject.toml .
+COPY backend/ ./backend/
+WORKDIR /app/backend
 RUN pip install --upgrade pip && \
     pip install -e . && \
     pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
