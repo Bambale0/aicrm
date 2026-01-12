@@ -164,11 +164,13 @@ class AvitoClient:
     HTTP клиент для работы с Avito API
     """
 
-    def __init__(self):
+    def __init__(self, auth_type: str = "client_credentials"):
         self.base_url = "https://api.avito.ru"
+        self.auth_type = auth_type  # "client_credentials" или "authorization_code"
         self.client_id = settings.avito_client_id
         self.client_secret = settings.avito_client_secret
         self.access_token = None
+        self.refresh_token = None
         self.token_expires_at = None
         self.user_id = settings.avito_user_id
 
@@ -199,6 +201,13 @@ class AvitoClient:
         return datetime.utcnow() < (self.token_expires_at - timedelta(minutes=5))
 
     async def _refresh_token(self):
+        """Обновление access token"""
+        if self.auth_type == "authorization_code" and self.refresh_token:
+            await self._refresh_token_via_refresh_token()
+        else:
+            await self._refresh_token_via_client_credentials()
+
+    async def _refresh_token_via_client_credentials(self):
         """Обновление access token через Client Credentials"""
         try:
             response = await self.http_client.post(
@@ -216,7 +225,7 @@ class AvitoClient:
             expires_in = token_data.get("expires_in", 3600)
             self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
-            logger.info("Avito access token обновлен")
+            logger.info("Avito access token обновлен (Client Credentials)")
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
@@ -224,6 +233,77 @@ class AvitoClient:
             raise AvitoAPIError(f"Ошибка авторизации: {e.response.text}")
         except Exception as e:
             raise AvitoAPIError(f"Ошибка получения токена: {str(e)}")
+
+    async def _refresh_token_via_refresh_token(self):
+        """Обновление access token через Refresh Token"""
+        try:
+            response = await self.http_client.post(
+                "/token",
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "refresh_token": self.refresh_token,
+                },
+            )
+            response.raise_for_status()
+            token_data = await response.json()
+
+            self.access_token = token_data["access_token"]
+            self.refresh_token = token_data.get("refresh_token", self.refresh_token)
+            expires_in = token_data.get("expires_in", 3600)
+            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+
+            logger.info("Avito access token обновлен (Refresh Token)")
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                raise AvitoAuthError("Неверный refresh token")
+            raise AvitoAPIError(f"Ошибка обновления токена: {e.response.text}")
+        except Exception as e:
+            raise AvitoAPIError(f"Ошибка обновления токена: {str(e)}")
+
+    async def get_token_via_authorization_code(
+        self, code: str, redirect_uri: str = None
+    ) -> Dict[str, Any]:
+        """Получение токена через Authorization Code"""
+        try:
+            data = {
+                "grant_type": "authorization_code",
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "code": code,
+            }
+            if redirect_uri:
+                data["redirect_uri"] = redirect_uri
+
+            response = await self.http_client.post("/token", data=data)
+            response.raise_for_status()
+            token_data = await response.json()
+
+            self.access_token = token_data["access_token"]
+            self.refresh_token = token_data.get("refresh_token")
+            expires_in = token_data.get("expires_in", 3600)
+            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+
+            logger.info("Avito токен получен через Authorization Code")
+            return token_data
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400:
+                raise AvitoAuthError("Неверный authorization code")
+            raise AvitoAPIError(f"Ошибка получения токена: {e.response.text}")
+        except Exception as e:
+            raise AvitoAPIError(f"Ошибка получения токена: {str(e)}")
+
+    def set_tokens(
+        self, access_token: str, refresh_token: str = None, expires_in: int = 3600
+    ):
+        """Установка токенов вручную"""
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+        self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+        logger.info("Avito токены установлены вручную")
 
     @retry(
         stop=stop_after_attempt(3),

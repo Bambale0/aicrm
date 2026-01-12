@@ -1184,3 +1184,82 @@ async def unlink_avito_chat_from_customer(chat_id: str, db: Session = Depends(ge
     except Exception as e:
         logger.error(f"Ошибка отвязывания чата {chat_id} от клиента: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+@router.post("/auth/generate-url", response_model=AvitoAuthUrlResponse)
+async def generate_auth_url(request: AvitoAuthUrlRequest):
+    """
+    Генерация URL для авторизации через Authorization Code flow
+    """
+    try:
+        from ...services.avito_auth_service import AvitoAuthService
+
+        auth_service = AvitoAuthService()
+        result = await auth_service.generate_auth_url(request)
+        return result
+
+    except Exception as e:
+        logger.error(f"Ошибка генерации URL авторизации: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+@router.get("/auth/callback", response_model=AvitoAuthCallbackResponse)
+async def auth_callback(
+    code: str = None,
+    state: str = None,
+    error: str = None,
+    error_description: str = None,
+):
+    """
+    Callback endpoint для обработки ответа от Avito после авторизации
+    """
+    try:
+        from ...services.avito_auth_service import AvitoAuthService
+
+        auth_service = AvitoAuthService()
+        result = await auth_service.handle_auth_callback(
+            code, state, error, error_description
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Ошибка обработки auth callback: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+@router.post("/auth/token/client-credentials")
+async def get_token_client_credentials(client_id: str, client_secret: str):
+    """
+    Получение токена через Client Credentials flow
+    """
+    try:
+        from ...services.avito_auth_service import AvitoAuthService
+
+        auth_service = AvitoAuthService()
+        result = await auth_service.get_token_via_client_credentials(
+            client_id, client_secret
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Ошибка получения токена через client credentials: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+@router.post("/auth/token/refresh")
+async def refresh_access_token(client_id: str, client_secret: str, refresh_token: str):
+    """
+    Обновление access token через refresh token
+    """
+    try:
+        from ...services.avito_auth_service import AvitoAuthService
+
+        auth_service = AvitoAuthService()
+        result = await auth_service.refresh_access_token(
+            client_id, client_secret, refresh_token
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Ошибка обновления токена: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
