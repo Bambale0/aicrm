@@ -7,7 +7,6 @@ from typing import Any, Dict, List
 from .plugin_interfaces import (
     ActionPlugin,
     AutomationPlugin,
-    BasePlugin,
     HookContext,
     HookPlugin,
     HookResult,
@@ -195,7 +194,7 @@ class ExampleHookPlugin(HookPlugin):
                     "type": "boolean",
                     "title": "Notify Admin",
                     "description": "Send notifications to admin",
-                    "default": true,
+                    "default": True,
                 },
             },
         }

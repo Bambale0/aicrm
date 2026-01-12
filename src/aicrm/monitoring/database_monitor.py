@@ -3,15 +3,12 @@ Database Monitoring Service для PostgreSQL
 Предоставляет детальные метрики производительности базы данных
 """
 
-import asyncio
 import logging
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict
 
-import asyncpg
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
 
 from ..services.metrics_service import metrics_service
 

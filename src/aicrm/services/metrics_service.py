@@ -4,7 +4,6 @@ Provides Prometheus metrics for monitoring system health and business analytics
 """
 
 import time
-from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from prometheus_client import Counter, Gauge, Histogram, Summary, generate_latest

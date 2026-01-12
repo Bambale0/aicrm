@@ -21,7 +21,12 @@ from ..schemas.order import (
     StepUpdateRequest,
 )
 
-router = APIRouter(prefix="/orders")
+router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+@router.get("/ping")
+async def ping():
+    return "pong"
 
 
 def get_production_service(db: Session = Depends(get_db)) -> ProductionService:

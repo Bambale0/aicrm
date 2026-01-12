@@ -6,12 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ..services.notification_service import (
-    NotificationChannel,
-    NotificationPriority,
-    NotificationService,
-    NotificationType,
-)
+from ..services.notification_service import (NotificationChannel,
+                                             NotificationPriority,
+                                             NotificationService,
+                                             NotificationType)
 
 
 class TestNotificationService:

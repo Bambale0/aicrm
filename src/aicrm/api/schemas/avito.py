@@ -610,3 +610,140 @@ class AvitoSyncChatsResponse(BaseModel):
     created_chats: int = Field(..., description="Количество созданных чатов")
     total_chats: int = Field(..., description="Общее количество чатов в Avito")
     success: bool = Field(True, description="Успешность операции")
+
+
+# Схемы для OAuth авторизации
+
+
+class AvitoAuthType(str, Enum):
+    """Тип авторизации Avito"""
+
+    CLIENT_CREDENTIALS = "client_credentials"
+    AUTHORIZATION_CODE = "authorization_code"
+
+
+class AvitoTokenRequest(BaseModel):
+    """Запрос на получение токена (Client Credentials)"""
+
+    grant_type: str = Field("client_credentials", description="Тип гранта")
+    client_id: str = Field(..., description="Client ID")
+    client_secret: str = Field(..., description="Client Secret")
+
+
+class AvitoTokenResponse(BaseModel):
+    """Ответ с токеном"""
+
+    access_token: str = Field(..., description="Access Token")
+    token_type: str = Field(..., description="Тип токена")
+    expires_in: int = Field(..., description="Время жизни токена в секундах")
+    scope: Optional[str] = Field(None, description="Область доступа")
+
+
+class AvitoAuthorizationCodeRequest(BaseModel):
+    """Запрос на получение токена (Authorization Code)"""
+
+    grant_type: str = Field("authorization_code", description="Тип гранта")
+    client_id: str = Field(..., description="Client ID")
+    client_secret: str = Field(..., description="Client Secret")
+    code: str = Field(..., description="Authorization Code")
+    redirect_uri: Optional[str] = Field(None, description="Redirect URI")
+
+
+class AvitoAuthorizationCodeResponse(BaseModel):
+    """Ответ с токенами (Authorization Code)"""
+
+    access_token: str = Field(..., description="Access Token")
+    token_type: str = Field(..., description="Тип токена")
+    expires_in: int = Field(..., description="Время жизни токена в секундах")
+    refresh_token: str = Field(..., description="Refresh Token")
+    scope: Optional[str] = Field(None, description="Область доступа")
+
+
+class AvitoRefreshTokenRequest(BaseModel):
+    """Запрос на обновление токена"""
+
+    grant_type: str = Field("refresh_token", description="Тип гранта")
+    client_id: str = Field(..., description="Client ID")
+    client_secret: str = Field(..., description="Client Secret")
+    refresh_token: str = Field(..., description="Refresh Token")
+
+
+class AvitoRefreshTokenResponse(BaseModel):
+    """Ответ на обновление токена"""
+
+    access_token: str = Field(..., description="Новый Access Token")
+    token_type: str = Field(..., description="Тип токена")
+    expires_in: int = Field(..., description="Время жизни токена в секундах")
+    refresh_token: str = Field(..., description="Новый Refresh Token")
+    scope: Optional[str] = Field(None, description="Область доступа")
+
+
+class AvitoOAuthState(BaseModel):
+    """Состояние OAuth для защиты от CSRF"""
+
+    state: str = Field(..., description="Уникальный state")
+    redirect_uri: str = Field(..., description="Redirect URI")
+    created_at: str = Field(..., description="Время создания")
+    expires_at: str = Field(..., description="Время истечения")
+
+
+class AvitoAuthUrlRequest(BaseModel):
+    """Запрос на получение URL авторизации"""
+
+    client_id: str = Field(..., description="Client ID приложения")
+    redirect_uri: str = Field(..., description="Redirect URI")
+    scope: List[str] = Field(..., description="Запрашиваемые скоупы")
+    state: Optional[str] = Field(None, description="State для защиты CSRF")
+
+
+class AvitoAuthUrlResponse(BaseModel):
+    """Ответ с URL авторизации"""
+
+    auth_url: str = Field(..., description="URL для авторизации")
+    state: str = Field(..., description="State для проверки")
+
+
+class AvitoAuthCallbackRequest(BaseModel):
+    """Запрос от callback после авторизации"""
+
+    code: str = Field(..., description="Authorization Code")
+    state: str = Field(..., description="State")
+    error: Optional[str] = Field(None, description="Ошибка авторизации")
+    error_description: Optional[str] = Field(None, description="Описание ошибки")
+
+
+class AvitoAuthCallbackResponse(BaseModel):
+    """Ответ на callback авторизации"""
+
+    success: bool = Field(..., description="Успешность авторизации")
+    access_token: Optional[str] = Field(None, description="Access Token")
+    refresh_token: Optional[str] = Field(None, description="Refresh Token")
+    expires_in: Optional[int] = Field(None, description="Время жизни токена")
+    error: Optional[str] = Field(None, description="Ошибка")
+
+
+class AvitoTokenInfo(BaseModel):
+    """Информация о токене"""
+
+    active: bool = Field(..., description="Активен ли токен")
+    scope: Optional[str] = Field(None, description="Область доступа")
+    client_id: Optional[str] = Field(None, description="Client ID")
+    username: Optional[str] = Field(None, description="Имя пользователя")
+    token_type: Optional[str] = Field(None, description="Тип токена")
+    exp: Optional[int] = Field(None, description="Время истечения (timestamp)")
+    iat: Optional[int] = Field(None, description="Время выдачи (timestamp)")
+    nbf: Optional[int] = Field(None, description="Не раньше (timestamp)")
+    sub: Optional[str] = Field(None, description="Subject")
+    aud: Optional[str] = Field(None, description="Audience")
+    iss: Optional[str] = Field(None, description="Issuer")
+    jti: Optional[str] = Field(None, description="JWT ID")
+
+
+class AvitoWebhookAuthEvent(BaseModel):
+    """Событие webhook авторизации"""
+
+    type: str = Field(..., description="Тип события")
+    user_id: str = Field(..., description="ID пользователя")
+    client_id: str = Field(..., description="Client ID")
+    scope: str = Field(..., description="Область доступа")
+    timestamp: str = Field(..., description="Время события")

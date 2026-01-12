@@ -1,10 +1,11 @@
 """
 Конфигурация приложения
 """
-import os
+
 from typing import Optional
-from pydantic_settings import BaseSettings
+
 from pydantic import ConfigDict
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -72,7 +73,7 @@ class Settings(BaseSettings):
     model_config = ConfigDict(
         env_file=".env",
         case_sensitive=False,
-        extra='ignore'  # Allow extra fields from environment
+        extra="ignore",  # Allow extra fields from environment
     )
 
 

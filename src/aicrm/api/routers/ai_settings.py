@@ -78,6 +78,13 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
+
+
 # Импорты для аутентификации
 from ...core.dependencies import get_current_user
 from ...models.user import User
@@ -233,7 +240,7 @@ async def update_openrouter_settings(
     service = AISettingsService()
     settings = service.get_or_create_settings(db)
     update_dict = updates.dict(exclude_unset=True)
-    updated = service.update_settings(db, settings.id, update_dict)
+    service.update_settings(db, settings.id, update_dict)
 
     return {"message": "OpenRouter settings updated"}
 
@@ -277,6 +284,6 @@ async def update_limits_settings(
     service = AISettingsService()
     settings = service.get_or_create_settings(db)
     update_dict = updates.dict(exclude_unset=True)
-    updated = service.update_settings(db, settings.id, update_dict)
+    service.update_settings(db, settings.id, update_dict)
 
     return {"message": "Limits settings updated"}

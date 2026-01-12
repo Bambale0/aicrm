@@ -1,10 +1,11 @@
 """
 Настройка базы данных
 """
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from ..core.config import settings
 
@@ -30,7 +31,11 @@ SessionLocal = sessionmaker(
 
 # Асинхронная версия для API тестов
 async_engine = create_async_engine(
-    DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://") if DATABASE_URL.startswith("sqlite") else DATABASE_URL,
+    (
+        DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+        if DATABASE_URL.startswith("sqlite")
+        else DATABASE_URL
+    ),
     echo=settings.debug,
 )
 

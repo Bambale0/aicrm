@@ -39,6 +39,12 @@ router = APIRouter(
 )
 
 
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
+
+
 # AI Prompts endpoints
 @router.get(
     "/prompts",

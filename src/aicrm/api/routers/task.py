@@ -15,6 +15,11 @@ from ..schemas.task import Task, TaskCreate, TaskUpdate
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
+@router.get("/ping")
+async def ping():
+    return "pong"
+
+
 @router.post("/", response_model=Task)
 async def create_task(
     task_data: TaskCreate,

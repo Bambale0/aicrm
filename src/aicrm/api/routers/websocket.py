@@ -4,8 +4,7 @@ WebSocket роутеры для real-time коммуникаций с безоп
 
 import asyncio
 import json
-import logging
-from typing import Dict, List, Optional, Set
+from typing import Dict, Set
 
 from fastapi import (
     APIRouter,
@@ -25,7 +24,13 @@ from ...utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/ws", tags=["websockets"])
+router = APIRouter(tags=["websockets"])
+
+
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
 
 
 # Глобальные структуры для управления подключениями

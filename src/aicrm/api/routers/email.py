@@ -11,7 +11,13 @@ from ...core.dependencies import get_current_user
 from ...models.user import User
 from ...services.email_service import EmailMessage, EmailTemplate, email_service
 
-router = APIRouter(prefix="/email", tags=["email"])
+router = APIRouter(tags=["email"])
+
+
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
 
 
 class EmailRequest(BaseModel):

@@ -4,17 +4,15 @@ Provides FastAPI dependency injection functions
 """
 
 from datetime import timedelta
-from typing import Generator, Optional
+from typing import Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from .config import settings
-from .database import get_db
 from ..models.user import User
 from ..services.auth import AuthService
+from .database import get_db
 
 # Security scheme
 security = HTTPBearer()
@@ -25,14 +23,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return AuthService.create_access_token(data, expires_delta)
 
 
-def get_token_from_header(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+def get_token_from_header(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> str:
     """Extract token from Authorization header"""
     return credentials.credentials
 
 
 def get_current_user(
-    db: Session = Depends(get_db),
-    token: str = Depends(get_token_from_header)
+    db: Session = Depends(get_db), token: str = Depends(get_token_from_header)
 ) -> User:
     """Get current user from token"""
     user = AuthService.get_current_user(db, token)

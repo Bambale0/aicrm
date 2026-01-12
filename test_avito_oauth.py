@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 
 import redis.asyncio as redis
 
+from src.aicrm.schemas.avito import AvitoAuthUrlRequest
 from src.aicrm.services.avito_auth_service import AvitoAuthService
 from src.aicrm.services.avito_service import AvitoClient
-from src.aicrm.schemas.avito import AvitoAuthUrlRequest
 
 
 async def test_generate_auth_url():

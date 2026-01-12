@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
@@ -14,7 +14,6 @@ from ...models.campaign import Campaign, CampaignAISettings
 from ...models.user import User
 from ...utils.logging import get_logger
 from ..schemas.campaign import (
-    CampaignAISettingsCreate,
     CampaignAISettingsResponse,
     CampaignAISettingsUpdate,
     CampaignCreate,
@@ -35,6 +34,12 @@ router = APIRouter(
         500: {"description": "Internal Server Error - Внутренняя ошибка сервера"},
     },
 )
+
+
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
 
 logger = get_logger(__name__)
 

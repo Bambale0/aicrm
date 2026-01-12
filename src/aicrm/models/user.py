@@ -2,15 +2,13 @@
 Модель пользователя
 """
 
-from datetime import datetime
-
 from passlib.context import CryptContext
 from sqlalchemy import Boolean, Column, DateTime, String
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="auto")
 
 
 class User(BaseModel):
@@ -36,10 +34,15 @@ class User(BaseModel):
         "Task", foreign_keys="[Task.assigned_to]", back_populates="assigned_to_user"
     )
     production_steps = relationship("ProductionStep", back_populates="assigned_to_user")
+    settings = relationship("UserSettings", back_populates="user", uselist=False)
 
     @staticmethod
     def get_password_hash(password: str) -> str:
         """Хеширование пароля"""
+        # Ограничиваем длину пароля 72 байтами для bcrypt
+        password_bytes = password.encode("utf-8")
+        if len(password_bytes) > 72:
+            password = password_bytes[:72].decode("utf-8", errors="ignore")
         return pwd_context.hash(password)
 
     def verify_password(self, password: str) -> bool:

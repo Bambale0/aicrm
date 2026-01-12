@@ -320,13 +320,6 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Определяем тип лимита на основе пути
-        limit_type = "api"
-        if request.url.path.startswith("/api/ai"):
-            limit_type = "ai"
-        elif request.url.path.startswith("/api/auth"):
-            limit_type = "auth"
-
         # Проверяем rate limit
         async with self.rate_limiter:
             allowed, limit_info = await self.rate_limiter.check_api_rate_limit(request)

@@ -18,6 +18,12 @@ router = APIRouter(
 )
 
 
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
+
+
 @router.post("/", response_model=Dict[str, Any])
 async def create_template(
     template_data: Dict[str, Any],

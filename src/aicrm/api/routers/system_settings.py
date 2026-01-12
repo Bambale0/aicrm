@@ -129,6 +129,18 @@ class SystemSettingsResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @classmethod
+    def from_orm(cls, obj):
+        """Конвертация из ORM объекта с датами"""
+        data = {}
+        for field in obj.__table__.columns:
+            value = getattr(obj, field.name)
+            if field.name in ["created_at", "updated_at"] and value:
+                data[field.name] = value.isoformat()
+            else:
+                data[field.name] = value
+        return cls(**data)
+
 
 class SMTPSettingsUpdate(BaseModel):
     """Модель для обновления SMTP настроек"""
@@ -190,6 +202,13 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
+
+
 # Импорты для аутентификации
 from ...core.dependencies import get_current_user
 from ...models.user import User
@@ -226,7 +245,7 @@ async def update_general_settings(
     service = SystemSettingsService()
     settings = service.get_or_create_settings(db)
     update_dict = updates.dict(exclude_unset=True)
-    updated = service.update_settings(db, settings.id, update_dict)
+    service.update_settings(db, settings.id, update_dict)
 
     return {"message": "General settings updated"}
 
@@ -280,7 +299,7 @@ async def update_smtp_settings(
     service = SystemSettingsService()
     settings = service.get_or_create_settings(db)
     update_dict = updates.dict(exclude_unset=True)
-    updated = service.update_settings(db, settings.id, update_dict)
+    service.update_settings(db, settings.id, update_dict)
 
     return {"message": "SMTP settings updated"}
 
@@ -331,7 +350,7 @@ async def update_telegram_settings(
     service = SystemSettingsService()
     settings = service.get_or_create_settings(db)
     update_dict = updates.dict(exclude_unset=True)
-    updated = service.update_settings(db, settings.id, update_dict)
+    service.update_settings(db, settings.id, update_dict)
 
     return {"message": "Telegram settings updated"}
 

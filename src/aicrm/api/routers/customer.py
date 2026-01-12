@@ -10,9 +10,14 @@ from sqlalchemy.orm import Session
 from ...core.dependencies import get_current_active_user, get_db
 from ...models.user import User
 from ...services.cached_customer_service import cached_customer_service
-from ..schemas.customer import Customer, CustomerCreate, CustomerStats, CustomerUpdate
+from ..schemas.customer import CustomerCreate, CustomerUpdate
 
 router = APIRouter(prefix="/customers", tags=["customers"])
+
+
+@router.get("/ping")
+async def ping():
+    return "pong"
 
 
 @router.post("/", response_model=dict)

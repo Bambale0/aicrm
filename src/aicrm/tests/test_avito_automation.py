@@ -9,9 +9,8 @@ from sqlalchemy.orm import Session
 
 from src.aicrm.models.automation import EntityType, TriggerEvent
 from src.aicrm.services.automation.automation_service import AutomationService
-from src.aicrm.services.automation.avito_integration import (
-    AvitoTaskIntegration as AvitoIntegrationService,
-)
+from src.aicrm.services.automation.avito_integration import \
+    AvitoTaskIntegration as AvitoIntegrationService
 
 
 class TestAvitoIntegrationService:
@@ -370,7 +369,8 @@ class TestAvitoRobotActions:
     @pytest.fixture
     def avito_robot_actions(self, mock_db):
         """Экземпляр действий роботов Avito"""
-        from src.aicrm.services.automation.avito_robot_actions import AvitoRobotActions
+        from src.aicrm.services.automation.avito_robot_actions import \
+            AvitoRobotActions
 
         return AvitoRobotActions(mock_db)
 

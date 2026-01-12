@@ -10,11 +10,8 @@ from pathlib import Path
 # Добавляем корневую директорию в путь
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from aicrm.core.database import (
-    create_master_database,
-    get_default_engine,
-    init_master_database,
-)
+from aicrm.core.database import (create_master_database, get_default_engine,
+                                 init_master_database)
 from aicrm.models.base import Base
 from aicrm.utils.logging import get_logger
 

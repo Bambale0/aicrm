@@ -4,7 +4,7 @@ Plugin system interfaces
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -384,8 +384,8 @@ def validate_plugin_implementation(plugin_class: type) -> Dict[str, Any]:
 
     # Check for abstract methods
     try:
-        plugin_instance = plugin_class()
         # If we can create instance, it's not properly abstract
+        plugin_class()
         result["warnings"].append(
             "Plugin class should not be instantiable without configuration"
         )

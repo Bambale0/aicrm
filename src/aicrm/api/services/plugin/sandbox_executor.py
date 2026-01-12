@@ -8,7 +8,7 @@ import resource
 import signal
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 

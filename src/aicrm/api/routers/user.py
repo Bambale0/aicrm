@@ -15,6 +15,11 @@ from ..schemas.auth import UserCreate, UserUpdate
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+@router.get("/ping")
+async def ping():
+    return "pong"
+
+
 @router.get("/", response_model=List[UserSchema])
 async def get_users(
     skip: int = Query(0, ge=0),

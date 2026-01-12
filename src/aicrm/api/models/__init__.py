@@ -69,4 +69,11 @@ __all__ = [
     "TriggerEvent",
     "RobotAction",
     "AutomationLog",
+    # Plugin models
+    "Plugin",
+    "PluginAction",
+    "PluginHook",
+    "PluginPermission",
+    "PluginRegistry",
+    "PluginTemplate",
 ]

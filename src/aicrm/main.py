@@ -5,9 +5,8 @@
 import logging
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,17 +22,9 @@ except ImportError:
     get_db = lambda: None
 
 try:
-    from .api.schemas.ai import (
-        AIModelInfo,
-        AIModelsResponse,
-        AIMonthlyUsageResponse,
-        AIStatusResponse,
-        AIUsageHistoryResponse,
-    )
     from .api.schemas.auth import LoginRequest
 except ImportError:
     LoginRequest = None
-    AIStatusResponse = None
 
 try:
     from .services.ai_usage_service import AIUsageService
@@ -81,57 +72,64 @@ try:
         task_router,
         telegram_router,
         user_router,
+        user_settings_router,
         websocket_router,
         workflow_router,
     )
 
     # Core API endpoints
-    fastapi_app.include_router(auth_router, prefix="/auth", tags=["auth"])
-    fastapi_app.include_router(customer_router, prefix="/customers", tags=["customers"])
+    fastapi_app.include_router(auth_router, tags=["auth"])
+    fastapi_app.include_router(customer_router, tags=["customers"])
     fastapi_app.include_router(
-        communication_router, prefix="/communications", tags=["communications"]
+        communication_router, tags=["communications"]
     )
-    fastapi_app.include_router(task_router, prefix="/tasks", tags=["tasks"])
+    fastapi_app.include_router(task_router, tags=["tasks"])
 
     # AI endpoints
-    fastapi_app.include_router(ai_router, prefix="/ai", tags=["ai"])
+    fastapi_app.include_router(ai_router, tags=["ai"])
     fastapi_app.include_router(
-        ai_manager_router, prefix="/ai-manager", tags=["ai-manager"]
+        ai_manager_router, tags=["ai-manager"]
     )
     fastapi_app.include_router(
-        ai_settings_router, prefix="/ai-settings", tags=["ai-settings"]
+        ai_settings_router, tags=["ai-settings"]
     )
+
+    # AI Usage analytics - temporarily commented out to fix duplicate
+    # fastapi_app.include_router(ai_router, prefix="/ai-usage", tags=["ai-usage"])
 
     # Automation and workflows
     fastapi_app.include_router(
-        automation_router, prefix="/automation", tags=["automation"]
+        automation_router, tags=["automation"]
     )
-    fastapi_app.include_router(workflow_router, prefix="/workflow", tags=["workflow"])
+    fastapi_app.include_router(workflow_router, tags=["workflow"])
 
     # Communication channels
-    fastapi_app.include_router(email_router, prefix="/email", tags=["email"])
-    fastapi_app.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
+    fastapi_app.include_router(email_router, tags=["email"])
+    fastapi_app.include_router(telegram_router, tags=["telegram"])
 
     # Business logic
-    fastapi_app.include_router(user_router, prefix="/users", tags=["users"])
+    fastapi_app.include_router(user_router, tags=["users"])
     fastapi_app.include_router(
-        email_templates_router, prefix="/email-templates", tags=["email-templates"]
+        user_settings_router, tags=["user-settings"]
     )
     fastapi_app.include_router(
-        production_router, prefix="/production", tags=["production"]
+        email_templates_router, tags=["email-templates"]
     )
-    fastapi_app.include_router(catalog_router, prefix="/catalog", tags=["catalog"])
-    fastapi_app.include_router(avito_router, prefix="/avito", tags=["avito"])
-    fastapi_app.include_router(order_router, prefix="/orders", tags=["orders"])
+    fastapi_app.include_router(
+        production_router, tags=["production"]
+    )
+    fastapi_app.include_router(catalog_router, tags=["catalog"])
+    fastapi_app.include_router(avito_router, tags=["avito"])
+    fastapi_app.include_router(order_router, tags=["orders"])
 
     # Organizations and campaigns
     fastapi_app.include_router(
-        organization_router, prefix="/organizations", tags=["organizations"]
+        organization_router, tags=["organizations"]
     )
-    fastapi_app.include_router(campaign_router, prefix="/campaigns", tags=["campaigns"])
+    fastapi_app.include_router(campaign_router, tags=["campaigns"])
 
     # Plugin system
-    fastapi_app.include_router(plugin_router, prefix="/api", tags=["plugins"])
+    fastapi_app.include_router(plugin_router, tags=["plugins"])
 
     # System settings
     fastapi_app.include_router(system_settings_router, tags=["system-settings"])
@@ -185,6 +183,11 @@ async def health_check_detailed():
             "services": {"redis": "unknown"},
             "system": {"cpu_percent": 0, "memory_percent": 0},
         }
+
+
+@fastapi_app.get("/ping")
+async def ping():
+    return "pong"
 
 
 @fastapi_app.get("/metrics")

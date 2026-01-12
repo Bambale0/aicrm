@@ -2,10 +2,7 @@
 Сервис для автоматической отправки уведомлений о событиях системы
 """
 
-import asyncio
-import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -418,10 +415,10 @@ class EventNotificationService:
         """Обработка события назначения задачи"""
         task_title = event_data.get("task_title")
         assignee_email = event_data.get("assignee_email")
-        assignee_name = event_data.get("assignee_name")
-        assigner_name = event_data.get("assigner_name")
-
-        message = f"Задача '{task_title}' назначена на {assignee_name}"
+    assignee_name = event_data.get("assignee_name")
+    # assigner_name intentionally unused
+    # Compose message for assignee
+    assignee_message = f"Вам назначена задача: {task_title}"
         assignee_message = f"Вам назначена задача: {task_title}"
 
         results = {}
@@ -446,8 +443,7 @@ class EventNotificationService:
         assignee_email = event_data.get("assignee_email")
         days_overdue = event_data.get("days_overdue", 1)
 
-        message = f"Задача просрочена: '{task_title}' ({days_overdue} дней просрочки)"
-        assignee_message = f"Крайний срок выполнения задачи '{task_title}' истек {days_overdue} дней назад!"
+    assignee_message = f"Крайний срок выполнения задачи '{task_title}' истек {days_overdue} дней назад!"
 
         results = {}
 

@@ -38,6 +38,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/automation", tags=["automation"])
 
 
+@router.get("/ping")
+async def ping():
+    return "pong"
+
+
 @router.post("/events/{entity_type}/{event_type}")
 async def fire_automation_event(
     entity_type: EntityType,

@@ -182,7 +182,6 @@ class OrganizationService:
             )
 
             # Импорт всех моделей
-            from ..models import user
             from ..models.base import Base
 
             # Создание всех таблиц
@@ -213,7 +212,7 @@ class OrganizationService:
                     role="admin",
                 )
 
-                user = auth_service.create_user(org_db, admin_user.dict())
+                auth_service.create_user(org_db, admin_user.dict())
                 logger.info(f"Admin user created for organization: {org.name}")
 
         except Exception as e:

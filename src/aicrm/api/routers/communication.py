@@ -24,6 +24,11 @@ from ..schemas.communication import (
 router = APIRouter(prefix="/communications", tags=["communications"])
 
 
+@router.get("/ping")
+async def ping():
+    return "pong"
+
+
 @router.get("/", response_model=List[CommunicationSchema])
 async def get_communications(
     skip: int = Query(0, ge=0),

@@ -18,6 +18,11 @@ router = APIRouter(
 )
 
 
+@router.get("/ping")
+async def ping():
+    return "pong"
+
+
 @router.get("/categories", response_model=List[dict])
 async def get_categories(
     type_filter: Optional[str] = Query(

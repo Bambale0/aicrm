@@ -98,11 +98,7 @@ class TelegramOrderService:
         """
         Извлечение данных заказа из сообщения с помощью AI
         """
-        # Подготовка контекста для AI
-        context = {
-            "conversation_history": conversation_history or [],
-            "current_message": message,
-        }
+        # Context prepared inline below when needed (removed unused `context` variable)
 
         # Промпт для извлечения данных заказа
         extraction_prompt = f"""

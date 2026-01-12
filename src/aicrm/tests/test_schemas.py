@@ -6,17 +6,14 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.aicrm.api.schemas.customer import Customer, CustomerCreate, CustomerUpdate
-from src.aicrm.api.schemas.order import (
-    OrderCreate,
-    OrderItem,
-    OrderListResponse,
-    OrderResponse,
-    OrderUpdate,
-    ProductionProgressResponse,
-    ProductionStepResponse,
-    StepUpdateRequest,
-)
+from src.aicrm.api.schemas.customer import (Customer, CustomerCreate,
+                                            CustomerUpdate)
+from src.aicrm.api.schemas.order import (OrderCreate, OrderItem,
+                                         OrderListResponse, OrderResponse,
+                                         OrderUpdate,
+                                         ProductionProgressResponse,
+                                         ProductionStepResponse,
+                                         StepUpdateRequest)
 from src.aicrm.api.schemas.task import Task, TaskCreate, TaskUpdate
 from src.aicrm.models.order import OrderStatus
 

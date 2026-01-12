@@ -5,7 +5,6 @@ Provides REST API endpoints for plugin management
 
 import logging
 import uuid
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -15,23 +14,26 @@ from ...models import User
 from ...schemas.plugin import (
     PluginActionRequest,
     PluginActionResponse,
-    PluginCreate,
     PluginInstallRequest,
     PluginRegistryResponse,
     PluginResponse,
     PluginSandboxResponse,
     PluginSandboxTest,
-    PluginUpdate,
 )
 from ..dependencies import get_current_user, get_db
 from ..services.plugin.plugin_manager import PluginManager
 from ..services.plugin.sandbox_executor import validate_plugin_sandbox
 
 router = APIRouter(
-    prefix="/api/v1/plugin",
+    prefix="/plugins",
     tags=["plugin"],
     responses={404: {"description": "Not found"}},
 )
+
+
+@router.get("/ping")
+async def ping():
+    return "pong"
 
 logger = logging.getLogger(__name__)
 

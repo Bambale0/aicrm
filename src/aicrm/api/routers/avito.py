@@ -2,8 +2,7 @@
 API роутер для интеграции с Avito
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -23,6 +22,9 @@ from ..schemas.avito import (  # Messenger schemas; Webhook schemas; Global sett
     AvitoAnalyticsResponse,
     AvitoApplyVasRequest,
     AvitoApplyVasResponse,
+    AvitoAuthCallbackResponse,
+    AvitoAuthUrlRequest,
+    AvitoAuthUrlResponse,
     AvitoCallsStatsRequest,
     AvitoCallsStatsResponse,
     AvitoChatInfo,
@@ -94,6 +96,12 @@ router = APIRouter(
         500: {"model": AvitoErrorResponse, "description": "Внутренняя ошибка сервера"},
     },
 )
+
+
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
 
 
 @router.get("/items", response_model=List[AvitoItem])

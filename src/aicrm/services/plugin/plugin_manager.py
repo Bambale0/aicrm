@@ -2,19 +2,14 @@
 Plugin Manager Service
 """
 
-import asyncio
 import importlib
-import json
 import logging
 from dataclasses import asdict
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
-import pkg_resources
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ...models import User
 from ...models.plugin import (
     Plugin,
     PluginAction,
@@ -27,10 +22,9 @@ from .plugin_interfaces import (
     BasePlugin,
     HookContext,
     HookPlugin,
-    HookResult,
     validate_plugin_implementation,
 )
-from .sandbox_executor import execute_plugin_in_sandbox, validate_plugin_sandbox
+from .sandbox_executor import execute_plugin_in_sandbox
 
 logger = logging.getLogger(__name__)
 

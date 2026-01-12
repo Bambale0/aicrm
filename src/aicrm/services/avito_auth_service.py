@@ -11,13 +11,10 @@ from pydantic import ValidationError
 
 from ..core.config import settings
 from ..schemas.avito import (
+    AvitoAuthCallbackResponse,
     AvitoAuthUrlRequest,
     AvitoAuthUrlResponse,
-    AvitoAuthorizationCodeRequest,
-    AvitoAuthCallbackResponse,
     AvitoOAuthState,
-    AvitoRefreshTokenRequest,
-    AvitoTokenRequest,
 )
 from ..utils.logging import get_logger
 from .avito_service import AvitoClient

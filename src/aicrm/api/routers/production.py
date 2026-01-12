@@ -13,6 +13,11 @@ from ...models.user import User
 router = APIRouter(prefix="/production", tags=["production"])
 
 
+@router.get("/ping")
+async def ping():
+    return "pong"
+
+
 @router.get("/steps/")
 async def get_production_steps(
     order_id: Optional[int] = Query(None, description="ID заказа для фильтрации"),

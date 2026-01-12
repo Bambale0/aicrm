@@ -40,6 +40,15 @@ router = APIRouter(
 )
 
 
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
+
+# Logger for this module
+logger = get_logger(__name__)
+
+
 def get_ai_service() -> AIIntentService:
     """
     Зависимость для получения AI сервиса анализа намерений.
@@ -763,7 +772,7 @@ async def campaign_analyze_intent(
     """
     try:
         # Проверяем существование кампании и получаем ее AI настройки
-        from ...models.campaign import Campaign, CampaignAISettings
+        from ...models.campaign import Campaign
 
         campaign = db.get(Campaign, campaign_id)
         if not campaign:

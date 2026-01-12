@@ -6,7 +6,7 @@ from datetime import date
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class AvitoItemStatus(str, Enum):
@@ -67,7 +67,8 @@ class AvitoStatsRequest(BaseModel):
     )
     period_grouping: Optional[str] = Field("day", description="Группировка по периодам")
 
-    @validator("fields")
+    @field_validator("fields")
+    @classmethod
     def validate_fields(cls, v):
         allowed_fields = [
             "views",
@@ -81,7 +82,8 @@ class AvitoStatsRequest(BaseModel):
             raise ValueError(f"Поля должны быть из списка: {allowed_fields}")
         return v
 
-    @validator("period_grouping")
+    @field_validator("period_grouping")
+    @classmethod
     def validate_period_grouping(cls, v):
         allowed_groupings = ["day", "week", "month"]
         if v not in allowed_groupings:
@@ -129,7 +131,8 @@ class AvitoAnalyticsRequest(BaseModel):
     offset: Optional[int] = Field(0, description="Смещение")
     filter: Optional[Dict[str, Any]] = Field(None, description="Фильтры")
 
-    @validator("grouping")
+    @field_validator("grouping")
+    @classmethod
     def validate_grouping(cls, v):
         allowed_groupings = ["totals", "item", "day", "week", "month"]
         if v not in allowed_groupings:
@@ -614,14 +617,17 @@ class AvitoSyncChatsResponse(BaseModel):
 
 # Схемы для OAuth авторизации
 
+
 class AvitoAuthType(str, Enum):
     """Тип авторизации Avito"""
+
     CLIENT_CREDENTIALS = "client_credentials"
     AUTHORIZATION_CODE = "authorization_code"
 
 
 class AvitoTokenRequest(BaseModel):
     """Запрос на получение токена (Client Credentials)"""
+
     grant_type: str = Field("client_credentials", description="Тип гранта")
     client_id: str = Field(..., description="Client ID")
     client_secret: str = Field(..., description="Client Secret")
@@ -629,6 +635,7 @@ class AvitoTokenRequest(BaseModel):
 
 class AvitoTokenResponse(BaseModel):
     """Ответ с токеном"""
+
     access_token: str = Field(..., description="Access Token")
     token_type: str = Field(..., description="Тип токена")
     expires_in: int = Field(..., description="Время жизни токена в секундах")
@@ -637,6 +644,7 @@ class AvitoTokenResponse(BaseModel):
 
 class AvitoAuthorizationCodeRequest(BaseModel):
     """Запрос на получение токена (Authorization Code)"""
+
     grant_type: str = Field("authorization_code", description="Тип гранта")
     client_id: str = Field(..., description="Client ID")
     client_secret: str = Field(..., description="Client Secret")
@@ -646,6 +654,7 @@ class AvitoAuthorizationCodeRequest(BaseModel):
 
 class AvitoAuthorizationCodeResponse(BaseModel):
     """Ответ с токенами (Authorization Code)"""
+
     access_token: str = Field(..., description="Access Token")
     token_type: str = Field(..., description="Тип токена")
     expires_in: int = Field(..., description="Время жизни токена в секундах")
@@ -655,6 +664,7 @@ class AvitoAuthorizationCodeResponse(BaseModel):
 
 class AvitoRefreshTokenRequest(BaseModel):
     """Запрос на обновление токена"""
+
     grant_type: str = Field("refresh_token", description="Тип гранта")
     client_id: str = Field(..., description="Client ID")
     client_secret: str = Field(..., description="Client Secret")
@@ -663,6 +673,7 @@ class AvitoRefreshTokenRequest(BaseModel):
 
 class AvitoRefreshTokenResponse(BaseModel):
     """Ответ на обновление токена"""
+
     access_token: str = Field(..., description="Новый Access Token")
     token_type: str = Field(..., description="Тип токена")
     expires_in: int = Field(..., description="Время жизни токена в секундах")
@@ -672,6 +683,7 @@ class AvitoRefreshTokenResponse(BaseModel):
 
 class AvitoOAuthState(BaseModel):
     """Состояние OAuth для защиты от CSRF"""
+
     state: str = Field(..., description="Уникальный state")
     redirect_uri: str = Field(..., description="Redirect URI")
     created_at: str = Field(..., description="Время создания")
@@ -680,6 +692,7 @@ class AvitoOAuthState(BaseModel):
 
 class AvitoAuthUrlRequest(BaseModel):
     """Запрос на получение URL авторизации"""
+
     client_id: str = Field(..., description="Client ID приложения")
     redirect_uri: str = Field(..., description="Redirect URI")
     scope: List[str] = Field(..., description="Запрашиваемые скоупы")
@@ -688,12 +701,14 @@ class AvitoAuthUrlRequest(BaseModel):
 
 class AvitoAuthUrlResponse(BaseModel):
     """Ответ с URL авторизации"""
+
     auth_url: str = Field(..., description="URL для авторизации")
     state: str = Field(..., description="State для проверки")
 
 
 class AvitoAuthCallbackRequest(BaseModel):
     """Запрос от callback после авторизации"""
+
     code: str = Field(..., description="Authorization Code")
     state: str = Field(..., description="State")
     error: Optional[str] = Field(None, description="Ошибка авторизации")
@@ -702,6 +717,7 @@ class AvitoAuthCallbackRequest(BaseModel):
 
 class AvitoAuthCallbackResponse(BaseModel):
     """Ответ на callback авторизации"""
+
     success: bool = Field(..., description="Успешность авторизации")
     access_token: Optional[str] = Field(None, description="Access Token")
     refresh_token: Optional[str] = Field(None, description="Refresh Token")
@@ -711,6 +727,7 @@ class AvitoAuthCallbackResponse(BaseModel):
 
 class AvitoTokenInfo(BaseModel):
     """Информация о токене"""
+
     active: bool = Field(..., description="Активен ли токен")
     scope: Optional[str] = Field(None, description="Область доступа")
     client_id: Optional[str] = Field(None, description="Client ID")
@@ -727,6 +744,7 @@ class AvitoTokenInfo(BaseModel):
 
 class AvitoWebhookAuthEvent(BaseModel):
     """Событие webhook авторизации"""
+
     type: str = Field(..., description="Тип события")
     user_id: str = Field(..., description="ID пользователя")
     client_id: str = Field(..., description="Client ID")

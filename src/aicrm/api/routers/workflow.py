@@ -18,7 +18,13 @@ from ..schemas.workflow import (
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/workflow", tags=["workflow"])
+router = APIRouter(tags=["workflow"])
+
+
+@router.get("/ping")
+async def ping():
+    """Ping endpoint"""
+    return "pong"
 
 
 @router.post("/trigger", response_model=WorkflowExecution)

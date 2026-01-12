@@ -147,7 +147,6 @@ class AvitoRateLimiter:
 
         try:
             # Удаляем все ключи для данного пользователя и типа операции
-            current_minute = int(time.time() // 60)
             pattern = f"{self.key_prefix}:{user_id}:{operation_type}:*"
 
             # Получаем все ключи по паттерну

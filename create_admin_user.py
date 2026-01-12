@@ -10,26 +10,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from aicrm.core.database import get_default_engine
+from aicrm.core.database import SessionLocal, engine
 from aicrm.models import Base
 from aicrm.models.user import User
 
 
 def create_admin_user():
     """Создание администратора"""
-    # Force postgres consistency with app
-    import os
-
-    osiron["DATABASE_URL"] = (
-        "postgresql+psycopg2://aicrm_user:aicrm_password@localhost:5432/aicrm"
-    )
-
     # Создаем таблицы, если они не существуют
-    engine = get_default_engine()
     print(f"Using database: {engine.url}")
     Base.metadata.create_all(bind=engine)
 
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db: Session = SessionLocal()
 
     try:
@@ -42,7 +33,6 @@ def create_admin_user():
             print(f"Email: {existing_user.email}")
             print(f"Роль: {existing_user.role}")
             print(f"Superuser: {existing_user.is_superuser}")
-            # Force recreate if we want to ensure it's in the same DB
 
         # Создаем нового пользователя
         user_data = {

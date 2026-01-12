@@ -2,8 +2,6 @@
 Модель пользователя
 """
 
-from datetime import datetime
-
 from passlib.context import CryptContext
 from sqlalchemy import Boolean, Column, DateTime, String
 from sqlalchemy.orm import relationship

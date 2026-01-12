@@ -22,6 +22,7 @@ from .system_settings import router as system_settings_router
 from .task import router as task_router
 from .telegram import router as telegram_router
 from .user import router as user_router
+from .user_settings import router as user_settings_router
 from .websocket import router as websocket_router
 from .workflow import router as workflow_router
 
@@ -38,6 +39,7 @@ __all__ = [
     "email_router",
     "telegram_router",
     "user_router",
+    "user_settings_router",
     "ai_settings_router",
     "workflow_router",
     "email_templates_router",

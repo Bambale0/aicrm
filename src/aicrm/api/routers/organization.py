@@ -18,6 +18,11 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
+@router.get("/ping")
+async def ping():
+    return "pong"
+
+
 
 class OrganizationCreate(BaseModel):
     """Схема создания организации"""
@@ -209,7 +214,7 @@ async def list_organizations(
     query = db.query(Organization)
 
     if active_only:
-        query = query.filter(Organization.is_active == True)
+        query = query.filter(Organization.is_active)
 
     organizations = query.offset(skip).limit(limit).all()
 
@@ -473,10 +478,8 @@ async def get_organizations_stats(
         dict: Статистика организаций
     """
     total_count = db.query(Organization).count()
-    active_count = db.query(Organization).filter(Organization.is_active == True).count()
-    verified_count = (
-        db.query(Organization).filter(Organization.is_verified == True).count()
-    )
+    active_count = db.query(Organization).filter(Organization.is_active).count()
+    verified_count = db.query(Organization).filter(Organization.is_verified).count()
 
     # Статистика по планам
     plans_stats = (

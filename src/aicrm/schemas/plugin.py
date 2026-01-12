@@ -145,4 +145,4 @@ class PluginActionInfo(BaseModel):
     """Plugin action info schema"""
 
     name: str
-    schema: Dict[str, Any]
+    action_schema: Dict[str, Any]
