@@ -1,20 +1,21 @@
 """
 Конфигурация pytest с фикстурами для тестирования
 """
+
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from src.aicrm.core.database import get_db
-from src.aicrm.models import Base
 from src.aicrm.main import app
+from src.aicrm.models import Base
 from src.aicrm.models.customer import Customer
 from src.aicrm.models.order import Order
-from src.aicrm.models.task import Task
 from src.aicrm.models.production_step import ProductionStep
+from src.aicrm.models.task import Task
 
 
 @pytest.fixture(scope="session")
@@ -23,7 +24,7 @@ def engine():
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
-        echo=False  # Отключаем логи SQL для тестов
+        echo=False,  # Отключаем логи SQL для тестов
     )
     return engine
 
@@ -72,7 +73,7 @@ def sample_customer(db_session):
         name="Иван Иванов",
         email="ivan@example.com",
         phone="+7-999-123-45-67",
-        address="Москва, ул. Ленина, 10"
+        address="Москва, ул. Ленина, 10",
     )
     db_session.add(customer)
     db_session.commit()
@@ -90,7 +91,7 @@ def sample_order(db_session, sample_customer):
         status=OrderStatus.PENDING,
         total_amount=1500.00,
         items=[{"product_type": "tshirt", "quantity": 3}],
-        source="website"
+        source="website",
     )
     db_session.add(order)
     db_session.commit()
@@ -107,7 +108,7 @@ def sample_task(db_session):
         priority="high",
         assigned_to=2,
         created_by=1,
-        status="todo"
+        status="todo",
     )
     db_session.add(task)
     db_session.commit()
@@ -126,7 +127,7 @@ def sample_production_step(db_session, sample_order):
         description="Подготовка дизайн-макета",
         sequence_number=1,
         status=StepStatus.PENDING,
-        estimated_hours=24
+        estimated_hours=24,
     )
     db_session.add(step)
     db_session.commit()
@@ -136,13 +137,11 @@ def sample_production_step(db_session, sample_order):
 
 # Асинхронные фикстуры для API тестов
 
+
 @pytest.fixture(scope="session")
 def async_engine():
     """Создание асинхронной тестовой базы данных"""
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        echo=False
-    )
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     return engine
 
 
@@ -189,7 +188,7 @@ async def test_user(async_db):
     user = User(
         email="test@example.com",
         hashed_password=auth_service.get_password_hash("testpass123"),
-        is_active=True
+        is_active=True,
     )
     async_db.add(user)
     await async_db.commit()
@@ -204,7 +203,7 @@ async def test_customer_api(async_db):
         name="Иван Иванов",
         email="ivan@example.com",
         phone="+7-999-123-45-67",
-        address="Москва, ул. Ленина, 10"
+        address="Москва, ул. Ленина, 10",
     )
     async_db.add(customer)
     await async_db.commit()
@@ -224,7 +223,7 @@ async def test_task_api(async_db):
         assigned_to=1,
         created_by=1,
         due_date=datetime.utcnow() + timedelta(days=3),
-        status="todo"
+        status="todo",
     )
     async_db.add(task)
     await async_db.commit()

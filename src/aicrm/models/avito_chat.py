@@ -1,9 +1,11 @@
 """
 Модель для настроек чатов Avito
 """
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, JSON, ForeignKey
-from sqlalchemy.orm import relationship
+
 from datetime import datetime
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 
@@ -26,7 +28,9 @@ class AvitoChatSettings(BaseModel):
 
     # Статистика чата
     message_count = Column(Integer, default=0, nullable=False)
-    unread_count = Column(Integer, default=0, nullable=False, index=True)  # Количество непрочитанных сообщений
+    unread_count = Column(
+        Integer, default=0, nullable=False, index=True
+    )  # Количество непрочитанных сообщений
     last_message_at = Column(DateTime, nullable=True)
     last_ai_response_at = Column(DateTime, nullable=True)
 
@@ -51,4 +55,6 @@ class AvitoChatSettings(BaseModel):
         self.last_ai_response_at = datetime.utcnow()
 
     def __repr__(self) -> str:
-        return f"<AvitoChatSettings(chat_id={self.chat_id}, ai_enabled={self.ai_enabled})>"
+        return (
+            f"<AvitoChatSettings(chat_id={self.chat_id}, ai_enabled={self.ai_enabled})>"
+        )

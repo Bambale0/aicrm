@@ -1,7 +1,8 @@
 """
 Модель клиента
 """
-from sqlalchemy import Column, String, Integer, Numeric, JSON, Text
+
+from sqlalchemy import JSON, Column, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -30,7 +31,9 @@ class Customer(BaseModel):
     def update_stats(self):
         """Обновление статистики клиента"""
         self.total_orders = len(self.orders)
-        self.total_spent = sum(order.total_amount for order in self.orders if order.total_amount)
+        self.total_spent = sum(
+            order.total_amount for order in self.orders if order.total_amount
+        )
 
         # Определение уровня лояльности
         if self.total_spent > 10000:

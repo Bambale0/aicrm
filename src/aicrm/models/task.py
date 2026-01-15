@@ -1,8 +1,10 @@
 """
 Модель задачи
 """
+
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, ForeignKey, Text, DateTime, Numeric
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -27,17 +29,15 @@ class Task(BaseModel):
     actual_hours = Column(Integer)
 
     # Связи
-    assigned_to_user = relationship("User", foreign_keys=[assigned_to], back_populates="tasks")
+    assigned_to_user = relationship(
+        "User", foreign_keys=[assigned_to], back_populates="tasks"
+    )
     created_by_user = relationship("User", foreign_keys=[created_by])
 
     @property
     def priority_display(self) -> str:
         """Человеко-читаемый приоритет"""
-        priorities = {
-            "low": "Низкий",
-            "medium": "Средний",
-            "high": "Высокий"
-        }
+        priorities = {"low": "Низкий", "medium": "Средний", "high": "Высокий"}
         return priorities.get(self.priority, self.priority)
 
     @property
@@ -47,7 +47,7 @@ class Task(BaseModel):
             "todo": "К выполнению",
             "in_progress": "В работе",
             "done": "Выполнена",
-            "cancelled": "Отменена"
+            "cancelled": "Отменена",
         }
         return statuses.get(self.status, self.status)
 

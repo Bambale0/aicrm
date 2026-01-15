@@ -1,14 +1,16 @@
 """
 Юнит-тесты для моделей
 """
-import pytest
-from unittest.mock import MagicMock
+
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock
+
+import pytest
 
 from src.aicrm.models.customer import Customer
-from src.aicrm.models.task import Task
 from src.aicrm.models.order import Order, OrderStatus
 from src.aicrm.models.production_step import ProductionStep, StepStatus
+from src.aicrm.models.task import Task
 
 
 class TestCustomerModel:
@@ -23,7 +25,7 @@ class TestCustomerModel:
             address="Москва, ул. Ленина, 10",
             total_orders=0,
             total_spent=0.00,
-            loyalty_level="bronze"
+            loyalty_level="bronze",
         )
 
         assert customer.name == "Иван Иванов"
@@ -36,10 +38,7 @@ class TestCustomerModel:
 
     def test_customer_repr(self):
         """Тест строкового представления клиента"""
-        customer = Customer(
-            name="Иван Иванов",
-            email="ivan@example.com"
-        )
+        customer = Customer(name="Иван Иванов", email="ivan@example.com")
 
         assert repr(customer) == "<Customer(name=Иван Иванов, email=ivan@example.com)>"
 
@@ -118,7 +117,7 @@ class TestTaskModel:
             assigned_to=2,
             created_by=1,
             due_date=due_date,
-            estimated_hours=8
+            estimated_hours=8,
         )
 
         assert task.title == "Подготовить дизайн"
@@ -130,13 +129,12 @@ class TestTaskModel:
 
     def test_task_repr(self):
         """Тест строкового представления задачи"""
-        task = Task(
-            title="Тестовая задача",
-            priority="medium",
-            status="in_progress"
-        )
+        task = Task(title="Тестовая задача", priority="medium", status="in_progress")
 
-        assert repr(task) == "<Task(title=Тестовая задача, priority=medium, status=in_progress)>"
+        assert (
+            repr(task)
+            == "<Task(title=Тестовая задача, priority=medium, status=in_progress)>"
+        )
 
     def test_priority_display(self):
         """Тест человеко-читаемого приоритета"""
@@ -177,7 +175,9 @@ class TestTaskModel:
 
     def test_is_overdue_completed(self):
         """Тест просрочки для завершенной задачи"""
-        task = Task(title="Test", status="done", due_date=datetime.utcnow() - timedelta(days=1))
+        task = Task(
+            title="Test", status="done", due_date=datetime.utcnow() - timedelta(days=1)
+        )
 
         assert not task.is_overdue()
 
@@ -186,7 +186,7 @@ class TestTaskModel:
         task = Task(
             title="Test",
             status="in_progress",
-            due_date=datetime.utcnow() + timedelta(days=1)
+            due_date=datetime.utcnow() + timedelta(days=1),
         )
 
         assert not task.is_overdue()
@@ -196,7 +196,7 @@ class TestTaskModel:
         task = Task(
             title="Test",
             status="in_progress",
-            due_date=datetime.utcnow() - timedelta(days=1)
+            due_date=datetime.utcnow() - timedelta(days=1),
         )
 
         assert task.is_overdue()
@@ -216,7 +216,7 @@ class TestOrderModel:
             items=[{"product_type": "tshirt", "quantity": 3}],
             requirements="Срочный заказ",
             deadline=deadline,
-            source="website"
+            source="website",
         )
 
         assert order.customer_id == 1
@@ -228,9 +228,7 @@ class TestOrderModel:
     def test_order_repr(self):
         """Тест строкового представления заказа"""
         order = Order(
-            customer_id=1,
-            status=OrderStatus.IN_PRODUCTION,
-            total_amount=2500.00
+            customer_id=1, status=OrderStatus.IN_PRODUCTION, total_amount=2500.00
         )
 
         # Проверяем, что repr содержит правильную информацию
@@ -258,7 +256,7 @@ class TestOrderModel:
         order = Order(
             customer_id=1,
             status=OrderStatus.DELIVERED,
-            deadline=datetime.utcnow() - timedelta(days=1)
+            deadline=datetime.utcnow() - timedelta(days=1),
         )
 
         assert not order.is_overdue
@@ -268,7 +266,7 @@ class TestOrderModel:
         order = Order(
             customer_id=1,
             status=OrderStatus.IN_PRODUCTION,
-            deadline=datetime.utcnow() - timedelta(days=1)
+            deadline=datetime.utcnow() - timedelta(days=1),
         )
 
         assert order.is_overdue
@@ -344,7 +342,7 @@ class TestProductionStepModel:
             description="Подготовка дизайн-макета",
             sequence_number=1,
             status=StepStatus.PENDING,
-            estimated_hours=24
+            estimated_hours=24,
         )
 
         assert step.order_id == 1
@@ -356,12 +354,13 @@ class TestProductionStepModel:
     def test_production_step_repr(self):
         """Тест строкового представления этапа"""
         step = ProductionStep(
-            order_id=1,
-            name="Тестовый этап",
-            status=StepStatus.IN_PROGRESS
+            order_id=1, name="Тестовый этап", status=StepStatus.IN_PROGRESS
         )
 
-        assert repr(step) == "<ProductionStep(order_id=1, name='Тестовый этап', status=in_progress)>"
+        assert (
+            repr(step)
+            == "<ProductionStep(order_id=1, name='Тестовый этап', status=in_progress)>"
+        )
 
     def test_is_overdue_completed(self):
         """Тест просрочки для завершенного этапа"""
@@ -370,7 +369,7 @@ class TestProductionStepModel:
             name="Test",
             status=StepStatus.COMPLETED,
             started_at=datetime.utcnow() - timedelta(hours=30),
-            estimated_hours=24
+            estimated_hours=24,
         )
 
         assert not step.is_overdue
@@ -378,10 +377,7 @@ class TestProductionStepModel:
     def test_is_overdue_no_start_time(self):
         """Тест просрочки без времени начала"""
         step = ProductionStep(
-            order_id=1,
-            name="Test",
-            status=StepStatus.IN_PROGRESS,
-            estimated_hours=24
+            order_id=1, name="Test", status=StepStatus.IN_PROGRESS, estimated_hours=24
         )
 
         assert not step.is_overdue
@@ -392,7 +388,7 @@ class TestProductionStepModel:
             order_id=1,
             name="Test",
             status=StepStatus.IN_PROGRESS,
-            started_at=datetime.utcnow() - timedelta(hours=30)
+            started_at=datetime.utcnow() - timedelta(hours=30),
         )
 
         assert not step.is_overdue
@@ -404,7 +400,7 @@ class TestProductionStepModel:
             name="Test",
             status=StepStatus.IN_PROGRESS,
             started_at=datetime.utcnow() - timedelta(hours=30),
-            estimated_hours=24
+            estimated_hours=24,
         )
 
         assert step.is_overdue
@@ -442,7 +438,7 @@ class TestProductionStepModel:
             order_id=1,
             name="Test",
             status=StepStatus.IN_PROGRESS,
-            started_at=datetime.utcnow()
+            started_at=datetime.utcnow(),
         )
 
         step.complete_work(actual_hours=20.5, notes="Готово")

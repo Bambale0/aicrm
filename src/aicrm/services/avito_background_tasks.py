@@ -1,15 +1,21 @@
 """
 Background задачи для Avito операций
 """
-from typing import Dict, Any, List, Optional
+
 import asyncio
 import logging
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from ..core.database import get_async_db
 from ..utils.logging import get_logger
-from .avito_service import AvitoService, AvitoAPIError, AvitoNetworkError, AvitoTimeoutError
 from .avito_handler import AvitoCommunicationHandler
+from .avito_service import (
+    AvitoAPIError,
+    AvitoNetworkError,
+    AvitoService,
+    AvitoTimeoutError,
+)
 
 logger = get_logger(__name__)
 
@@ -26,7 +32,7 @@ class AvitoBackgroundTasks:
         self,
         chat_ids: List[str],
         limit_per_chat: int = 100,
-        force_full_sync: bool = False
+        force_full_sync: bool = False,
     ) -> Dict[str, Any]:
         """
         Background задача для синхронизации истории чатов
@@ -43,7 +49,10 @@ class AvitoBackgroundTasks:
         self.running_tasks.add(task_id)
 
         try:
-            logger.info(f"Запуск background синхронизации чатов: {len(chat_ids)} чатов", task_id=task_id)
+            logger.info(
+                f"Запуск background синхронизации чатов: {len(chat_ids)} чатов",
+                task_id=task_id,
+            )
 
             total_synced = 0
             total_errors = 0
@@ -55,14 +64,12 @@ class AvitoBackgroundTasks:
                         # Синхронизируем историю чата
                         async for db_session in get_async_db():
                             result = await avito_service.sync_avito_chats_with_db(
-                                db_session=db_session,
-                                limit=limit_per_chat
+                                db_session=db_session, limit=limit_per_chat
                             )
 
                             # Получаем историю сообщений
                             messages_result = await avito_service.get_avito_messages(
-                                chat_id=chat_id,
-                                limit=limit_per_chat
+                                chat_id=chat_id, limit=limit_per_chat
                             )
 
                             # Синхронизируем сообщения с БД
@@ -71,22 +78,27 @@ class AvitoBackgroundTasks:
                             chat_id, messages_result
                         )
 
-                        results.append({
-                            "chat_id": chat_id,
-                            "synced_messages": synced_messages,
-                            "status": "success"
-                        })
+                        results.append(
+                            {
+                                "chat_id": chat_id,
+                                "synced_messages": synced_messages,
+                                "status": "success",
+                            }
+                        )
 
                         total_synced += synced_messages
-                        logger.info(f"Чат {chat_id} синхронизирован: {synced_messages} сообщений", task_id=task_id)
+                        logger.info(
+                            f"Чат {chat_id} синхронизирован: {synced_messages} сообщений",
+                            task_id=task_id,
+                        )
 
                     except Exception as e:
-                        logger.error(f"Ошибка синхронизации чата {chat_id}: {e}", task_id=task_id)
-                        results.append({
-                            "chat_id": chat_id,
-                            "error": str(e),
-                            "status": "error"
-                        })
+                        logger.error(
+                            f"Ошибка синхронизации чата {chat_id}: {e}", task_id=task_id
+                        )
+                        results.append(
+                            {"chat_id": chat_id, "error": str(e), "status": "error"}
+                        )
                         total_errors += 1
 
                     # Небольшая пауза между чатами
@@ -94,7 +106,7 @@ class AvitoBackgroundTasks:
 
             logger.info(
                 f"Завершена background синхронизация чатов: {total_synced} сообщений, {total_errors} ошибок",
-                task_id=task_id
+                task_id=task_id,
             )
 
             return {
@@ -103,23 +115,20 @@ class AvitoBackgroundTasks:
                 "total_chats": len(chat_ids),
                 "total_synced_messages": total_synced,
                 "total_errors": total_errors,
-                "results": results
+                "results": results,
             }
 
         except Exception as e:
-            logger.error(f"Критическая ошибка в background задаче синхронизации: {e}", task_id=task_id)
-            return {
-                "task_id": task_id,
-                "status": "failed",
-                "error": str(e)
-            }
+            logger.error(
+                f"Критическая ошибка в background задаче синхронизации: {e}",
+                task_id=task_id,
+            )
+            return {"task_id": task_id, "status": "failed", "error": str(e)}
         finally:
             self.running_tasks.discard(task_id)
 
     async def bulk_send_messages_background(
-        self,
-        messages: List[Dict[str, Any]],
-        delay_between_messages: float = 1.0
+        self, messages: List[Dict[str, Any]], delay_between_messages: float = 1.0
     ) -> Dict[str, Any]:
         """
         Background задача для массовой отправки сообщений
@@ -135,7 +144,10 @@ class AvitoBackgroundTasks:
         self.running_tasks.add(task_id)
 
         try:
-            logger.info(f"Запуск background отправки сообщений: {len(messages)} сообщений", task_id=task_id)
+            logger.info(
+                f"Запуск background отправки сообщений: {len(messages)} сообщений",
+                task_id=task_id,
+            )
 
             total_sent = 0
             total_errors = 0
@@ -152,7 +164,9 @@ class AvitoBackgroundTasks:
 
                         if use_ai:
                             # Генерируем AI ответ
-                            chat_history = await handler.get_chat_history(chat_id, limit=5)
+                            chat_history = await handler.get_chat_history(
+                                chat_id, limit=5
+                            )
                             # Здесь можно добавить логику генерации AI ответа
                             # Пока просто отправляем как есть
                             success = await handler.send_message(chat_id, message_text)
@@ -161,30 +175,37 @@ class AvitoBackgroundTasks:
 
                         if success:
                             total_sent += 1
-                            results.append({
-                                "index": i,
-                                "chat_id": chat_id,
-                                "status": "sent"
-                            })
-                            logger.info(f"Сообщение {i+1}/{len(messages)} отправлено в чат {chat_id}", task_id=task_id)
+                            results.append(
+                                {"index": i, "chat_id": chat_id, "status": "sent"}
+                            )
+                            logger.info(
+                                f"Сообщение {i+1}/{len(messages)} отправлено в чат {chat_id}",
+                                task_id=task_id,
+                            )
                         else:
                             total_errors += 1
-                            results.append({
-                                "index": i,
-                                "chat_id": chat_id,
-                                "status": "error",
-                                "error": "Failed to send"
-                            })
+                            results.append(
+                                {
+                                    "index": i,
+                                    "chat_id": chat_id,
+                                    "status": "error",
+                                    "error": "Failed to send",
+                                }
+                            )
 
                     except Exception as e:
-                        logger.error(f"Ошибка отправки сообщения {i+1}: {e}", task_id=task_id)
+                        logger.error(
+                            f"Ошибка отправки сообщения {i+1}: {e}", task_id=task_id
+                        )
                         total_errors += 1
-                        results.append({
-                            "index": i,
-                            "chat_id": message_data.get("chat_id"),
-                            "status": "error",
-                            "error": str(e)
-                        })
+                        results.append(
+                            {
+                                "index": i,
+                                "chat_id": message_data.get("chat_id"),
+                                "status": "error",
+                                "error": str(e),
+                            }
+                        )
 
                     # Задержка между сообщениями
                     if i < len(messages) - 1:  # Не ждем после последнего сообщения
@@ -192,7 +213,7 @@ class AvitoBackgroundTasks:
 
             logger.info(
                 f"Завершена background отправка сообщений: {total_sent} отправлено, {total_errors} ошибок",
-                task_id=task_id
+                task_id=task_id,
             )
 
             return {
@@ -201,23 +222,19 @@ class AvitoBackgroundTasks:
                 "total_messages": len(messages),
                 "total_sent": total_sent,
                 "total_errors": total_errors,
-                "results": results
+                "results": results,
             }
 
         except Exception as e:
-            logger.error(f"Критическая ошибка в background задаче отправки: {e}", task_id=task_id)
-            return {
-                "task_id": task_id,
-                "status": "failed",
-                "error": str(e)
-            }
+            logger.error(
+                f"Критическая ошибка в background задаче отправки: {e}", task_id=task_id
+            )
+            return {"task_id": task_id, "status": "failed", "error": str(e)}
         finally:
             self.running_tasks.discard(task_id)
 
     async def update_items_performance_background(
-        self,
-        item_ids: List[int],
-        days: int = 30
+        self, item_ids: List[int], days: int = 30
     ) -> Dict[str, Any]:
         """
         Background задача для обновления производительности объявлений
@@ -233,7 +250,10 @@ class AvitoBackgroundTasks:
         self.running_tasks.add(task_id)
 
         try:
-            logger.info(f"Запуск background обновления производительности: {len(item_ids)} объявлений", task_id=task_id)
+            logger.info(
+                f"Запуск background обновления производительности: {len(item_ids)} объявлений",
+                task_id=task_id,
+            )
 
             total_updated = 0
             total_errors = 0
@@ -243,24 +263,32 @@ class AvitoBackgroundTasks:
                 for item_id in item_ids:
                     try:
                         # Обновляем производительность (кэш будет автоматически обновлен)
-                        performance = await avito_service.get_item_performance(item_id, days)
+                        performance = await avito_service.get_item_performance(
+                            item_id, days
+                        )
 
-                        results.append({
-                            "item_id": item_id,
-                            "status": "updated",
-                            "performance": performance
-                        })
+                        results.append(
+                            {
+                                "item_id": item_id,
+                                "status": "updated",
+                                "performance": performance,
+                            }
+                        )
 
                         total_updated += 1
-                        logger.info(f"Производительность объявления {item_id} обновлена", task_id=task_id)
+                        logger.info(
+                            f"Производительность объявления {item_id} обновлена",
+                            task_id=task_id,
+                        )
 
                     except Exception as e:
-                        logger.error(f"Ошибка обновления производительности объявления {item_id}: {e}", task_id=task_id)
-                        results.append({
-                            "item_id": item_id,
-                            "status": "error",
-                            "error": str(e)
-                        })
+                        logger.error(
+                            f"Ошибка обновления производительности объявления {item_id}: {e}",
+                            task_id=task_id,
+                        )
+                        results.append(
+                            {"item_id": item_id, "status": "error", "error": str(e)}
+                        )
                         total_errors += 1
 
                     # Небольшая пауза между запросами
@@ -268,7 +296,7 @@ class AvitoBackgroundTasks:
 
             logger.info(
                 f"Завершено background обновление производительности: {total_updated} обновлено, {total_errors} ошибок",
-                task_id=task_id
+                task_id=task_id,
             )
 
             return {
@@ -277,20 +305,21 @@ class AvitoBackgroundTasks:
                 "total_items": len(item_ids),
                 "total_updated": total_updated,
                 "total_errors": total_errors,
-                "results": results
+                "results": results,
             }
 
         except Exception as e:
-            logger.error(f"Критическая ошибка в background задаче обновления производительности: {e}", task_id=task_id)
-            return {
-                "task_id": task_id,
-                "status": "failed",
-                "error": str(e)
-            }
+            logger.error(
+                f"Критическая ошибка в background задаче обновления производительности: {e}",
+                task_id=task_id,
+            )
+            return {"task_id": task_id, "status": "failed", "error": str(e)}
         finally:
             self.running_tasks.discard(task_id)
 
-    async def cleanup_old_data_background(self, days_to_keep: int = 90) -> Dict[str, Any]:
+    async def cleanup_old_data_background(
+        self, days_to_keep: int = 90
+    ) -> Dict[str, Any]:
         """
         Background задача для очистки старых данных
 
@@ -304,40 +333,47 @@ class AvitoBackgroundTasks:
         self.running_tasks.add(task_id)
 
         try:
-            logger.info(f"Запуск background очистки данных старше {days_to_keep} дней", task_id=task_id)
+            logger.info(
+                f"Запуск background очистки данных старше {days_to_keep} дней",
+                task_id=task_id,
+            )
 
             cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
             async for db_session in get_async_db():
                 # Очистка старых коммуникаций (кроме важных)
                 from ..models.communication import Communication
 
-                deleted_communications = db_session.query(Communication).filter(
-                    Communication.created_at < cutoff_date,
-                    Communication.intent.is_(None),  # Удаляем только сообщения без intent
-                    Communication.channel == "avito"
-                ).delete()
+                deleted_communications = (
+                    db_session.query(Communication)
+                    .filter(
+                        Communication.created_at < cutoff_date,
+                        Communication.intent.is_(
+                            None
+                        ),  # Удаляем только сообщения без intent
+                        Communication.channel == "avito",
+                    )
+                    .delete()
+                )
 
                 # Очистка старых логов (если есть)
                 # Здесь можно добавить очистку других типов данных
 
                 db_session.commit()
 
-            logger.info(f"Удалено {deleted_communications} старых коммуникаций", task_id=task_id)
+            logger.info(
+                f"Удалено {deleted_communications} старых коммуникаций", task_id=task_id
+            )
 
             return {
                 "task_id": task_id,
                 "status": "completed",
                 "deleted_communications": deleted_communications,
-                "cutoff_date": cutoff_date.isoformat()
+                "cutoff_date": cutoff_date.isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Ошибка в background задаче очистки: {e}", task_id=task_id)
-            return {
-                "task_id": task_id,
-                "status": "failed",
-                "error": str(e)
-            }
+            return {"task_id": task_id, "status": "failed", "error": str(e)}
         finally:
             self.running_tasks.discard(task_id)
 
@@ -359,21 +395,25 @@ class AvitoBackgroundTasks:
                 "webhook_working": False,
                 "database_ok": False,
                 "cache_ok": False,
-                "rate_limiter_ok": False
+                "rate_limiter_ok": False,
             }
 
             # Проверка API доступности
             try:
                 async with AvitoService() as avito_service:
                     # Пробуем получить активные объявления
-                    items = await avito_service.get_active_items(use_cache_fallback=False)
+                    items = await avito_service.get_active_items(
+                        use_cache_fallback=False
+                    )
                     health_status["api_available"] = True
                     logger.info("Avito API доступен", task_id=task_id)
             except (AvitoNetworkError, AvitoTimeoutError):
                 logger.warning("Avito API недоступен (сеть/таймаут)", task_id=task_id)
             except AvitoAPIError as e:
                 if e.error_subtype == "server_error":
-                    logger.warning("Avito API недоступен (серверная ошибка)", task_id=task_id)
+                    logger.warning(
+                        "Avito API недоступен (серверная ошибка)", task_id=task_id
+                    )
                 else:
                     health_status["api_available"] = True  # API отвечает, но с ошибкой
             except Exception as e:
@@ -384,6 +424,7 @@ class AvitoBackgroundTasks:
                 async for db_session in get_async_db():
                     # Простой запрос для проверки
                     from ..models.avito_chat import AvitoChatSettings
+
                     count = db_session.query(AvitoChatSettings).count()
                     health_status["database_ok"] = True
                     logger.info(f"База данных OK, чатов: {count}", task_id=task_id)
@@ -393,6 +434,7 @@ class AvitoBackgroundTasks:
             # Проверка кэша
             try:
                 from .avito_service import AvitoCache
+
                 cache = AvitoCache()
                 test_key = f"health_check_{datetime.utcnow().isoformat()}"
                 await cache.set_cached(test_key, {"test": True}, ttl_seconds=10)
@@ -405,8 +447,11 @@ class AvitoBackgroundTasks:
             # Проверка rate limiter
             try:
                 from .rate_limiter import get_avito_rate_limiter
+
                 rate_limiter = await get_avito_rate_limiter()
-                allowed, _, _ = await rate_limiter.check_rate_limit("read", "health_check")
+                allowed, _, _ = await rate_limiter.check_rate_limit(
+                    "read", "health_check"
+                )
                 health_status["rate_limiter_ok"] = True
                 logger.info("Rate limiter OK", task_id=task_id)
             except Exception as e:
@@ -419,19 +464,20 @@ class AvitoBackgroundTasks:
                 "status": "completed",
                 "overall_health": overall_health,
                 "checks": health_status,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
-            logger.info(f"Проверка здоровья завершена: {'OK' if overall_health else 'ПРОБЛЕМЫ'}", task_id=task_id)
+            logger.info(
+                f"Проверка здоровья завершена: {'OK' if overall_health else 'ПРОБЛЕМЫ'}",
+                task_id=task_id,
+            )
             return result
 
         except Exception as e:
-            logger.error(f"Критическая ошибка в проверке здоровья: {e}", task_id=task_id)
-            return {
-                "task_id": task_id,
-                "status": "failed",
-                "error": str(e)
-            }
+            logger.error(
+                f"Критическая ошибка в проверке здоровья: {e}", task_id=task_id
+            )
+            return {"task_id": task_id, "status": "failed", "error": str(e)}
         finally:
             self.running_tasks.discard(task_id)
 

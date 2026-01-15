@@ -1,25 +1,29 @@
 """
 Настройка базы данных
 """
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from ..core.config import settings
 
 # Используем URL из настроек
 DATABASE_URL = settings.database_url
 
+# Создаем sync URL для синхронного engine
+sync_url = DATABASE_URL.replace("+asyncpg", "").replace("+aiosqlite", "")
+
 # Для SQLite используем обычный sqlite3 драйвер
-if DATABASE_URL.startswith("sqlite"):
-    DATABASE_URL = DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite://")
+if sync_url.startswith("sqlite"):
+    sync_url = sync_url.replace("sqlite://", "sqlite://")
 
 engine = create_engine(
-    DATABASE_URL,
+    sync_url,
     echo=settings.debug,
-    poolclass=StaticPool if settings.debug else None,
-    connect_args={"check_same_thread": False} if settings.debug else {},
+    poolclass=StaticPool if sync_url.startswith("sqlite") else None,
+    connect_args={"check_same_thread": False} if sync_url.startswith("sqlite") else {},
 )
 
 SessionLocal = sessionmaker(
@@ -30,7 +34,11 @@ SessionLocal = sessionmaker(
 
 # Асинхронная версия для API тестов
 async_engine = create_async_engine(
-    DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://") if DATABASE_URL.startswith("sqlite") else DATABASE_URL,
+    (
+        DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+        if DATABASE_URL.startswith("sqlite")
+        else DATABASE_URL
+    ),
     echo=settings.debug,
 )
 

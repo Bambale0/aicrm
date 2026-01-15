@@ -1,17 +1,19 @@
 """
 Тесты для основных сервисов с целью достижения 100% покрытия
 """
-import pytest
-from unittest.mock import MagicMock, patch
-from datetime import datetime, timedelta
 
-from src.aicrm.services.customer import CustomerService
-from src.aicrm.services.task import TaskService
-from src.aicrm.services.production import ProductionService
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.aicrm.models.customer import Customer
-from src.aicrm.models.task import Task
 from src.aicrm.models.order import Order, OrderStatus
 from src.aicrm.models.production_step import ProductionStep, StepStatus
+from src.aicrm.models.task import Task
+from src.aicrm.services.customer import CustomerService
+from src.aicrm.services.production import ProductionService
+from src.aicrm.services.task import TaskService
 
 
 class TestCustomerService:
@@ -23,14 +25,14 @@ class TestCustomerService:
         customer_data = {
             "name": "Иван Иванов",
             "email": "ivan@example.com",
-            "phone": "+7-999-123-45-67"
+            "phone": "+7-999-123-45-67",
         }
 
         # Мокаем создание клиента
         mock_customer = Customer(**customer_data)
         mock_customer.id = 1
 
-        with patch('src.aicrm.services.customer.Customer', return_value=mock_customer):
+        with patch("src.aicrm.services.customer.Customer", return_value=mock_customer):
             result = CustomerService.create_customer(mock_db, customer_data)
 
             assert result.id == 1
@@ -44,7 +46,9 @@ class TestCustomerService:
         """Тест получения существующего клиента"""
         mock_db = MagicMock()
         mock_customer = Customer(id=1, name="Иван Иванов", email="ivan@example.com")
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_customer
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_customer
+        )
 
         result = CustomerService.get_customer(mock_db, 1)
 
@@ -64,7 +68,9 @@ class TestCustomerService:
         """Тест успешного обновления клиента"""
         mock_db = MagicMock()
         mock_customer = Customer(id=1, name="Иван Иванов", email="ivan@example.com")
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_customer
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_customer
+        )
 
         update_data = {"name": "Иван Петров", "phone": "+7-999-987-65-43"}
 
@@ -87,7 +93,9 @@ class TestCustomerService:
         """Тест успешного удаления клиента"""
         mock_db = MagicMock()
         mock_customer = Customer(id=1, name="Иван Иванов")
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_customer
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_customer
+        )
 
         result = CustomerService.delete_customer(mock_db, 1)
 
@@ -109,7 +117,7 @@ class TestCustomerService:
         mock_db = MagicMock()
         mock_customers = [
             Customer(id=1, name="Иван Иванов"),
-            Customer(id=2, name="Петр Петров")
+            Customer(id=2, name="Петр Петров"),
         ]
 
         # Properly mock the query chain
@@ -147,8 +155,16 @@ class TestCustomerService:
     def test_get_customer_stats_success(self):
         """Тест получения статистики клиента"""
         mock_db = MagicMock()
-        mock_customer = Customer(id=1, name="Иван Иванов", total_orders=5, total_spent=15000.0, loyalty_level="gold")
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_customer
+        mock_customer = Customer(
+            id=1,
+            name="Иван Иванов",
+            total_orders=5,
+            total_spent=15000.0,
+            loyalty_level="gold",
+        )
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_customer
+        )
 
         # Mock the stats query result - simplified
         mock_stats = MagicMock()
@@ -156,7 +172,10 @@ class TestCustomerService:
         mock_stats.average_order_value = 3000.0
 
         # Set up the side effect properly
-        mock_db.query.return_value.filter.return_value.first.side_effect = [mock_customer, mock_stats]
+        mock_db.query.return_value.filter.return_value.first.side_effect = [
+            mock_customer,
+            mock_stats,
+        ]
 
         result = CustomerService.get_customer_stats(mock_db, 1)
 
@@ -179,7 +198,7 @@ class TestCustomerService:
         mock_db = MagicMock()
         mock_customers = [
             Customer(id=1, name="Иван Иванов", email="ivan@example.com"),
-            Customer(id=2, name="Иван Петров", email="petrov@example.com")
+            Customer(id=2, name="Иван Петров", email="petrov@example.com"),
         ]
 
         # Properly mock the query chain
@@ -205,13 +224,13 @@ class TestTaskService:
             "title": "Тестовая задача",
             "description": "Описание задачи",
             "priority": "high",
-            "assigned_to": 1
+            "assigned_to": 1,
         }
 
         mock_task = Task(**task_data)
         mock_task.id = 1
 
-        with patch('src.aicrm.services.task.Task', return_value=mock_task):
+        with patch("src.aicrm.services.task.Task", return_value=mock_task):
             result = TaskService.create_task(mock_db, task_data, created_by=2)
 
             assert result.id == 1
@@ -245,7 +264,7 @@ class TestTaskService:
         mock_db = MagicMock()
         mock_tasks = [
             Task(id=1, title="Задача 1", status="todo"),
-            Task(id=2, title="Задача 2", status="done")
+            Task(id=2, title="Задача 2", status="done"),
         ]
 
         # Properly mock the query chain
@@ -354,7 +373,9 @@ class TestProductionService:
     def test_create_production_workflow_success(self):
         """Тест успешного создания производственного workflow"""
         mock_db = MagicMock()
-        mock_order = Order(id=1, customer_id=1, status=OrderStatus.PENDING, total_amount=1000.0)
+        mock_order = Order(
+            id=1, customer_id=1, status=OrderStatus.PENDING, total_amount=1000.0
+        )
         mock_db.query.return_value.filter.return_value.first.return_value = mock_order
 
         service = ProductionService(mock_db)
@@ -383,7 +404,7 @@ class TestProductionService:
             name="Тестовый шаг",
             status=StepStatus.PENDING,
             sequence_number=1,
-            estimated_hours=2
+            estimated_hours=2,
         )
         mock_db.query.return_value.filter.return_value.first.return_value = mock_step
 
@@ -412,7 +433,7 @@ class TestProductionService:
             order_id=1,
             name="Шаг в работе",
             status=StepStatus.IN_PROGRESS,
-            sequence_number=1
+            sequence_number=1,
         )
         mock_db.query.return_value.filter.return_value.first.return_value = mock_step
 
@@ -429,7 +450,7 @@ class TestProductionService:
             order_id=1,
             name="Шаг для перепривязки",
             sequence_number=1,
-            assigned_user_id=1
+            assigned_user_id=1,
         )
         mock_db.query.return_value.filter.return_value.first.return_value = mock_step
 

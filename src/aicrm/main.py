@@ -1,14 +1,16 @@
 """
 Основное приложение FastAPI
 """
+
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api.routers import ai, auth, automation, avito, customer, order, task
 from .core.config import settings
-from .core.database import engine, SessionLocal
+from .core.database import SessionLocal, engine
 from .models import Base
-from .api.routers import auth, customer, ai, order, avito, task, automation
 from .utils.logging import get_logger
 
 
@@ -80,52 +82,40 @@ app = FastAPI(
     contact={
         "name": "AI CRM Team",
         "email": "support@aicrm.dev",
-        "url": "https://github.com/your-org/aicrm"
+        "url": "https://github.com/your-org/aicrm",
     },
-    license_info={
-        "name": "MIT",
-        "url": "https://opensource.org/licenses/MIT"
-    },
+    license_info={"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
     openapi_tags=[
         {
             "name": "AI",
-            "description": "Функции искусственного интеллекта: анализ намерений, генерация ответов, чат"
+            "description": "Функции искусственного интеллекта: анализ намерений, генерация ответов, чат",
         },
         {
             "name": "Orders",
-            "description": "Управление заказами: создание, обновление, прогресс производства"
+            "description": "Управление заказами: создание, обновление, прогресс производства",
         },
         {
             "name": "Customers",
-            "description": "Управление клиентами: CRUD операции, поиск, статистика"
+            "description": "Управление клиентами: CRUD операции, поиск, статистика",
         },
         {
             "name": "Tasks",
-            "description": "Управление задачами: CRUD операции, завершение задач"
+            "description": "Управление задачами: CRUD операции, завершение задач",
         },
-        {
-            "name": "Auth",
-            "description": "Аутентификация и авторизация пользователей"
-        },
+        {"name": "Auth", "description": "Аутентификация и авторизация пользователей"},
         {
             "name": "avito",
-            "description": "Интеграция с Avito: управление объявлениями, статистика, продвижение"
+            "description": "Интеграция с Avito: управление объявлениями, статистика, продвижение",
         },
         {
             "name": "automation",
-            "description": "Автоматизация бизнес-процессов: триггеры, роботы, стадии"
-        }
+            "description": "Автоматизация бизнес-процессов: триггеры, роботы, стадии",
+        },
     ],
     servers=[
-        {
-            "url": "http://localhost:8000",
-            "description": "Development server"
-        },
-        {
-            "url": "https://api.aicrm.dev",
-            "description": "Production server"
-        }
-    ]
+        {"url": "http://localhost:8000", "description": "Development server"},
+        {"url": "https://api.aicrm.dev", "description": "Production server"},
+    ],
 )
 
 # Настройка CORS
@@ -161,10 +151,11 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "aicrm.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.debug,
-        log_level="info"
+        log_level="info",
     )

@@ -1,13 +1,15 @@
 """
 Юнит-тесты для ProductionService
 """
-import pytest
-from unittest.mock import MagicMock, patch
-from datetime import datetime, timedelta
 
-from src.aicrm.services.production import ProductionService
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.aicrm.models.order import Order, OrderStatus
 from src.aicrm.models.production_step import ProductionStep, StepStatus
+from src.aicrm.services.production import ProductionService
 
 
 class TestProductionService:
@@ -31,7 +33,7 @@ class TestProductionService:
             status=OrderStatus.PENDING,
             total_amount=1500.00,
             items=[{"product_type": "tshirt", "quantity": 3}],
-            source="website"
+            source="website",
         )
         order.id = 1
         return order
@@ -45,12 +47,14 @@ class TestProductionService:
             description="Подготовка дизайн-макета",
             sequence_number=1,
             status=StepStatus.PENDING,
-            estimated_hours=24
+            estimated_hours=24,
         )
         step.id = 1
         return step
 
-    def test_create_production_workflow_success(self, production_service, mock_db, sample_order):
+    def test_create_production_workflow_success(
+        self, production_service, mock_db, sample_order
+    ):
         """Тест успешного создания workflow производства"""
         # Настройка мока
         mock_db.query.return_value.filter.return_value.first.return_value = sample_order
@@ -68,7 +72,9 @@ class TestProductionService:
         assert sample_order.status == OrderStatus.IN_DESIGN
         mock_db.commit.assert_called()
 
-    def test_create_production_workflow_order_not_found(self, production_service, mock_db):
+    def test_create_production_workflow_order_not_found(
+        self, production_service, mock_db
+    ):
         """Тест создания workflow для несуществующего заказа"""
         mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -77,7 +83,9 @@ class TestProductionService:
 
     def test_update_progress_no_steps(self, production_service, mock_db):
         """Тест обновления прогресса для заказа без этапов"""
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
 
         result = production_service.update_progress(1)
 
@@ -88,7 +96,9 @@ class TestProductionService:
     def test_update_progress_with_steps(self, production_service, mock_db, sample_step):
         """Тест обновления прогресса для заказа с этапами"""
         steps = [sample_step]
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = steps
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            steps
+        )
 
         result = production_service.update_progress(1)
 
@@ -116,7 +126,9 @@ class TestProductionService:
         with pytest.raises(ValueError, match="Этап с ID 999 не найден"):
             production_service.start_step(999)
 
-    def test_start_step_already_in_progress(self, production_service, mock_db, sample_step):
+    def test_start_step_already_in_progress(
+        self, production_service, mock_db, sample_step
+    ):
         """Тест запуска этапа, который уже в работе"""
         sample_step.status = StepStatus.IN_PROGRESS
         mock_db.query.return_value.filter.return_value.first.return_value = sample_step
@@ -130,10 +142,18 @@ class TestProductionService:
         mock_db.query.return_value.filter.return_value.first.return_value = sample_step
 
         # Мокаем методы для проверки автоматического запуска следующего этапа
-        with patch.object(production_service, '_check_and_start_next_step') as mock_check_next, \
-             patch.object(production_service, '_check_order_completion') as mock_check_order:
+        with (
+            patch.object(
+                production_service, "_check_and_start_next_step"
+            ) as mock_check_next,
+            patch.object(
+                production_service, "_check_order_completion"
+            ) as mock_check_order,
+        ):
 
-            result = production_service.complete_step(1, actual_hours=20.5, notes="Готово")
+            result = production_service.complete_step(
+                1, actual_hours=20.5, notes="Готово"
+            )
 
         assert result == sample_step
         assert sample_step.status == StepStatus.COMPLETED
@@ -150,7 +170,9 @@ class TestProductionService:
         with pytest.raises(ValueError, match="Этап с ID 999 не найден"):
             production_service.complete_step(999)
 
-    def test_complete_step_not_in_progress(self, production_service, mock_db, sample_step):
+    def test_complete_step_not_in_progress(
+        self, production_service, mock_db, sample_step
+    ):
         """Тест завершения этапа, который не в работе"""
         sample_step.status = StepStatus.PENDING
         mock_db.query.return_value.filter.return_value.first.return_value = sample_step
@@ -169,11 +191,12 @@ class TestProductionService:
             order_id=1,
             name="Следующий этап",
             sequence_number=2,
-            status=StepStatus.PENDING
+            status=StepStatus.PENDING,
         )
 
         mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
-            completed_step, pending_step
+            completed_step,
+            pending_step,
         ]
 
         production_service._check_and_start_next_step(1)
@@ -182,11 +205,15 @@ class TestProductionService:
         assert pending_step.started_at is not None
         mock_db.commit.assert_called_once()
 
-    def test_check_order_completion_all_done(self, production_service, mock_db, sample_order, sample_step):
+    def test_check_order_completion_all_done(
+        self, production_service, mock_db, sample_order, sample_step
+    ):
         """Тест автоматического завершения заказа при завершении всех этапов"""
         sample_step.status = StepStatus.COMPLETED
         sample_order.production_steps = [sample_step]
-        sample_order.status = OrderStatus.IN_PRODUCTION  # Меняем статус на допустимый для перехода
+        sample_order.status = (
+            OrderStatus.IN_PRODUCTION
+        )  # Меняем статус на допустимый для перехода
 
         mock_db.query.return_value.filter.return_value.first.return_value = sample_order
 
@@ -195,7 +222,9 @@ class TestProductionService:
         assert sample_order.status == OrderStatus.READY
         mock_db.commit.assert_called_once()
 
-    def test_get_overdue_steps(self, production_service, mock_db, sample_step, sample_order):
+    def test_get_overdue_steps(
+        self, production_service, mock_db, sample_step, sample_order
+    ):
         """Тест получения просроченных этапов"""
         # Настройка просроченного этапа
         sample_step.status = StepStatus.IN_PROGRESS

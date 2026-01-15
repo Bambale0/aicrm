@@ -64,8 +64,10 @@ def run_migrations_online() -> None:
 
     """
     # Use database URL from settings instead of config
+    # Convert async URL to sync for migrations
+    db_url = settings.database_url.replace("+asyncpg", "").replace("+aiosqlite", "")
     connectable = engine_from_config(
-        {"sqlalchemy.url": settings.database_url},
+        {"sqlalchemy.url": db_url},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

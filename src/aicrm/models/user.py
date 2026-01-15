@@ -1,9 +1,10 @@
 """
 Модель пользователя
 """
-from sqlalchemy import Column, String, Boolean, Integer
-from sqlalchemy.orm import relationship
+
 from passlib.context import CryptContext
+from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 
@@ -23,7 +24,9 @@ class User(BaseModel):
     role = Column(String, default="user")  # admin, manager, user
 
     # Связи
-    tasks = relationship("Task", foreign_keys="[Task.assigned_to]", back_populates="assigned_to_user")
+    tasks = relationship(
+        "Task", foreign_keys="[Task.assigned_to]", back_populates="assigned_to_user"
+    )
     production_steps = relationship("ProductionStep", back_populates="assigned_to_user")
 
     @staticmethod

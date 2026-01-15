@@ -1,17 +1,23 @@
 """
 API роутер для заказов
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+
 from typing import List, Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
 from ...core.database import get_db
-from ...services.production import ProductionService
-from ...models.order import Order, OrderStatus
 from ...models.customer import Customer
+from ...models.order import Order, OrderStatus
+from ...services.production import ProductionService
 from ..schemas.order import (
-    OrderCreate, OrderResponse, OrderUpdate, OrderListResponse,
-    ProductionProgressResponse, StepUpdateRequest
+    OrderCreate,
+    OrderListResponse,
+    OrderResponse,
+    OrderUpdate,
+    ProductionProgressResponse,
+    StepUpdateRequest,
 )
 
 router = APIRouter()
@@ -26,7 +32,7 @@ def get_production_service(db: Session = Depends(get_db)) -> ProductionService:
 async def create_order(
     order_data: OrderCreate,
     db: Session = Depends(get_db),
-    production_service: ProductionService = Depends(get_production_service)
+    production_service: ProductionService = Depends(get_production_service),
 ):
     """
     Создание заказа с автоматическим workflow производства
@@ -36,11 +42,13 @@ async def create_order(
     if not customer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Клиент с ID {order_data.customer_id} не найден"
+            detail=f"Клиент с ID {order_data.customer_id} не найден",
         )
 
     # Рассчитываем общую стоимость (простая логика)
-    total_amount = sum(item.quantity * 500 for item in order_data.items)  # 500 руб за единицу
+    total_amount = sum(
+        item.quantity * 500 for item in order_data.items
+    )  # 500 руб за единицу
 
     # Создаем заказ
     order = Order(
@@ -51,7 +59,7 @@ async def create_order(
         requirements=order_data.requirements,
         deadline=order_data.deadline,
         notes=order_data.notes,
-        source=order_data.source
+        source=order_data.source,
     )
 
     db.add(order)
@@ -78,17 +86,19 @@ async def create_order(
         progress_percentage=order.progress_percentage,
         is_overdue=order.is_overdue,
         created_at=order.created_at,
-        updated_at=order.updated_at
+        updated_at=order.updated_at,
     )
 
 
 @router.get("/", response_model=OrderListResponse)
 async def list_orders(
     page: int = Query(1, ge=1, description="Номер страницы"),
-    per_page: int = Query(20, ge=1, le=100, description="Количество элементов на странице"),
+    per_page: int = Query(
+        20, ge=1, le=100, description="Количество элементов на странице"
+    ),
     status: Optional[OrderStatus] = Query(None, description="Фильтр по статусу"),
     customer_id: Optional[int] = Query(None, description="Фильтр по клиенту"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Получение списка заказов с пагинацией и фильтрами
@@ -119,12 +129,13 @@ async def list_orders(
                 progress_percentage=order.progress_percentage,
                 is_overdue=order.is_overdue,
                 created_at=order.created_at,
-                updated_at=order.updated_at
-            ) for order in orders
+                updated_at=order.updated_at,
+            )
+            for order in orders
         ],
         total=total,
         page=page,
-        per_page=per_page
+        per_page=per_page,
     )
 
 
@@ -137,7 +148,7 @@ async def get_order(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Заказ с ID {order_id} не найден"
+            detail=f"Заказ с ID {order_id} не найден",
         )
 
     return OrderResponse(
@@ -154,15 +165,13 @@ async def get_order(order_id: int, db: Session = Depends(get_db)):
         progress_percentage=order.progress_percentage,
         is_overdue=order.is_overdue,
         created_at=order.created_at,
-        updated_at=order.updated_at
+        updated_at=order.updated_at,
     )
 
 
 @router.put("/{order_id}", response_model=OrderResponse)
 async def update_order(
-    order_id: int,
-    order_data: OrderUpdate,
-    db: Session = Depends(get_db)
+    order_id: int, order_data: OrderUpdate, db: Session = Depends(get_db)
 ):
     """
     Обновление информации о заказе
@@ -171,7 +180,7 @@ async def update_order(
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Заказ с ID {order_id} не найден"
+            detail=f"Заказ с ID {order_id} не найден",
         )
 
     # Обновляем поля
@@ -199,15 +208,17 @@ async def update_order(
         progress_percentage=order.progress_percentage,
         is_overdue=order.is_overdue,
         created_at=order.created_at,
-        updated_at=order.updated_at
+        updated_at=order.updated_at,
     )
 
 
-@router.get("/{order_id}/production-progress", response_model=ProductionProgressResponse)
+@router.get(
+    "/{order_id}/production-progress", response_model=ProductionProgressResponse
+)
 async def get_production_progress(
     order_id: int,
     db: Session = Depends(get_db),
-    production_service: ProductionService = Depends(get_production_service)
+    production_service: ProductionService = Depends(get_production_service),
 ):
     """
     Получение прогресса производства заказа
@@ -217,7 +228,7 @@ async def get_production_progress(
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Заказ с ID {order_id} не найден"
+            detail=f"Заказ с ID {order_id} не найден",
         )
 
     progress = production_service.update_progress(order_id)
@@ -230,7 +241,7 @@ async def start_production_step(
     step_id: int,
     user_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    production_service: ProductionService = Depends(get_production_service)
+    production_service: ProductionService = Depends(get_production_service),
 ):
     """
     Начать выполнение этапа производства
@@ -248,16 +259,14 @@ async def complete_production_step(
     step_id: int,
     step_data: StepUpdateRequest,
     db: Session = Depends(get_db),
-    production_service: ProductionService = Depends(get_production_service)
+    production_service: ProductionService = Depends(get_production_service),
 ):
     """
     Завершить выполнение этапа производства
     """
     try:
         step = production_service.complete_step(
-            step_id,
-            step_data.actual_hours,
-            step_data.notes
+            step_id, step_data.actual_hours, step_data.notes
         )
         return {"message": f"Этап '{step.name}' успешно завершен", "step_id": step.id}
     except ValueError as e:
@@ -267,7 +276,7 @@ async def complete_production_step(
 @router.get("/production/overdue")
 async def get_overdue_production_steps(
     db: Session = Depends(get_db),
-    production_service: ProductionService = Depends(get_production_service)
+    production_service: ProductionService = Depends(get_production_service),
 ):
     """
     Получение списка просроченных этапов производства
@@ -285,13 +294,13 @@ async def delete_order(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Заказ с ID {order_id} не найден"
+            detail=f"Заказ с ID {order_id} не найден",
         )
 
     if order.status != OrderStatus.PENDING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Можно удалять только заказы в статусе 'Ожидает обработки'"
+            detail="Можно удалять только заказы в статусе 'Ожидает обработки'",
         )
 
     db.delete(order)

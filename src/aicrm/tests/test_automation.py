@@ -1,14 +1,16 @@
 """
 Тесты для автоматизации бизнес-процессов
 """
-import pytest
+
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from sqlalchemy.orm import Session
 
-from ..models.automation import EntityType, TriggerEvent, RobotAction
+from ..models.automation import EntityType, RobotAction, TriggerEvent
 from ..services.automation.automation_service import AutomationService
-from ..services.automation.trigger_service import TriggerService
 from ..services.automation.robot_service import RobotService
+from ..services.automation.trigger_service import TriggerService
 
 
 class TestAutomationService:
@@ -46,9 +48,7 @@ class TestAutomationService:
         automation_service._execute_robots = AsyncMock(return_value={"executed": 0})
 
         result = await automation_service.handle_event(
-            EntityType.CUSTOMER,
-            TriggerEvent.CUSTOMER_CREATED,
-            1
+            EntityType.CUSTOMER, TriggerEvent.CUSTOMER_CREATED, 1
         )
 
         assert result["entity_type"] == EntityType.CUSTOMER
@@ -76,9 +76,7 @@ class TestTriggerService:
         mock_db.query.return_value.filter.return_value.all.return_value = []
 
         result = trigger_service.find_matching_triggers(
-            EntityType.CUSTOMER,
-            TriggerEvent.CUSTOMER_CREATED,
-            1
+            EntityType.CUSTOMER, TriggerEvent.CUSTOMER_CREATED, 1
         )
 
         assert isinstance(result, list)
@@ -121,8 +119,8 @@ class TestRobotService:
             "config": {
                 "to": "test@example.com",
                 "subject": "Test",
-                "body": "Test message"
-            }
+                "body": "Test message",
+            },
         }
 
         # Мокаем email сервис
@@ -154,12 +152,15 @@ class TestAutomationIntegration:
 
 
 # Параметризованные тесты для разных типов событий
-@pytest.mark.parametrize("entity_type,event_type", [
-    (EntityType.CUSTOMER, TriggerEvent.CUSTOMER_CREATED),
-    (EntityType.ORDER, TriggerEvent.ORDER_CREATED),
-    (EntityType.TASK, TriggerEvent.TASK_COMPLETED),
-    (EntityType.PRODUCTION_STEP, TriggerEvent.PRODUCTION_STEP_COMPLETED),
-])
+@pytest.mark.parametrize(
+    "entity_type,event_type",
+    [
+        (EntityType.CUSTOMER, TriggerEvent.CUSTOMER_CREATED),
+        (EntityType.ORDER, TriggerEvent.ORDER_CREATED),
+        (EntityType.TASK, TriggerEvent.TASK_COMPLETED),
+        (EntityType.PRODUCTION_STEP, TriggerEvent.PRODUCTION_STEP_COMPLETED),
+    ],
+)
 def test_supported_events(entity_type, event_type):
     """Тест поддерживаемых типов событий"""
     assert isinstance(entity_type, EntityType)
@@ -167,22 +168,20 @@ def test_supported_events(entity_type, event_type):
 
 
 # Тесты для валидации конфигураций действий
-@pytest.mark.parametrize("action_type,config", [
-    (RobotAction.SEND_EMAIL, {
-        "to": "test@example.com",
-        "subject": "Test",
-        "body": "Test message"
-    }),
-    (RobotAction.UPDATE_ENTITY, {
-        "field": "status",
-        "value": "completed"
-    }),
-    (RobotAction.CREATE_TASK, {
-        "title": "New task",
-        "description": "Task description",
-        "assignee_id": 1
-    }),
-])
+@pytest.mark.parametrize(
+    "action_type,config",
+    [
+        (
+            RobotAction.SEND_EMAIL,
+            {"to": "test@example.com", "subject": "Test", "body": "Test message"},
+        ),
+        (RobotAction.UPDATE_ENTITY, {"field": "status", "value": "completed"}),
+        (
+            RobotAction.CREATE_TASK,
+            {"title": "New task", "description": "Task description", "assignee_id": 1},
+        ),
+    ],
+)
 def test_robot_action_configs(action_type, config):
     """Тест конфигураций действий роботов"""
     assert isinstance(action_type, RobotAction)

@@ -1,15 +1,17 @@
 """
 Маршруты для управления клиентами
 """
+
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ...core.database import get_db
-from ...services.customer import customer_service
-from ..schemas.customer import Customer, CustomerCreate, CustomerUpdate, CustomerStats
-from .auth import get_current_active_user
 from ...models.user import User
+from ...services.customer import customer_service
+from ..schemas.customer import Customer, CustomerCreate, CustomerStats, CustomerUpdate
+from .auth import get_current_active_user
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -18,10 +20,12 @@ router = APIRouter(prefix="/customers", tags=["customers"])
 async def create_customer(
     customer_data: CustomerCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Создание нового клиента"""
-    customer = await customer_service.create_customer_with_automation(db, customer_data.dict())
+    customer = await customer_service.create_customer_with_automation(
+        db, customer_data.dict()
+    )
     return customer
 
 
@@ -31,7 +35,7 @@ async def get_customers(
     limit: int = Query(100, ge=1, le=1000),
     search: str = Query(None, min_length=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получение списка клиентов"""
     customers = customer_service.get_customers(db, skip, limit, search)
@@ -42,7 +46,7 @@ async def get_customers(
 async def get_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получение клиента по ID"""
     customer = customer_service.get_customer(db, customer_id)
@@ -56,10 +60,12 @@ async def update_customer(
     customer_id: int,
     customer_data: CustomerUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Обновление данных клиента"""
-    customer = customer_service.update_customer(db, customer_id, customer_data.dict(exclude_unset=True))
+    customer = customer_service.update_customer(
+        db, customer_id, customer_data.dict(exclude_unset=True)
+    )
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer
@@ -69,7 +75,7 @@ async def update_customer(
 async def delete_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Удаление клиента"""
     success = customer_service.delete_customer(db, customer_id)
@@ -82,7 +88,7 @@ async def delete_customer(
 async def get_customer_stats(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получение статистики клиента"""
     stats = customer_service.get_customer_stats(db, customer_id)
@@ -96,7 +102,7 @@ async def search_customers(
     q: str = Query(..., min_length=1),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Поиск клиентов"""
     customers = customer_service.search_customers(db, q, limit)

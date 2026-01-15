@@ -1,9 +1,11 @@
 """
 Сервис управления клиентами
 """
+
 from typing import List, Optional
-from sqlalchemy.orm import Session
+
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from ..models.customer import Customer
 from ..models.order import Order
@@ -23,7 +25,9 @@ class CustomerService:
         return customer
 
     @staticmethod
-    async def create_customer_with_automation(db: Session, customer_data: dict) -> Customer:
+    async def create_customer_with_automation(
+        db: Session, customer_data: dict
+    ) -> Customer:
         """Создание нового клиента с запуском автоматизации"""
         customer = CustomerService.create_customer(db, customer_data)
 
@@ -40,28 +44,23 @@ class CustomerService:
 
     @staticmethod
     def get_customers(
-        db: Session,
-        skip: int = 0,
-        limit: int = 100,
-        search: Optional[str] = None
+        db: Session, skip: int = 0, limit: int = 100, search: Optional[str] = None
     ) -> List[Customer]:
         """Получение списка клиентов с фильтрацией"""
         query = db.query(Customer)
 
         if search:
             query = query.filter(
-                (Customer.name.ilike(f"%{search}%")) |
-                (Customer.email.ilike(f"%{search}%")) |
-                (Customer.phone.ilike(f"%{search}%"))
+                (Customer.name.ilike(f"%{search}%"))
+                | (Customer.email.ilike(f"%{search}%"))
+                | (Customer.phone.ilike(f"%{search}%"))
             )
 
         return query.offset(skip).limit(limit).all()
 
     @staticmethod
     def update_customer(
-        db: Session,
-        customer_id: int,
-        update_data: dict
+        db: Session, customer_id: int, update_data: dict
     ) -> Optional[Customer]:
         """Обновление данных клиента"""
         customer = CustomerService.get_customer(db, customer_id)
@@ -99,33 +98,38 @@ class CustomerService:
         db.commit()
 
         # Получаем дополнительную статистику
-        stats = db.query(
-            func.count(Order.id).label("total_orders"),
-            func.sum(Order.total_amount).label("total_spent"),
-            func.max(Order.created_at).label("last_order_date"),
-            func.avg(Order.total_amount).label("average_order_value")
-        ).filter(Order.customer_id == customer_id).first()
+        stats = (
+            db.query(
+                func.count(Order.id).label("total_orders"),
+                func.sum(Order.total_amount).label("total_spent"),
+                func.max(Order.created_at).label("last_order_date"),
+                func.avg(Order.total_amount).label("average_order_value"),
+            )
+            .filter(Order.customer_id == customer_id)
+            .first()
+        )
 
         return {
             "total_orders": customer.total_orders,
             "total_spent": float(customer.total_spent),
             "loyalty_level": customer.loyalty_level,
             "last_order_date": stats.last_order_date,
-            "average_order_value": float(stats.average_order_value or 0)
+            "average_order_value": float(stats.average_order_value or 0),
         }
 
     @staticmethod
-    def search_customers(
-        db: Session,
-        query: str,
-        limit: int = 50
-    ) -> List[Customer]:
+    def search_customers(db: Session, query: str, limit: int = 50) -> List[Customer]:
         """Поиск клиентов"""
-        return db.query(Customer).filter(
-            (Customer.name.ilike(f"%{query}%")) |
-            (Customer.email.ilike(f"%{query}%")) |
-            (Customer.phone.ilike(f"%{query}%"))
-        ).limit(limit).all()
+        return (
+            db.query(Customer)
+            .filter(
+                (Customer.name.ilike(f"%{query}%"))
+                | (Customer.email.ilike(f"%{query}%"))
+                | (Customer.phone.ilike(f"%{query}%"))
+            )
+            .limit(limit)
+            .all()
+        )
 
 
 customer_service = CustomerService()

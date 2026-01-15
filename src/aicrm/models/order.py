@@ -1,10 +1,23 @@
 """
 Модель заказа
 """
-from sqlalchemy import Column, String, Numeric, ForeignKey, Text, Integer, DateTime, Enum, JSON, DECIMAL
-from sqlalchemy.orm import relationship
-from datetime import datetime
+
 import enum
+from datetime import datetime
+
+from sqlalchemy import (
+    DECIMAL,
+    JSON,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 
@@ -34,8 +47,12 @@ class Order(BaseModel):
 
     # Связи
     customer = relationship("Customer", back_populates="orders")
-    production_steps = relationship("ProductionStep", back_populates="order", cascade="all, delete-orphan")
-    communications = relationship("Communication", back_populates="order", cascade="all, delete-orphan")
+    production_steps = relationship(
+        "ProductionStep", back_populates="order", cascade="all, delete-orphan"
+    )
+    communications = relationship(
+        "Communication", back_populates="order", cascade="all, delete-orphan"
+    )
 
     @property
     def status_display(self) -> str:
@@ -46,7 +63,7 @@ class Order(BaseModel):
             OrderStatus.IN_PRODUCTION: "В производстве",
             OrderStatus.READY: "Готов",
             OrderStatus.DELIVERED: "Доставлен",
-            OrderStatus.CANCELLED: "Отменен"
+            OrderStatus.CANCELLED: "Отменен",
         }
         return statuses.get(self.status, str(self.status))
 
@@ -91,7 +108,7 @@ class Order(BaseModel):
             OrderStatus.IN_PRODUCTION: [OrderStatus.READY, OrderStatus.CANCELLED],
             OrderStatus.READY: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
             OrderStatus.DELIVERED: [],
-            OrderStatus.CANCELLED: []
+            OrderStatus.CANCELLED: [],
         }
         return new_status in valid_transitions.get(self.status, [])
 
@@ -101,7 +118,9 @@ class Order(BaseModel):
             self.status = new_status
             self.updated_at = datetime.utcnow()
         else:
-            raise ValueError(f"Невозможно изменить статус с {self.status} на {new_status}")
+            raise ValueError(
+                f"Невозможно изменить статус с {self.status} на {new_status}"
+            )
 
     def __repr__(self) -> str:
         return f"<Order(id={self.id}, customer_id={self.customer_id}, status={self.status}, amount={self.total_amount})>"

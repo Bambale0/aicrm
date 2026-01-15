@@ -1,19 +1,26 @@
 """
 Модели базы данных
 """
+
+from .ai_usage import AIUsage
+from .automation import (
+    EntityType,
+    Process,
+    Robot,
+    RobotAction,
+    RobotActionConfig,
+    Stage,
+    Trigger,
+    TriggerEvent,
+)
+from .avito_chat import AvitoChatSettings
 from .base import Base, BaseModel
-from .user import User
+from .communication import Communication
 from .customer import Customer
 from .order import Order
 from .production_step import ProductionStep
-from .communication import Communication
 from .task import Task
-from .avito_chat import AvitoChatSettings
-from .ai_usage import AIUsage
-from .automation import (
-    Process, Stage, Trigger, Robot, RobotActionConfig,
-    EntityType, TriggerEvent, RobotAction
-)
+from .user import User
 
 __all__ = [
     "Base",
@@ -34,5 +41,5 @@ __all__ = [
     "RobotActionConfig",
     "EntityType",
     "TriggerEvent",
-    "RobotAction"
+    "RobotAction",
 ]

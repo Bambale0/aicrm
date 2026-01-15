@@ -1,10 +1,11 @@
 """
 Сервис анализа намерений с AI
 """
-from typing import Dict, Any, List
-from enum import Enum
+
 import json
 import logging
+from enum import Enum
+from typing import Any, Dict, List
 
 from .client import UnifiedAIClient
 
@@ -44,7 +45,6 @@ class AIIntentService:
 
             Сообщение пользователя: "{message}"
             """,
-
             "order_creation": """
             Вы полезный помощник компании по печати.
             Пользователь хочет разместить заказ. Помогите ему предоставить необходимую информацию.
@@ -63,7 +63,6 @@ class AIIntentService:
 
             Предоставьте полезный, профессиональный ответ, который продвигает процесс заказа вперед.
             """,
-
             "question_answer": """
             Вы знающий помощник компании по печати.
             Ответьте на вопрос пользователя на основе общего знания об услугах печати.
@@ -78,22 +77,27 @@ class AIIntentService:
             Вопрос: {message}
 
             Предоставьте точную, полезную информацию. Если не уверены, предложите обратиться в поддержку.
-            """
+            """,
         }
 
-    async def analyze_intent(self, message: str, context: Dict[str, Any] = None, model: str = None) -> IntentType:
+    async def analyze_intent(
+        self, message: str, context: Dict[str, Any] = None, model: str = None
+    ) -> IntentType:
         """Анализ намерения сообщения пользователя с помощью AI"""
         prompt = self.intent_prompts["intent_analysis"].format(message=message)
 
         messages = [
-            {"role": "system", "content": "Вы помощник по классификации намерений. Верните только метку намерения."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "Вы помощник по классификации намерений. Верните только метку намерения.",
+            },
+            {"role": "user", "content": prompt},
         ]
 
         response = await self.ai_client.chat_completion(
             messages=messages,
             model=model,
-            temperature=0.1  # Низкая температура для последовательной классификации
+            temperature=0.1,  # Низкая температура для последовательной классификации
         )
 
         # Очистка и парсинг ответа
@@ -109,7 +113,7 @@ class AIIntentService:
         intent: IntentType,
         message: str,
         context: Dict[str, Any] = None,
-        model: str = None
+        model: str = None,
     ) -> str:
         """Генерация контекстно-зависимого ответа на основе намерения"""
         context = context or {}
@@ -123,25 +127,20 @@ class AIIntentService:
             prompt_template = "question_answer"
 
         prompt = self.intent_prompts[prompt_template].format(
-            message=message,
-            context=json.dumps(context, indent=2, ensure_ascii=False)
+            message=message, context=json.dumps(context, indent=2, ensure_ascii=False)
         )
 
         messages = [
             {"role": "system", "content": "Вы полезный помощник компании по печати."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ]
 
         return await self.ai_client.chat_completion(
-            messages=messages,
-            model=model,
-            temperature=0.7
+            messages=messages, model=model, temperature=0.7
         )
 
     async def process_customer_message(
-        self,
-        message: str,
-        customer_context: Dict[str, Any] = None
+        self, message: str, customer_context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
         """
         Полный пайплайн обработки сообщения:
@@ -155,8 +154,9 @@ class AIIntentService:
         return {
             "intent": intent,
             "response": response,
-            "needs_human_intervention": intent in [IntentType.COMPLAINT, IntentType.SUPPORT],
-            "suggested_actions": self._get_suggested_actions(intent)
+            "needs_human_intervention": intent
+            in [IntentType.COMPLAINT, IntentType.SUPPORT],
+            "suggested_actions": self._get_suggested_actions(intent),
         }
 
     def _get_suggested_actions(self, intent: IntentType) -> List[str]:
@@ -166,6 +166,6 @@ class AIIntentService:
             IntentType.QUESTION: ["log_question", "update_knowledge_base"],
             IntentType.COMPLAINT: ["escalate_to_manager", "create_support_ticket"],
             IntentType.SUPPORT: ["assign_support_agent", "create_help_ticket"],
-            IntentType.OTHER: ["log_interaction"]
+            IntentType.OTHER: ["log_interaction"],
         }
         return actions.get(intent, [])

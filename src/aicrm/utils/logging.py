@@ -1,9 +1,11 @@
 """
 Настройка логирования с использованием structlog
 """
+
 import sys
-import structlog
 from typing import Any, Dict
+
+import structlog
 from pythonjsonlogger import jsonlogger
 
 from ..core.config import settings
@@ -15,6 +17,7 @@ def setup_logging():
     """
     # Настройка стандартного logging
     import logging
+
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
@@ -71,8 +74,7 @@ def get_messenger_logger() -> structlog.stdlib.BoundLogger:
     Получение логгера специально для операций мессенджера
     """
     return structlog.get_logger("messenger").bind(
-        component="messenger",
-        service="avito"
+        component="messenger", service="avito"
     )
 
 

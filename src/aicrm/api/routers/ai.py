@@ -1,20 +1,28 @@
 """
 AI роутер для FastAPI - OpenAPI 3.0.0 compliant
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
-from typing import Dict, Any
 
-from ...core.database import get_db
-from ...services.ai.intent_service import AIIntentService, IntentType
-from ...services.ai.client import UnifiedAIClient
-from ...services.ai_usage_service import AIUsageService
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.orm import Session
+
 from ...api.routers.auth import get_current_user
-from ..schemas.auth import User
+from ...core.database import get_db
+from ...services.ai.client import UnifiedAIClient
+from ...services.ai.intent_service import AIIntentService, IntentType
+from ...services.ai_usage_service import AIUsageService
 from ..schemas.ai import (
-    AIAnalysisRequest, AIAnalysisResponse, AIChatRequest, AIChatResponse,
-    AIModelsResponse, AIStatusResponse, AIMonthlyUsageResponse, AIUsageHistoryResponse
+    AIAnalysisRequest,
+    AIAnalysisResponse,
+    AIChatRequest,
+    AIChatResponse,
+    AIModelsResponse,
+    AIMonthlyUsageResponse,
+    AIStatusResponse,
+    AIUsageHistoryResponse,
 )
+from ..schemas.auth import User
 
 router = APIRouter(
     prefix="",
@@ -27,8 +35,8 @@ router = APIRouter(
         422: {"description": "Validation Error - Ошибка валидации данных"},
         500: {"description": "Internal Server Error - Внутренняя ошибка сервера"},
         502: {"description": "Bad Gateway - Ошибка внешнего сервиса"},
-        503: {"description": "Service Unavailable - Сервис временно недоступен"}
-    }
+        503: {"description": "Service Unavailable - Сервис временно недоступен"},
+    },
 )
 
 
@@ -72,14 +80,14 @@ def get_ai_client() -> UnifiedAIClient:
     - Определение необходимости человеческого вмешательства
     - Рекомендации по дальнейшим действиям
     """,
-    response_description="Результат анализа сообщения с намерением и ответом"
+    response_description="Результат анализа сообщения с намерением и ответом",
 )
 async def analyze_intent(
     request: AIAnalysisRequest,
     http_request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    ai_service: AIIntentService = Depends(get_ai_service)
+    ai_service: AIIntentService = Depends(get_ai_service),
 ) -> AIAnalysisResponse:
     """
     Анализирует намерение сообщения и генерирует ответ.
@@ -97,13 +105,21 @@ async def analyze_intent(
     """
     try:
         # Передаем модель в intent_service
-        intent = await ai_service.analyze_intent(request.message, request.context, request.model)
-        response = await ai_service.generate_response(intent, request.message, request.context, request.model)
+        intent = await ai_service.analyze_intent(
+            request.message, request.context, request.model
+        )
+        response = await ai_service.generate_response(
+            intent, request.message, request.context, request.model
+        )
 
         # Логируем использование токенов (примерный расчет)
         model_used = request.model or "deepseek/deepseek-chat-v3.1"
-        intent_tokens = len(request.message.split()) * 1.2  # Примерный расчет для анализа намерения
-        response_tokens = len(response.split()) * 1.3  # Примерный расчет для генерации ответа
+        intent_tokens = (
+            len(request.message.split()) * 1.2
+        )  # Примерный расчет для анализа намерения
+        response_tokens = (
+            len(response.split()) * 1.3
+        )  # Примерный расчет для генерации ответа
         total_tokens = intent_tokens + response_tokens
 
         await AIUsageService(db).log_usage(
@@ -114,20 +130,21 @@ async def analyze_intent(
             completion_tokens=response_tokens,
             user_id=current_user.id,  # Получение ID пользователя из JWT токена
             ip_address=http_request.client.host,  # Получение IP адреса клиента
-            user_agent=http_request.headers.get("user-agent")  # Получение User-Agent
+            user_agent=http_request.headers.get("user-agent"),  # Получение User-Agent
         )
 
         return AIAnalysisResponse(
             intent=intent,
             response=response,
-            needs_human_intervention=intent in [IntentType.COMPLAINT, IntentType.SUPPORT],
-            suggested_actions=ai_service._get_suggested_actions(intent)
+            needs_human_intervention=intent
+            in [IntentType.COMPLAINT, IntentType.SUPPORT],
+            suggested_actions=ai_service._get_suggested_actions(intent),
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"AI анализ не удался: {str(e)}"
+            detail=f"AI анализ не удался: {str(e)}",
         )
 
 
@@ -149,11 +166,10 @@ async def analyze_intent(
     - Подготовка ответов для операторов
     - Генерация email ответов
     """,
-    response_description="Сгенерированный ответ с информацией о намерении и модели"
+    response_description="Сгенерированный ответ с информацией о намерении и модели",
 )
 async def generate_response(
-    request: AIAnalysisRequest,
-    ai_service: AIIntentService = Depends(get_ai_service)
+    request: AIAnalysisRequest, ai_service: AIIntentService = Depends(get_ai_service)
 ) -> Dict[str, Any]:
     """
     Генерирует ответ на сообщение клиента.
@@ -167,19 +183,21 @@ async def generate_response(
     """
     try:
         intent = await ai_service.analyze_intent(request.message, request.context)
-        response = await ai_service.generate_response(intent, request.message, request.context)
+        response = await ai_service.generate_response(
+            intent, request.message, request.context
+        )
 
         return {
             "intent": intent.value,
             "response": response,
             "model_used": ai_service.ai_client.provider.value,
-            "timestamp": "2025-11-11T20:00:00Z"
+            "timestamp": "2025-11-11T20:00:00Z",
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Генерация ответа не удалась: {str(e)}"
+            detail=f"Генерация ответа не удалась: {str(e)}",
         )
 
 
@@ -206,14 +224,14 @@ async def generate_response(
     - Тестирование различных моделей
     - Генерация контента
     """,
-    response_description="Ответ от AI модели с метаданными"
+    response_description="Ответ от AI модели с метаданными",
 )
 async def chat_with_ai(
     request: AIChatRequest,
     http_request: Request,
     current_user: User = Depends(get_current_user),
     ai_client: UnifiedAIClient = Depends(get_ai_client),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> AIChatResponse:
     """
     Выполняет чат с AI моделью.
@@ -230,7 +248,7 @@ async def chat_with_ai(
             messages=request.messages,
             model=request.model,
             temperature=request.temperature,
-            max_tokens=request.max_tokens
+            max_tokens=request.max_tokens,
         )
 
         # Логируем использование токенов
@@ -243,19 +261,17 @@ async def chat_with_ai(
             total_tokens=tokens_used,
             user_id=current_user.id,  # Получение ID пользователя из JWT токена
             ip_address=http_request.client.host,  # Получение IP адреса клиента
-            user_agent=http_request.headers.get("user-agent")  # Получение User-Agent
+            user_agent=http_request.headers.get("user-agent"),  # Получение User-Agent
         )
 
         return AIChatResponse(
-            response=response,
-            model_used=model_used,
-            tokens_used=tokens_used
+            response=response, model_used=model_used, tokens_used=tokens_used
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI чат не удался: {str(e)}"
+            detail=f"AI чат не удался: {str(e)}",
         )
 
 
@@ -278,7 +294,7 @@ async def chat_with_ai(
     - Hugging Face
     - OpenAI
     """,
-    response_description="Список доступных AI моделей"
+    response_description="Список доступных AI моделей",
 )
 async def get_available_models() -> AIModelsResponse:
     """
@@ -289,10 +305,7 @@ async def get_available_models() -> AIModelsResponse:
     """
     from ...config.openrouter_models import OPENROUTER_MODELS
 
-    return AIModelsResponse(
-        models=OPENROUTER_MODELS,
-        current_provider="openrouter"
-    )
+    return AIModelsResponse(models=OPENROUTER_MODELS, current_provider="openrouter")
 
 
 @router.get(
@@ -313,10 +326,10 @@ async def get_available_models() -> AIModelsResponse:
     - `200` - Сервис работает нормально
     - `503` - Сервис временно недоступен
     """,
-    response_description="Статус AI сервиса и доступные модели"
+    response_description="Статус AI сервиса и доступные модели",
 )
 async def get_ai_status(
-    ai_client: UnifiedAIClient = Depends(get_ai_client)
+    ai_client: UnifiedAIClient = Depends(get_ai_client),
 ) -> AIStatusResponse:
     """
     Проверяет статус AI сервиса.
@@ -332,19 +345,23 @@ async def get_ai_status(
         from ...core.ai_config import ai_config
 
         provider = ai_client.provider.value
-        available_models = ["deepseek/deepseek-chat-v3.1", "moonshotai/kimi-k2", "openai/gpt-5-nano"]
+        available_models = [
+            "deepseek/deepseek-chat-v3.1",
+            "moonshotai/kimi-k2",
+            "openai/gpt-5-nano",
+        ]
 
         return AIStatusResponse(
             provider=provider,
             status="active",
             default_model=ai_config.DEFAULT_MODEL,
-            available_models=available_models
+            available_models=available_models,
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"AI сервис недоступен: {str(e)}"
+            detail=f"AI сервис недоступен: {str(e)}",
         )
 
 
@@ -367,13 +384,13 @@ async def get_ai_status(
     - Количество запросов
     - Статистика по моделям
     """,
-    response_description="Статистика использования токенов за месяц"
+    response_description="Статистика использования токенов за месяц",
 )
 async def get_monthly_usage(
     year: int = None,
     month: int = None,
     user_id: int = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> AIMonthlyUsageResponse:
     """
     Получает статистику использования токенов за месяц.
@@ -395,7 +412,7 @@ async def get_monthly_usage(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Не удалось получить статистику использования: {str(e)}"
+            detail=f"Не удалось получить статистику использования: {str(e)}",
         )
 
 
@@ -419,13 +436,10 @@ async def get_monthly_usage(
     - Время запроса
     - ID запроса
     """,
-    response_description="История использования токенов"
+    response_description="История использования токенов",
 )
 async def get_usage_history(
-    days: int = 30,
-    user_id: int = None,
-    limit: int = 100,
-    db: Session = Depends(get_db)
+    days: int = 30, user_id: int = None, limit: int = 100, db: Session = Depends(get_db)
 ) -> AIUsageHistoryResponse:
     """
     Получает историю использования токенов.
@@ -441,11 +455,13 @@ async def get_usage_history(
     """
     try:
         usage_service = AIUsageService(db)
-        history = usage_service.get_usage_history(days=days, user_id=user_id, limit=limit)
+        history = usage_service.get_usage_history(
+            days=days, user_id=user_id, limit=limit
+        )
         return AIUsageHistoryResponse(history=history)
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Не удалось получить историю использования: {str(e)}"
+            detail=f"Не удалось получить историю использования: {str(e)}",
         )

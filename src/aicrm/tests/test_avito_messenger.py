@@ -1,11 +1,16 @@
 """
 Юнит-тесты для Avito Messenger функциональности
 """
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from datetime import datetime, timedelta
 
-from src.aicrm.api.routers.avito import _count_unread_messages, _calculate_average_response_time
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from src.aicrm.api.routers.avito import (
+    _calculate_average_response_time,
+    _count_unread_messages,
+)
 
 
 class TestAvitoMessengerUtils:
@@ -20,7 +25,9 @@ class TestAvitoMessengerUtils:
     async def test_count_unread_messages_no_unread(self, mock_db):
         """Тест подсчета непрочитанных сообщений - нет непрочитанных"""
         # Мокаем цепочку вызовов БД так, чтобы count() возвращал 0
-        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.count.return_value = 0
+        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.count.return_value = (
+            0
+        )
 
         result = await _count_unread_messages("chat_123", mock_db)
 
@@ -31,7 +38,9 @@ class TestAvitoMessengerUtils:
         """Тест подсчета непрочитанных сообщений - есть непрочитанные"""
         # Мокаем цепочку вызовов БД
         mock_count = MagicMock(return_value=3)
-        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.count = mock_count
+        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.count = (
+            mock_count
+        )
 
         result = await _count_unread_messages("chat_123", mock_db)
 
@@ -52,7 +61,9 @@ class TestAvitoMessengerUtils:
     async def test_calculate_average_response_time_no_data(self, mock_db):
         """Тест расчета среднего времени ответа - нет данных"""
         # Мокаем пустой результат запроса
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            []
+        )
 
         result = await _calculate_average_response_time(mock_db)
 
@@ -70,10 +81,14 @@ class TestAvitoMessengerUtils:
             mock_msg = MagicMock()
             mock_msg.extra_data = {"chat_id": "chat_123"}
             mock_msg.direction = "inbound" if i % 2 == 0 else "outbound"
-            mock_msg.created_at = base_time + timedelta(minutes=i * 10)  # 0, 10, 20, 30 мин
+            mock_msg.created_at = base_time + timedelta(
+                minutes=i * 10
+            )  # 0, 10, 20, 30 мин
             mock_messages.append(mock_msg)
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = mock_messages
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            mock_messages
+        )
 
         result = await _calculate_average_response_time(mock_db)
 
@@ -93,7 +108,9 @@ class TestAvitoMessengerUtils:
         # Чат 1: 2 пары сообщений
         for i in range(4):
             mock_msg = MagicMock()
-            mock_msg.extra_data = {"chat_id": f"chat_{i//4 + 1}"}  # chat_1 для первых 4, chat_2 для следующих
+            mock_msg.extra_data = {
+                "chat_id": f"chat_{i//4 + 1}"
+            }  # chat_1 для первых 4, chat_2 для следующих
             mock_msg.direction = "inbound" if i % 2 == 0 else "outbound"
             mock_msg.created_at = base_time + timedelta(minutes=i * 5)
             mock_messages.append(mock_msg)
@@ -106,7 +123,9 @@ class TestAvitoMessengerUtils:
             mock_msg.created_at = base_time + timedelta(minutes=i * 5)
             mock_messages.append(mock_msg)
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = mock_messages
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            mock_messages
+        )
 
         result = await _calculate_average_response_time(mock_db)
 
@@ -114,7 +133,9 @@ class TestAvitoMessengerUtils:
         assert isinstance(result, float)
 
     @pytest.mark.asyncio
-    async def test_calculate_average_response_time_long_responses_filtered(self, mock_db):
+    async def test_calculate_average_response_time_long_responses_filtered(
+        self, mock_db
+    ):
         """Тест расчета среднего времени ответа - фильтрация слишком длинных ответов"""
         base_time = datetime.utcnow()
 
@@ -130,7 +151,9 @@ class TestAvitoMessengerUtils:
                 mock_msg.created_at = base_time + timedelta(hours=25)  # Слишком долго
             mock_messages.append(mock_msg)
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = mock_messages
+        mock_db.query.return_value.filter.return_value.order_by.return_value.all.return_value = (
+            mock_messages
+        )
 
         result = await _calculate_average_response_time(mock_db)
 
@@ -160,6 +183,7 @@ class TestAvitoCommunicationHandlerMessenger:
     def handler(self, mock_db):
         """Фикстура для AvitoCommunicationHandler"""
         from src.aicrm.services.avito_handler import AvitoCommunicationHandler
+
         return AvitoCommunicationHandler(mock_db)
 
     @pytest.mark.asyncio
@@ -178,7 +202,9 @@ class TestAvitoCommunicationHandlerMessenger:
             mock_msg.intent = "question" if i % 2 == 0 else None
             mock_messages.append(mock_msg)
 
-        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = mock_messages
+        mock_db.query.return_value.filter.return_value.order_by.return_value.limit.return_value.all.return_value = (
+            mock_messages
+        )
 
         result = await handler.get_chat_history(chat_id, limit=10, use_api=False)
 
@@ -199,12 +225,14 @@ class TestAvitoCommunicationHandlerMessenger:
                     "id": "msg_1",
                     "direction": "inbound",
                     "content": {"text": "Hello from API"},
-                    "created": "2024-01-15T10:00:00Z"
+                    "created": "2024-01-15T10:00:00Z",
                 }
             ]
         }
 
-        with patch.object(handler.avito_service, 'get_avito_messages', new_callable=AsyncMock) as mock_api:
+        with patch.object(
+            handler.avito_service, "get_avito_messages", new_callable=AsyncMock
+        ) as mock_api:
             mock_api.return_value = api_messages
 
             result = await handler.get_chat_history(chat_id, limit=10, use_api=True)
@@ -220,7 +248,9 @@ class TestAvitoCommunicationHandlerMessenger:
         """Тест получения истории чата - ошибка API"""
         chat_id = "chat_123"
 
-        with patch.object(handler.avito_service, 'get_avito_messages', new_callable=AsyncMock) as mock_api:
+        with patch.object(
+            handler.avito_service, "get_avito_messages", new_callable=AsyncMock
+        ) as mock_api:
             mock_api.side_effect = Exception("API Error")
 
             result = await handler.get_chat_history(chat_id, limit=10, use_api=True)
@@ -239,7 +269,7 @@ class TestAvitoCommunicationHandlerMessenger:
                     "id": "msg_1",
                     "direction": "inbound",
                     "content": {"text": "New message"},
-                    "created": "2024-01-15T10:00:00Z"
+                    "created": "2024-01-15T10:00:00Z",
                 }
             ]
         }
@@ -251,7 +281,9 @@ class TestAvitoCommunicationHandlerMessenger:
         mock_chat_settings = MagicMock()
         mock_chat_settings.customer = MagicMock()
         mock_chat_settings.customer.id = 1
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_chat_settings
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_chat_settings
+        )
 
         await handler._sync_messages_from_api(chat_id, api_messages)
 
@@ -270,14 +302,16 @@ class TestAvitoCommunicationHandlerMessenger:
                     "id": "msg_1",
                     "direction": "inbound",
                     "content": {"text": "Existing message"},
-                    "created": "2024-01-15T10:00:00Z"
+                    "created": "2024-01-15T10:00:00Z",
                 }
             ]
         }
 
         # Мокаем, что сообщение уже существует
         mock_existing = MagicMock()
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_existing
+        mock_db.query.return_value.filter.return_value.first.return_value = (
+            mock_existing
+        )
 
         await handler._sync_messages_from_api(chat_id, api_messages)
 
@@ -290,12 +324,16 @@ class TestAvitoCommunicationHandlerMessenger:
         chat_id = "chat_123"
 
         # Мокаем успешный ответ API
-        with patch.object(handler.avito_service, 'mark_avito_chat_read', new_callable=AsyncMock) as mock_api:
+        with patch.object(
+            handler.avito_service, "mark_avito_chat_read", new_callable=AsyncMock
+        ) as mock_api:
             mock_api.return_value = {"success": True}
 
             # Мокаем сообщения в БД
             mock_messages = [MagicMock() for _ in range(2)]
-            mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = mock_messages
+            mock_db.query.return_value.filter.return_value.filter.return_value.all.return_value = (
+                mock_messages
+            )
 
             result = await handler.mark_messages_read(chat_id, [])
 
@@ -312,7 +350,9 @@ class TestAvitoCommunicationHandlerMessenger:
         """Тест отметки сообщений как прочитанные - ошибка API"""
         chat_id = "chat_123"
 
-        with patch.object(handler.avito_service, 'mark_avito_chat_read', new_callable=AsyncMock) as mock_api:
+        with patch.object(
+            handler.avito_service, "mark_avito_chat_read", new_callable=AsyncMock
+        ) as mock_api:
             mock_api.side_effect = Exception("API Error")
 
             result = await handler.mark_messages_read(chat_id, [])

@@ -1,9 +1,11 @@
 """
 Интеграционные тесты для AI API
 """
+
+from unittest.mock import MagicMock, patch
+
 import pytest
 from httpx import AsyncClient
-from unittest.mock import patch, MagicMock
 
 
 class TestAIApi:
@@ -15,8 +17,8 @@ class TestAIApi:
             "message": "Хочу заказать футболку с логотипом",
             "context": {
                 "customer_id": 1,
-                "previous_messages": ["Привет, чем могу помочь?"]
-            }
+                "previous_messages": ["Привет, чем могу помочь?"],
+            },
         }
 
         # Мокаем AI сервис
@@ -25,7 +27,7 @@ class TestAIApi:
             "confidence": 0.95,
             "response": "Отлично! Я помогу вам оформить заказ на футболку с логотипом. Расскажите подробнее о ваших пожеланиях.",
             "needs_human_intervention": False,
-            "suggested_actions": ["create_order", "ask_design_details"]
+            "suggested_actions": ["create_order", "ask_design_details"],
         }
 
         with patch("src.aicrm.api.routers.ai.AIIntentService") as mock_service_class:
@@ -44,14 +46,13 @@ class TestAIApi:
 
     async def test_analyze_intent_ai_error(self, async_client: AsyncClient):
         """Тест ошибки AI при анализе намерения"""
-        request_data = {
-            "message": "Тестовое сообщение",
-            "context": {}
-        }
+        request_data = {"message": "Тестовое сообщение", "context": {}}
 
         with patch("src.aicrm.api.routers.ai.AIIntentService") as mock_service_class:
             mock_service = MagicMock()
-            mock_service.process_customer_message.side_effect = Exception("AI service error")
+            mock_service.process_customer_message.side_effect = Exception(
+                "AI service error"
+            )
             mock_service_class.return_value = mock_service
 
             response = await async_client.post("/analyze-intent", json=request_data)
@@ -63,13 +64,15 @@ class TestAIApi:
         """Тест успешной генерации ответа"""
         request_data = {
             "message": "Сколько стоит доставка?",
-            "context": {"customer_id": 1}
+            "context": {"customer_id": 1},
         }
 
         with patch("src.aicrm.api.routers.ai.AIIntentService") as mock_service_class:
             mock_service = MagicMock()
             mock_service.analyze_intent.return_value = MagicMock(value="question")
-            mock_service.generate_response.return_value = "Доставка осуществляется бесплатно при заказе от 3000 рублей."
+            mock_service.generate_response.return_value = (
+                "Доставка осуществляется бесплатно при заказе от 3000 рублей."
+            )
             mock_service_class.return_value = mock_service
 
             response = await async_client.post("/generate-response", json=request_data)
@@ -81,10 +84,7 @@ class TestAIApi:
 
     async def test_generate_response_error(self, async_client: AsyncClient):
         """Тест ошибки при генерации ответа"""
-        request_data = {
-            "message": "Тест",
-            "context": {}
-        }
+        request_data = {"message": "Тест", "context": {}}
 
         with patch("src.aicrm.api.routers.ai.AIIntentService") as mock_service_class:
             mock_service = MagicMock()
@@ -99,12 +99,10 @@ class TestAIApi:
     async def test_chat_with_ai_success(self, async_client: AsyncClient):
         """Тест успешного чата с AI"""
         request_data = {
-            "messages": [
-                {"role": "user", "content": "Привет, как дела?"}
-            ],
+            "messages": [{"role": "user", "content": "Привет, как дела?"}],
             "model": "test-model",
             "temperature": 0.7,
-            "max_tokens": 100
+            "max_tokens": 100,
         }
 
         mock_response = "Привет! У меня все отлично, спасибо. Чем могу помочь?"
@@ -124,11 +122,7 @@ class TestAIApi:
 
     async def test_chat_with_ai_default_model(self, async_client: AsyncClient):
         """Тест чата с AI с моделью по умолчанию"""
-        request_data = {
-            "messages": [
-                {"role": "user", "content": "Тестовое сообщение"}
-            ]
-        }
+        request_data = {"messages": [{"role": "user", "content": "Тестовое сообщение"}]}
 
         with patch("src.aicrm.api.routers.ai.UnifiedAIClient") as mock_client_class:
             mock_client = MagicMock()
@@ -144,11 +138,7 @@ class TestAIApi:
 
     async def test_chat_with_ai_error(self, async_client: AsyncClient):
         """Тест ошибки при чате с AI"""
-        request_data = {
-            "messages": [
-                {"role": "user", "content": "Тест"}
-            ]
-        }
+        request_data = {"messages": [{"role": "user", "content": "Тест"}]}
 
         with patch("src.aicrm.api.routers.ai.UnifiedAIClient") as mock_client_class:
             mock_client = MagicMock()
@@ -210,7 +200,7 @@ class TestAIApi:
         # Неправильные данные
         request_data = {
             "message": "",  # Пустое сообщение
-            "context": "invalid_context"  # Неправильный тип контекста
+            "context": "invalid_context",  # Неправильный тип контекста
         }
 
         response = await async_client.post("/analyze-intent", json=request_data)
@@ -223,7 +213,7 @@ class TestAIApi:
         # Неправильные данные
         request_data = {
             "messages": [],  # Пустой список сообщений
-            "temperature": 2.5  # Температура вне диапазона
+            "temperature": 2.5,  # Температура вне диапазона
         }
 
         response = await async_client.post("/chat", json=request_data)
@@ -238,8 +228,8 @@ class TestAIApi:
                 "customer_id": 1,
                 "order_id": 123,
                 "previous_intent": "complaint",
-                "customer_history": ["order_created", "payment_received"]
-            }
+                "customer_history": ["order_created", "payment_received"],
+            },
         }
 
         mock_response = {
@@ -247,7 +237,7 @@ class TestAIApi:
             "confidence": 0.88,
             "response": "Извините за неудобства. Давайте разберемся с вашим заказом #123.",
             "needs_human_intervention": True,
-            "suggested_actions": ["check_order_status", "contact_support"]
+            "suggested_actions": ["check_order_status", "contact_support"],
         }
 
         with patch("src.aicrm.api.routers.ai.AIIntentService") as mock_service_class:
@@ -265,12 +255,15 @@ class TestAIApi:
 
     async def test_chat_with_different_models(self, async_client: AsyncClient):
         """Тест чата с разными моделями"""
-        models = ["deepseek/deepseek-coder:33b-instruct", "meta-llama/llama-3-70b-instruct"]
+        models = [
+            "deepseek/deepseek-coder:33b-instruct",
+            "meta-llama/llama-3-70b-instruct",
+        ]
 
         for model in models:
             request_data = {
                 "messages": [{"role": "user", "content": "Привет"}],
-                "model": model
+                "model": model,
             }
 
             with patch("src.aicrm.api.routers.ai.UnifiedAIClient") as mock_client_class:
@@ -284,16 +277,18 @@ class TestAIApi:
                 data = response.json()
                 assert data["model_used"] == model
 
-    async def test_ai_usage_logging_integration(self, async_client: AsyncClient, db_session):
+    async def test_ai_usage_logging_integration(
+        self, async_client: AsyncClient, db_session
+    ):
         """Интеграционный тест логирования использования AI токенов"""
-        from src.aicrm.services.ai_usage_service import AIUsageService
-
         # Создаем тестового пользователя
         from src.aicrm.models.user import User
+        from src.aicrm.services.ai_usage_service import AIUsageService
+
         test_user = User(
             email="test_ai_usage@example.com",
             hashed_password="hashed_password",
-            full_name="Test AI User"
+            full_name="Test AI User",
         )
         db_session.add(test_user)
         db_session.commit()
@@ -311,7 +306,7 @@ class TestAIApi:
             completion_tokens=100.5,
             user_id=test_user.id,
             ip_address="127.0.0.1",
-            user_agent="test-agent"
+            user_agent="test-agent",
         )
 
         # Проверяем, что запись создана
@@ -327,16 +322,18 @@ class TestAIApi:
         assert usage.request_id is not None
         assert usage.month_year is not None
 
-    async def test_monthly_usage_statistics_integration(self, async_client: AsyncClient, db_session):
+    async def test_monthly_usage_statistics_integration(
+        self, async_client: AsyncClient, db_session
+    ):
         """Интеграционный тест получения месячной статистики использования"""
-        from src.aicrm.services.ai_usage_service import AIUsageService
-
         # Создаем тестового пользователя
         from src.aicrm.models.user import User
+        from src.aicrm.services.ai_usage_service import AIUsageService
+
         test_user = User(
             email="test_monthly@example.com",
             hashed_password="hashed_password",
-            full_name="Test Monthly User"
+            full_name="Test Monthly User",
         )
         db_session.add(test_user)
         db_session.commit()
@@ -349,21 +346,21 @@ class TestAIApi:
             model_used="deepseek/deepseek-chat",
             endpoint="chat",
             total_tokens=100.0,
-            user_id=test_user.id
+            user_id=test_user.id,
         )
 
         await usage_service.log_usage(
             model_used="deepseek/deepseek-chat",
             endpoint="analyze-intent",
             total_tokens=50.0,
-            user_id=test_user.id
+            user_id=test_user.id,
         )
 
         await usage_service.log_usage(
             model_used="openai/gpt-4",
             endpoint="chat",
             total_tokens=200.0,
-            user_id=test_user.id
+            user_id=test_user.id,
         )
 
         # Получаем статистику за текущий месяц
@@ -387,16 +384,18 @@ class TestAIApi:
         assert gpt4_stats["tokens"] == 200.0
         assert gpt4_stats["requests"] == 1
 
-    async def test_usage_history_integration(self, async_client: AsyncClient, db_session):
+    async def test_usage_history_integration(
+        self, async_client: AsyncClient, db_session
+    ):
         """Интеграционный тест получения истории использования"""
-        from src.aicrm.services.ai_usage_service import AIUsageService
-
         # Создаем тестового пользователя
         from src.aicrm.models.user import User
+        from src.aicrm.services.ai_usage_service import AIUsageService
+
         test_user = User(
             email="test_history@example.com",
             hashed_password="hashed_password",
-            full_name="Test History User"
+            full_name="Test History User",
         )
         db_session.add(test_user)
         db_session.commit()
@@ -409,18 +408,20 @@ class TestAIApi:
             model_used="deepseek/deepseek-chat",
             endpoint="chat",
             total_tokens=75.0,
-            user_id=test_user.id
+            user_id=test_user.id,
         )
 
         usage2 = await usage_service.log_usage(
             model_used="openai/gpt-4",
             endpoint="analyze-intent",
             total_tokens=125.0,
-            user_id=test_user.id
+            user_id=test_user.id,
         )
 
         # Получаем историю
-        history = usage_service.get_usage_history(days=1, user_id=test_user.id, limit=10)
+        history = usage_service.get_usage_history(
+            days=1, user_id=test_user.id, limit=10
+        )
 
         # Проверяем, что записи есть в истории (в обратном порядке)
         assert len(history) == 2
@@ -437,59 +438,73 @@ class TestAIApi:
         assert previous_usage["endpoint"] == "chat"
         assert previous_usage["total_tokens"] == 75.0
 
-    async def test_ai_usage_api_endpoints_integration(self, async_client: AsyncClient, db_session):
+    async def test_ai_usage_api_endpoints_integration(
+        self, async_client: AsyncClient, db_session
+    ):
         """Интеграционный тест API эндпоинтов для статистики AI использования"""
-        from src.aicrm.services.ai_usage_service import AIUsageService
-
         # Создаем тестового пользователя и логируемся
         from src.aicrm.models.user import User
+        from src.aicrm.services.ai_usage_service import AIUsageService
+
         test_user = User(
             email="test_api_stats@example.com",
             hashed_password="hashed_password",
-            full_name="Test API Stats User"
+            full_name="Test API Stats User",
         )
         db_session.add(test_user)
         db_session.commit()
         db_session.refresh(test_user)
 
         # Получаем токен для аутентификации
-        login_response = await async_client.post("/auth/login/json", json={
-            "email": "test_api_stats@example.com",
-            "password": "test123"  # Это не сработает, нужно создать пользователя через API
-        })
+        login_response = await async_client.post(
+            "/auth/login/json",
+            json={
+                "email": "test_api_stats@example.com",
+                "password": "test123",  # Это не сработает, нужно создать пользователя через API
+            },
+        )
 
         # Вместо этого создадим пользователя через API
-        register_response = await async_client.post("/auth/register", json={
-            "email": "test_api_stats2@example.com",
-            "password": "test123",
-            "full_name": "Test API Stats User 2"
-        })
+        register_response = await async_client.post(
+            "/auth/register",
+            json={
+                "email": "test_api_stats2@example.com",
+                "password": "test123",
+                "full_name": "Test API Stats User 2",
+            },
+        )
 
         assert register_response.status_code == 200
         user_data = register_response.json()
 
         # Логируемся
-        login_response = await async_client.post("/auth/login/json", json={
-            "email": "test_api_stats2@example.com",
-            "password": "test123"
-        })
+        login_response = await async_client.post(
+            "/auth/login/json",
+            json={"email": "test_api_stats2@example.com", "password": "test123"},
+        )
 
         assert login_response.status_code == 200
         token_data = login_response.json()
         token = token_data["access_token"]
 
         # Используем AI чат для генерации использования токенов
-        chat_response = await async_client.post("/chat", json={
-            "messages": [{"role": "user", "content": "Hello, test message"}],
-            "model": "deepseek/deepseek-chat",
-            "temperature": 0.7,
-            "max_tokens": 50
-        }, headers={"Authorization": f"Bearer {token}"})
+        chat_response = await async_client.post(
+            "/chat",
+            json={
+                "messages": [{"role": "user", "content": "Hello, test message"}],
+                "model": "deepseek/deepseek-chat",
+                "temperature": 0.7,
+                "max_tokens": 50,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
         assert chat_response.status_code == 200
 
         # Проверяем месячную статистику через API
-        monthly_response = await async_client.get("/usage/monthly", headers={"Authorization": f"Bearer {token}"})
+        monthly_response = await async_client.get(
+            "/usage/monthly", headers={"Authorization": f"Bearer {token}"}
+        )
 
         assert monthly_response.status_code == 200
         monthly_data = monthly_response.json()
@@ -502,7 +517,9 @@ class TestAIApi:
         assert monthly_data["total_tokens"] > 0
 
         # Проверяем историю использования через API
-        history_response = await async_client.get("/usage/history", headers={"Authorization": f"Bearer {token}"})
+        history_response = await async_client.get(
+            "/usage/history", headers={"Authorization": f"Bearer {token}"}
+        )
 
         assert history_response.status_code == 200
         history_data = history_response.json()

@@ -1,23 +1,38 @@
 """
 API эндпоинты для управления автоматизацией
 """
-from typing import List, Dict, Any, Optional
+
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from ...core.database import get_db
-from ...services.automation.automation_service import AutomationService
-from ...models.automation import (
-    EntityType, TriggerEvent, Process, Stage, Trigger, Robot,
-    RobotAction, RobotActionConfig
-)
 from ...api.schemas.automation import (
-    ProcessCreate, ProcessUpdate, StageCreate, StageUpdate,
-    TriggerCreate, TriggerUpdate, RobotCreate, RobotUpdate,
-    AutomationChainRequest, AutomationChainResponse
+    AutomationChainRequest,
+    AutomationChainResponse,
+    ProcessCreate,
+    ProcessUpdate,
+    RobotCreate,
+    RobotUpdate,
+    StageCreate,
+    StageUpdate,
+    TriggerCreate,
+    TriggerUpdate,
 )
-from .auth import get_current_active_user
+from ...core.database import get_db
+from ...models.automation import (
+    EntityType,
+    Process,
+    Robot,
+    RobotAction,
+    RobotActionConfig,
+    Stage,
+    Trigger,
+    TriggerEvent,
+)
 from ...models.user import User
+from ...services.automation.automation_service import AutomationService
+from .auth import get_current_active_user
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 
@@ -29,7 +44,7 @@ async def fire_automation_event(
     entity_id: int,
     event_data: Dict[str, Any] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Инициировать событие автоматизации
@@ -45,10 +60,7 @@ async def fire_automation_event(
         entity_type, event_type, entity_id, event_data
     )
 
-    return {
-        "message": "Automation event processed",
-        "result": result
-    }
+    return {"message": "Automation event processed", "result": result}
 
 
 @router.post("/move-to-stage/{entity_type}/{entity_id}/{stage_id}")
@@ -57,7 +69,7 @@ async def move_entity_to_stage(
     entity_id: int,
     stage_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Переместить сущность на указанную стадию с выполнением роботов
@@ -66,29 +78,24 @@ async def move_entity_to_stage(
     так и ручное действие пользователя.
     """
     automation_service = AutomationService(db)
-    result = await automation_service.move_to_stage(
-        entity_type, entity_id, stage_id
-    )
+    result = await automation_service.move_to_stage(entity_type, entity_id, stage_id)
 
     if not result.get("success"):
         raise HTTPException(
-            status_code=400,
-            detail=result.get("error", "Failed to move to stage")
+            status_code=400, detail=result.get("error", "Failed to move to stage")
         )
 
-    return {
-        "message": f"Entity moved to stage {stage_id}",
-        "result": result
-    }
+    return {"message": f"Entity moved to stage {stage_id}", "result": result}
 
 
 # Специфические эндпоинты для разных типов событий
+
 
 @router.post("/customers/{customer_id}/created")
 async def on_customer_created(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Клиент создан"""
     automation_service = AutomationService(db)
@@ -101,7 +108,7 @@ async def on_customer_updated(
     customer_id: int,
     changes: Dict[str, Any],
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Клиент обновлен"""
     automation_service = AutomationService(db)
@@ -113,7 +120,7 @@ async def on_customer_updated(
 async def on_order_created(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Заказ создан"""
     automation_service = AutomationService(db)
@@ -127,11 +134,13 @@ async def on_order_status_changed(
     old_status: str,
     new_status: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Статус заказа изменен"""
     automation_service = AutomationService(db)
-    result = await automation_service.on_order_status_changed(order_id, old_status, new_status)
+    result = await automation_service.on_order_status_changed(
+        order_id, old_status, new_status
+    )
     return {"result": result}
 
 
@@ -139,7 +148,7 @@ async def on_order_status_changed(
 async def on_order_completed(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Заказ завершен"""
     automation_service = AutomationService(db)
@@ -152,7 +161,7 @@ async def on_payment_received(
     order_id: int,
     amount: float,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Получена оплата"""
     automation_service = AutomationService(db)
@@ -164,7 +173,7 @@ async def on_payment_received(
 async def on_task_created(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Задача создана"""
     automation_service = AutomationService(db)
@@ -178,11 +187,13 @@ async def on_task_status_changed(
     old_status: str,
     new_status: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Статус задачи изменен"""
     automation_service = AutomationService(db)
-    result = await automation_service.on_task_status_changed(task_id, old_status, new_status)
+    result = await automation_service.on_task_status_changed(
+        task_id, old_status, new_status
+    )
     return {"result": result}
 
 
@@ -190,7 +201,7 @@ async def on_task_status_changed(
 async def on_task_completed(
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Задача завершена"""
     automation_service = AutomationService(db)
@@ -203,7 +214,7 @@ async def on_deadline_approaching(
     task_id: int,
     hours_left: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Приближается дедлайн задачи"""
     automation_service = AutomationService(db)
@@ -215,7 +226,7 @@ async def on_deadline_approaching(
 async def on_production_started(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Производство начато"""
     automation_service = AutomationService(db)
@@ -227,7 +238,7 @@ async def on_production_started(
 async def on_production_step_completed(
     step_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Этап производства завершен"""
     automation_service = AutomationService(db)
@@ -239,7 +250,7 @@ async def on_production_step_completed(
 async def on_production_completed(
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Производство завершено"""
     automation_service = AutomationService(db)
@@ -252,7 +263,7 @@ async def on_production_overdue(
     step_id: int,
     overdue_hours: float,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Производство просрочено"""
     automation_service = AutomationService(db)
@@ -266,11 +277,13 @@ async def on_message_received(
     entity_type: EntityType,
     entity_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Получено сообщение"""
     automation_service = AutomationService(db)
-    result = await automation_service.on_message_received(communication_id, entity_type, entity_id)
+    result = await automation_service.on_message_received(
+        communication_id, entity_type, entity_id
+    )
     return {"result": result}
 
 
@@ -280,11 +293,13 @@ async def on_message_sent(
     entity_type: EntityType,
     entity_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Отправлено сообщение"""
     automation_service = AutomationService(db)
-    result = await automation_service.on_message_sent(communication_id, entity_type, entity_id)
+    result = await automation_service.on_message_sent(
+        communication_id, entity_type, entity_id
+    )
     return {"result": result}
 
 
@@ -294,15 +309,18 @@ async def on_email_opened(
     entity_type: EntityType,
     entity_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Событие: Email открыт"""
     automation_service = AutomationService(db)
-    result = await automation_service.on_email_opened(communication_id, entity_type, entity_id)
+    result = await automation_service.on_email_opened(
+        communication_id, entity_type, entity_id
+    )
     return {"result": result}
 
 
 # CRUD операции для процессов
+
 
 @router.get("/processes/", response_model=List[Dict[str, Any]])
 async def get_processes(
@@ -310,29 +328,32 @@ async def get_processes(
     limit: int = Query(100, ge=1, le=1000),
     entity_type: Optional[EntityType] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить список процессов"""
     query = db.query(Process)
     if entity_type:
         query = query.filter(Process.entity_type == entity_type)
     processes = query.offset(skip).limit(limit).all()
-    return [{
-        "id": p.id,
-        "name": p.name,
-        "description": p.description,
-        "entity_type": p.entity_type,
-        "is_active": p.is_active,
-        "created_at": p.created_at,
-        "updated_at": p.updated_at
-    } for p in processes]
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "description": p.description,
+            "entity_type": p.entity_type,
+            "is_active": p.is_active,
+            "created_at": p.created_at,
+            "updated_at": p.updated_at,
+        }
+        for p in processes
+    ]
 
 
 @router.post("/processes/", response_model=Dict[str, Any])
 async def create_process(
     process: ProcessCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Создать новый процесс"""
     db_process = Process(**process.dict())
@@ -346,7 +367,7 @@ async def create_process(
         "entity_type": db_process.entity_type,
         "is_active": db_process.is_active,
         "created_at": db_process.created_at,
-        "updated_at": db_process.updated_at
+        "updated_at": db_process.updated_at,
     }
 
 
@@ -354,7 +375,7 @@ async def create_process(
 async def get_process(
     process_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить процесс по ID"""
     process = db.query(Process).filter(Process.id == process_id).first()
@@ -367,7 +388,7 @@ async def get_process(
         "entity_type": process.entity_type,
         "is_active": process.is_active,
         "created_at": process.created_at,
-        "updated_at": process.updated_at
+        "updated_at": process.updated_at,
     }
 
 
@@ -376,7 +397,7 @@ async def update_process(
     process_id: int,
     process_update: ProcessUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Обновить процесс"""
     process = db.query(Process).filter(Process.id == process_id).first()
@@ -395,7 +416,7 @@ async def update_process(
         "entity_type": process.entity_type,
         "is_active": process.is_active,
         "created_at": process.created_at,
-        "updated_at": process.updated_at
+        "updated_at": process.updated_at,
     }
 
 
@@ -403,7 +424,7 @@ async def update_process(
 async def delete_process(
     process_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Удалить процесс"""
     process = db.query(Process).filter(Process.id == process_id).first()
@@ -417,6 +438,7 @@ async def delete_process(
 
 # CRUD операции для стадий
 
+
 @router.get("/stages/", response_model=List[Dict[str, Any]])
 async def get_stages(
     process_id: Optional[int] = None,
@@ -424,7 +446,7 @@ async def get_stages(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить список стадий"""
     query = db.query(Stage)
@@ -433,24 +455,27 @@ async def get_stages(
     if entity_type:
         query = query.filter(Stage.entity_type == entity_type)
     stages = query.offset(skip).limit(limit).all()
-    return [{
-        "id": s.id,
-        "name": s.name,
-        "description": s.description,
-        "entity_type": s.entity_type,
-        "process_id": s.process_id,
-        "order_index": s.order_index,
-        "color": s.color,
-        "is_active": s.is_active,
-        "created_at": s.created_at
-    } for s in stages]
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "description": s.description,
+            "entity_type": s.entity_type,
+            "process_id": s.process_id,
+            "order_index": s.order_index,
+            "color": s.color,
+            "is_active": s.is_active,
+            "created_at": s.created_at,
+        }
+        for s in stages
+    ]
 
 
 @router.post("/stages/", response_model=Dict[str, Any])
 async def create_stage(
     stage: StageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Создать новую стадию"""
     db_stage = Stage(**stage.dict())
@@ -466,7 +491,7 @@ async def create_stage(
         "order_index": db_stage.order_index,
         "color": db_stage.color,
         "is_active": db_stage.is_active,
-        "created_at": db_stage.created_at
+        "created_at": db_stage.created_at,
     }
 
 
@@ -474,7 +499,7 @@ async def create_stage(
 async def get_stage(
     stage_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить стадию по ID"""
     stage = db.query(Stage).filter(Stage.id == stage_id).first()
@@ -489,7 +514,7 @@ async def get_stage(
         "order_index": stage.order_index,
         "color": stage.color,
         "is_active": stage.is_active,
-        "created_at": stage.created_at
+        "created_at": stage.created_at,
     }
 
 
@@ -498,7 +523,7 @@ async def update_stage(
     stage_id: int,
     stage_update: StageUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Обновить стадию"""
     stage = db.query(Stage).filter(Stage.id == stage_id).first()
@@ -519,7 +544,7 @@ async def update_stage(
         "order_index": stage.order_index,
         "color": stage.color,
         "is_active": stage.is_active,
-        "created_at": stage.created_at
+        "created_at": stage.created_at,
     }
 
 
@@ -527,7 +552,7 @@ async def update_stage(
 async def delete_stage(
     stage_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Удалить стадию"""
     stage = db.query(Stage).filter(Stage.id == stage_id).first()
@@ -541,6 +566,7 @@ async def delete_stage(
 
 # CRUD операции для триггеров
 
+
 @router.get("/triggers/", response_model=List[Dict[str, Any]])
 async def get_triggers(
     entity_type: Optional[EntityType] = None,
@@ -549,7 +575,7 @@ async def get_triggers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить список триггеров"""
     query = db.query(Trigger)
@@ -560,24 +586,27 @@ async def get_triggers(
     if is_active is not None:
         query = query.filter(Trigger.is_active == is_active)
     triggers = query.offset(skip).limit(limit).all()
-    return [{
-        "id": t.id,
-        "name": t.name,
-        "description": t.description,
-        "entity_type": t.entity_type,
-        "event_type": t.event_type,
-        "conditions": t.conditions,
-        "target_stage_id": t.target_stage_id,
-        "is_active": t.is_active,
-        "created_at": t.created_at
-    } for t in triggers]
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "entity_type": t.entity_type,
+            "event_type": t.event_type,
+            "conditions": t.conditions,
+            "target_stage_id": t.target_stage_id,
+            "is_active": t.is_active,
+            "created_at": t.created_at,
+        }
+        for t in triggers
+    ]
 
 
 @router.post("/triggers/", response_model=Dict[str, Any])
 async def create_trigger(
     trigger: TriggerCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Создать новый триггер"""
     db_trigger = Trigger(**trigger.dict())
@@ -593,7 +622,7 @@ async def create_trigger(
         "conditions": db_trigger.conditions,
         "target_stage_id": db_trigger.target_stage_id,
         "is_active": db_trigger.is_active,
-        "created_at": db_trigger.created_at
+        "created_at": db_trigger.created_at,
     }
 
 
@@ -601,7 +630,7 @@ async def create_trigger(
 async def get_trigger(
     trigger_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить триггер по ID"""
     trigger = db.query(Trigger).filter(Trigger.id == trigger_id).first()
@@ -616,7 +645,7 @@ async def get_trigger(
         "conditions": trigger.conditions,
         "target_stage_id": trigger.target_stage_id,
         "is_active": trigger.is_active,
-        "created_at": trigger.created_at
+        "created_at": trigger.created_at,
     }
 
 
@@ -625,7 +654,7 @@ async def update_trigger(
     trigger_id: int,
     trigger_update: TriggerUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Обновить триггер"""
     trigger = db.query(Trigger).filter(Trigger.id == trigger_id).first()
@@ -646,7 +675,7 @@ async def update_trigger(
         "conditions": trigger.conditions,
         "target_stage_id": trigger.target_stage_id,
         "is_active": trigger.is_active,
-        "created_at": trigger.created_at
+        "created_at": trigger.created_at,
     }
 
 
@@ -654,7 +683,7 @@ async def update_trigger(
 async def delete_trigger(
     trigger_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Удалить триггер"""
     trigger = db.query(Trigger).filter(Trigger.id == trigger_id).first()
@@ -668,6 +697,7 @@ async def delete_trigger(
 
 # CRUD операции для роботов
 
+
 @router.get("/robots/", response_model=List[Dict[str, Any]])
 async def get_robots(
     entity_type: Optional[EntityType] = None,
@@ -676,7 +706,7 @@ async def get_robots(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить список роботов"""
     query = db.query(Robot)
@@ -687,22 +717,25 @@ async def get_robots(
     if is_active is not None:
         query = query.filter(Robot.is_active == is_active)
     robots = query.offset(skip).limit(limit).all()
-    return [{
-        "id": r.id,
-        "name": r.name,
-        "description": r.description,
-        "entity_type": r.entity_type,
-        "stage_id": r.stage_id,
-        "is_active": r.is_active,
-        "created_at": r.created_at
-    } for r in robots]
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "description": r.description,
+            "entity_type": r.entity_type,
+            "stage_id": r.stage_id,
+            "is_active": r.is_active,
+            "created_at": r.created_at,
+        }
+        for r in robots
+    ]
 
 
 @router.post("/robots/", response_model=Dict[str, Any])
 async def create_robot(
     robot: RobotCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Создать нового робота"""
     db_robot = Robot(**robot.dict())
@@ -716,7 +749,7 @@ async def create_robot(
         "entity_type": db_robot.entity_type,
         "stage_id": db_robot.stage_id,
         "is_active": db_robot.is_active,
-        "created_at": db_robot.created_at
+        "created_at": db_robot.created_at,
     }
 
 
@@ -724,7 +757,7 @@ async def create_robot(
 async def get_robot(
     robot_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Получить робота по ID"""
     robot = db.query(Robot).filter(Robot.id == robot_id).first()
@@ -737,7 +770,7 @@ async def get_robot(
         "entity_type": robot.entity_type,
         "stage_id": robot.stage_id,
         "is_active": robot.is_active,
-        "created_at": robot.created_at
+        "created_at": robot.created_at,
     }
 
 
@@ -746,7 +779,7 @@ async def update_robot(
     robot_id: int,
     robot_update: RobotUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Обновить робота"""
     robot = db.query(Robot).filter(Robot.id == robot_id).first()
@@ -765,7 +798,7 @@ async def update_robot(
         "entity_type": robot.entity_type,
         "stage_id": robot.stage_id,
         "is_active": robot.is_active,
-        "created_at": robot.created_at
+        "created_at": robot.created_at,
     }
 
 
@@ -773,7 +806,7 @@ async def update_robot(
 async def delete_robot(
     robot_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Удалить робота"""
     robot = db.query(Robot).filter(Robot.id == robot_id).first()
@@ -787,11 +820,12 @@ async def delete_robot(
 
 # ИИ-функционал для создания цепочек автоматизации
 
+
 @router.post("/ai/generate-chain", response_model=AutomationChainResponse)
 async def generate_automation_chain(
     request: AutomationChainRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     ИИ-генерация цепочки автоматизации на основе описания бизнес-процесса
@@ -804,15 +838,13 @@ async def generate_automation_chain(
     """
     automation_service = AutomationService(db)
     result = await automation_service.generate_automation_chain_with_ai(
-        request.description,
-        request.entity_type,
-        request.complexity_level or "medium"
+        request.description, request.entity_type, request.complexity_level or "medium"
     )
 
     if not result.get("success"):
         raise HTTPException(
             status_code=400,
-            detail=result.get("error", "Failed to generate automation chain")
+            detail=result.get("error", "Failed to generate automation chain"),
         )
 
     return result
@@ -821,9 +853,11 @@ async def generate_automation_chain(
 @router.post("/ai/optimize-chain/{process_id}")
 async def optimize_automation_chain(
     process_id: int,
-    optimization_goal: str = Query(..., description="Цель оптимизации: performance, reliability, cost"),
+    optimization_goal: str = Query(
+        ..., description="Цель оптимизации: performance, reliability, cost"
+    ),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     ИИ-оптимизация существующей цепочки автоматизации
@@ -841,7 +875,7 @@ async def optimize_automation_chain(
     if not result.get("success"):
         raise HTTPException(
             status_code=400,
-            detail=result.get("error", "Failed to optimize automation chain")
+            detail=result.get("error", "Failed to optimize automation chain"),
         )
 
     return result
@@ -852,7 +886,7 @@ async def suggest_automation_improvements(
     entity_type: Optional[EntityType] = None,
     analysis_period_days: int = Query(30, description="Период анализа в днях"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     ИИ-анализ и предложения по улучшению автоматизации

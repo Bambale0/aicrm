@@ -1,15 +1,18 @@
 """
 Схемы для API заказов
 """
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 from ...models.order import OrderStatus
 
 
 class OrderItem(BaseModel):
     """Элемент заказа"""
+
     product_type: str = Field(..., description="Тип продукта (футболка, худи, etc.)")
     quantity: int = Field(..., gt=0, description="Количество")
     size: Optional[str] = Field(None, description="Размер")
@@ -19,6 +22,7 @@ class OrderItem(BaseModel):
 
 class OrderCreate(BaseModel):
     """Создание нового заказа"""
+
     customer_id: int
     items: List[OrderItem]
     requirements: Optional[str] = None
@@ -29,6 +33,7 @@ class OrderCreate(BaseModel):
 
 class OrderUpdate(BaseModel):
     """Обновление заказа"""
+
     status: Optional[OrderStatus] = None
     items: Optional[List[OrderItem]] = None
     requirements: Optional[str] = None
@@ -38,6 +43,7 @@ class OrderUpdate(BaseModel):
 
 class OrderResponse(BaseModel):
     """Ответ с информацией о заказе"""
+
     id: int
     customer_id: int
     status: OrderStatus
@@ -59,6 +65,7 @@ class OrderResponse(BaseModel):
 
 class ProductionStepResponse(BaseModel):
     """Ответ с информацией об этапе производства"""
+
     id: int
     name: str
     description: Optional[str] = None
@@ -79,6 +86,7 @@ class ProductionStepResponse(BaseModel):
 
 class ProductionProgressResponse(BaseModel):
     """Ответ с прогрессом производства"""
+
     total_steps: int
     completed_steps: int
     in_progress_steps: int
@@ -92,6 +100,7 @@ class ProductionProgressResponse(BaseModel):
 
 class OrderListResponse(BaseModel):
     """Ответ со списком заказов"""
+
     orders: List[OrderResponse]
     total: int
     page: int
@@ -100,6 +109,7 @@ class OrderListResponse(BaseModel):
 
 class StepUpdateRequest(BaseModel):
     """Запрос на обновление этапа"""
+
     status: Optional[str] = None
     actual_hours: Optional[float] = None
     notes: Optional[str] = None

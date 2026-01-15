@@ -1,12 +1,14 @@
 """
 Юнит-тесты для TaskService
 """
-import pytest
-from unittest.mock import MagicMock
-from datetime import datetime, timedelta
 
-from src.aicrm.services.task import TaskService
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock
+
+import pytest
+
 from src.aicrm.models.task import Task
+from src.aicrm.services.task import TaskService
 
 
 class TestTaskService:
@@ -26,7 +28,7 @@ class TestTaskService:
             "priority": "high",
             "assigned_to": 2,
             "due_date": datetime.utcnow() + timedelta(days=3),
-            "estimated_hours": 8
+            "estimated_hours": 8,
         }
 
     @pytest.fixture
@@ -43,7 +45,7 @@ class TestTaskService:
         # Настройка мока
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
-        mock_db.refresh.side_effect = lambda obj: setattr(obj, 'id', 1)
+        mock_db.refresh.side_effect = lambda obj: setattr(obj, "id", 1)
 
         # Вызов метода
         result = TaskService.create_task(mock_db, sample_task_data, created_by=1)
@@ -74,7 +76,9 @@ class TestTaskService:
 
     def test_get_tasks_no_filters(self, mock_db, sample_task):
         """Тест получения списка задач без фильтров"""
-        mock_db.query.return_value.offset.return_value.limit.return_value.all.return_value = [sample_task]
+        mock_db.query.return_value.offset.return_value.limit.return_value.all.return_value = [
+            sample_task
+        ]
 
         result = TaskService.get_tasks(mock_db)
 
@@ -85,13 +89,12 @@ class TestTaskService:
         """Тест получения списка задач с фильтрами"""
         # Настраиваем мок для цепочки вызовов
         mock_query = mock_db.query.return_value
-        mock_query.filter.return_value.filter.return_value.filter.return_value.offset.return_value.limit.return_value.all.return_value = [sample_task]
+        mock_query.filter.return_value.filter.return_value.filter.return_value.offset.return_value.limit.return_value.all.return_value = [
+            sample_task
+        ]
 
         result = TaskService.get_tasks(
-            mock_db,
-            assigned_to=2,
-            status="todo",
-            priority="high"
+            mock_db, assigned_to=2, status="todo", priority="high"
         )
 
         assert len(result) == 1

@@ -4,7 +4,7 @@
 set -e  # Exit on any error
 
 # Change to the source directory
-cd /root/aicrm/src || { echo "Failed to change directory to /root/aicrm/src"; exit 1; }
+cd /root/saas/aicrm || { echo "Failed to change directory to /root/saas/aicrm"; exit 1; }
 
 # Set default values for host and port if not provided
 HOST=${HOST:-0.0.0.0}

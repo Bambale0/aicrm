@@ -1,17 +1,30 @@
 """
 Модели автоматизации в стиле Bitrix24
 """
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean, Enum, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+
 import enum
+from datetime import datetime
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 from .base import Base
 
 
 class EntityType(enum.Enum):
     """Типы сущностей для автоматизации"""
+
     CUSTOMER = "customer"
     ORDER = "order"
     TASK = "task"
@@ -21,6 +34,7 @@ class EntityType(enum.Enum):
 
 class TriggerEvent(enum.Enum):
     """События триггеров"""
+
     # Заказы
     ORDER_CREATED = "order_created"
     ORDER_STATUS_CHANGED = "order_status_changed"
@@ -52,6 +66,7 @@ class TriggerEvent(enum.Enum):
 
 class RobotAction(enum.Enum):
     """Действия роботов"""
+
     # Коммуникации
     SEND_EMAIL = "send_email"
     SEND_SMS = "send_sms"
@@ -79,6 +94,7 @@ class RobotAction(enum.Enum):
 
 class Process(Base):
     """Бизнес-процесс"""
+
     __tablename__ = "processes"
 
     id = Column(Integer, primary_key=True)
@@ -87,7 +103,9 @@ class Process(Base):
     entity_type = Column(Enum(EntityType), nullable=False)
 
     # Стадии процесса
-    stages = relationship("Stage", back_populates="process", cascade="all, delete-orphan")
+    stages = relationship(
+        "Stage", back_populates="process", cascade="all, delete-orphan"
+    )
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -96,6 +114,7 @@ class Process(Base):
 
 class Stage(Base):
     """Стадия бизнес-процесса"""
+
     __tablename__ = "stages"
 
     id = Column(Integer, primary_key=True)
@@ -111,8 +130,9 @@ class Stage(Base):
     robots = relationship("Robot", back_populates="stage", cascade="all, delete-orphan")
 
     # Триггеры, ведущие на эту стадию
-    incoming_triggers = relationship("Trigger", back_populates="target_stage",
-                                   foreign_keys="Trigger.target_stage_id")
+    incoming_triggers = relationship(
+        "Trigger", back_populates="target_stage", foreign_keys="Trigger.target_stage_id"
+    )
 
     order_index = Column(Integer, default=0)
     color = Column(String(7))  # HEX цвет для визуализации
@@ -122,6 +142,7 @@ class Stage(Base):
 
 class Trigger(Base):
     """Триггер автоматизации"""
+
     __tablename__ = "triggers"
 
     id = Column(Integer, primary_key=True)
@@ -137,8 +158,9 @@ class Trigger(Base):
 
     # Целевая стадия
     target_stage_id = Column(Integer, ForeignKey("stages.id"))
-    target_stage = relationship("Stage", back_populates="incoming_triggers",
-                               foreign_keys=[target_stage_id])
+    target_stage = relationship(
+        "Stage", back_populates="incoming_triggers", foreign_keys=[target_stage_id]
+    )
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -146,6 +168,7 @@ class Trigger(Base):
 
 class Robot(Base):
     """Робот автоматизации"""
+
     __tablename__ = "robots"
 
     id = Column(Integer, primary_key=True)
@@ -160,8 +183,12 @@ class Robot(Base):
     stage = relationship("Stage", back_populates="robots")
 
     # Последовательные действия
-    actions = relationship("RobotActionConfig", back_populates="robot",
-                          cascade="all, delete-orphan", order_by="RobotActionConfig.execution_order")
+    actions = relationship(
+        "RobotActionConfig",
+        back_populates="robot",
+        cascade="all, delete-orphan",
+        order_by="RobotActionConfig.execution_order",
+    )
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -169,6 +196,7 @@ class Robot(Base):
 
 class RobotActionConfig(Base):
     """Конфигурация действия робота"""
+
     __tablename__ = "robot_actions_config"
 
     id = Column(Integer, primary_key=True)
