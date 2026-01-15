@@ -16,6 +16,7 @@ class Customer(BaseModel):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True)
     phone = Column(String)
+    company = Column(String)  # Компания клиента
     contact_info = Column(JSON)  # Дополнительная контактная информация
     address = Column(String)
     total_orders = Column(Integer, default=0)

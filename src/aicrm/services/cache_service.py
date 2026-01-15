@@ -20,6 +20,7 @@ class CacheService:
         self.redis_url = settings.redis_url
         self.redis_client: Optional[redis.Redis] = None
         self.default_ttl = 3600  # 1 час по умолчанию
+        self._redis_available = True  # Флаг доступности Redis
 
     async def __aenter__(self):
         """Async context manager entry"""
@@ -35,13 +36,16 @@ class CacheService:
     async def _get_client(self) -> redis.Redis:
         """Получение Redis клиента"""
         if not self.redis_client:
-            await self.__aenter__()
+            self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
         return self.redis_client
 
     async def get(self, key: str) -> Optional[Any]:
         """Получение значения из кеша"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return None
+
         try:
+            client = await self._get_client()
             value = await client.get(key)
             if value:
                 # Попытка распарсить JSON
@@ -52,12 +56,16 @@ class CacheService:
             return None
         except Exception as e:
             logger.warning("Cache get error", key=key, error=str(e))
+            self._redis_available = False  # Отключаем Redis при ошибке
             return None
 
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Установка значения в кеш"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return False
+
         try:
+            client = await self._get_client()
             # Сериализация значения
             if isinstance(value, (dict, list)):
                 serialized_value = json.dumps(value)
@@ -69,46 +77,63 @@ class CacheService:
             return bool(result)
         except Exception as e:
             logger.warning("Cache set error", key=key, error=str(e))
+            self._redis_available = False  # Отключаем Redis при ошибке
             return False
 
     async def delete(self, key: str) -> bool:
         """Удаление значения из кеша"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return False
+
         try:
+            client = await self._get_client()
             result = await client.delete(key)
             return bool(result)
         except Exception as e:
             logger.warning("Cache delete error", key=key, error=str(e))
+            self._redis_available = False  # Отключаем Redis при ошибке
             return False
 
     async def exists(self, key: str) -> bool:
         """Проверка существования ключа"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return False
+
         try:
+            client = await self._get_client()
             result = await client.exists(key)
             return bool(result)
         except Exception as e:
             logger.warning("Cache exists error", key=key, error=str(e))
+            self._redis_available = False  # Отключаем Redis при ошибке
             return False
 
     async def expire(self, key: str, ttl: int) -> bool:
         """Установка TTL для ключа"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return False
+
         try:
+            client = await self._get_client()
             result = await client.expire(key, ttl)
             return bool(result)
         except Exception as e:
             logger.warning("Cache expire error", key=key, error=str(e))
+            self._redis_available = False  # Отключаем Redis при ошибке
             return False
 
     async def ttl(self, key: str) -> int:
         """Получение TTL ключа"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return -1
+
         try:
+            client = await self._get_client()
             result = await client.ttl(key)
             return result
         except Exception as e:
             logger.warning("Cache ttl error", key=key, error=str(e))
+            self._redis_available = False  # Отключаем Redis при ошибке
             return -1
 
     # Специализированные методы кеширования
@@ -180,8 +205,11 @@ class CacheService:
 
     async def clear_pattern(self, pattern: str) -> int:
         """Очистка кеша по паттерну"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return 0
+
         try:
+            client = await self._get_client()
             # Получаем все ключи по паттерну
             keys = await client.keys(pattern)
             if keys:
@@ -194,12 +222,16 @@ class CacheService:
             return 0
         except Exception as e:
             logger.warning("Cache clear pattern error", pattern=pattern, error=str(e))
+            self._redis_available = False  # Отключаем Redis при ошибке
             return 0
 
     async def get_stats(self) -> Dict[str, Any]:
         """Получение статистики кеша"""
-        client = await self._get_client()
+        if not self._redis_available:
+            return {"error": "Redis not available"}
+
         try:
+            client = await self._get_client()
             info = await client.info()
             return {
                 "connected_clients": info.get("connected_clients", 0),
@@ -216,8 +248,12 @@ class CacheService:
         try:
             client = await self._get_client()
             await client.ping()
+            self._redis_available = (
+                True  # Восстанавливаем флаг при успешном подключении
+            )
             return {"status": "healthy", "message": "Redis is responding"}
         except Exception as e:
+            self._redis_available = False  # Отключаем Redis при ошибке
             return {"status": "unhealthy", "error": str(e)}
 
 

@@ -14,6 +14,7 @@ class CustomerBase(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    company: Optional[str] = None
     contact_info: Optional[dict] = None
     address: Optional[str] = None
     notes: Optional[str] = None
@@ -31,9 +32,9 @@ class CustomerUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    company: Optional[str] = None
     contact_info: Optional[dict] = None
     address: Optional[str] = None
-    notes: Optional[str] = None
 
 
 class Customer(CustomerBase):

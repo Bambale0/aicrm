@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["websockets"])
 
 
-@router.get("/ping")
+@router.get("/ping", operation_id="websocket_ping_get")
 async def ping():
     """Ping endpoint"""
     return "pong"

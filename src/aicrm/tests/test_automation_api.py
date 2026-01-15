@@ -545,8 +545,7 @@ class TestAutomationAPIRouter:
 
     def test_suggest_automation_improvements_unit(self):
         """Unit тест предложений по улучшению автоматизации"""
-        from src.aicrm.api.routers.automation import \
-            suggest_automation_improvements
+        from src.aicrm.api.routers.automation import suggest_automation_improvements
 
         mock_db = MagicMock()
         mock_current_user = MagicMock()

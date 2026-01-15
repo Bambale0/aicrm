@@ -587,10 +587,8 @@ class TestServiceIntegration:
         # Этот тест проверяет что все импорты работают правильно
         try:
             from ..services.ai_settings_service import AISettingsService
-            from ..services.automation.avito_integration import \
-                AvitoTaskIntegration
-            from ..services.automation.error_handler import \
-                AutomationErrorHandler
+            from ..services.automation.avito_integration import AvitoTaskIntegration
+            from ..services.automation.error_handler import AutomationErrorHandler
             from ..services.notification_service import NotificationService
 
             # Если импорты успешны, значит порядок инициализации правильный

@@ -2,7 +2,7 @@
 Сервис для работы с системными настройками
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -85,6 +85,8 @@ class SystemSettingsService:
             "email_notifications_enabled",
             "websocket_notifications_enabled",
             "push_notifications_enabled",
+            "admin_contacts",
+            "critical_contacts",
             "auto_backup_enabled",
             "backup_frequency_hours",
             "backup_retention_days",
@@ -312,6 +314,29 @@ class SystemSettingsService:
             "websocket_enabled": settings.websocket_notifications_enabled,
             "push_enabled": settings.push_notifications_enabled,
         }
+
+    @staticmethod
+    def get_admin_contacts(db: Session) -> List[Dict[str, Any]]:
+        """Получить контакты администраторов для уведомлений"""
+        settings = SystemSettingsService.get_settings(db)
+        if not settings or not settings.admin_contacts:
+            # Возвращаем дефолтные контакты для обратной совместимости
+            return [
+                {"email": "admin@example.com", "telegram_id": "123456789"},
+                {"email": "dev@example.com", "telegram_id": "987654321"},
+            ]
+
+        return settings.admin_contacts
+
+    @staticmethod
+    def get_critical_contacts(db: Session) -> List[Dict[str, Any]]:
+        """Получить контакты для критических уведомлений"""
+        settings = SystemSettingsService.get_settings(db)
+        if not settings or settings.critical_contacts is None:
+            # Возвращаем дефолтные контакты для обратной совместимости
+            return [{"email": "ceo@example.com", "phone": "+1234567890"}]
+
+        return settings.critical_contacts
 
     @staticmethod
     def get_cache_config(db: Session) -> Dict[str, Any]:

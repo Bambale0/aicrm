@@ -773,27 +773,26 @@ class AutomationErrorHandler:
 
     async def _get_admin_emails(self) -> List[str]:
         """
-        Получение email администраторов из конфигурации
+        Получение email администраторов из базы данных
 
         Returns:
             List[str]: Список email администраторов
         """
         try:
             # Получаем администраторов из базы данных
-            from ...models.user import UserRole
-
-            admins = self.db.query(User).filter(User.role == UserRole.ADMIN).all()
+            admins = (
+                self.db.query(User)
+                .filter(User.role == "admin", User.is_active == True)
+                .all()
+            )
             admin_emails = [admin.email for admin in admins if admin.email]
 
-            # Если нет администраторов в БД, используем значения по умолчанию
-            if not admin_emails:
-                admin_emails = ["admin@example.com", "dev@example.com"]
-
+            # Если нет администраторов в БД, возвращаем пустой список (не используем хард-коды)
             return admin_emails
 
         except Exception as e:
             logger.error(f"Ошибка получения email администраторов: {e}")
-            return ["admin@example.com"]
+            return []
 
     def _format_error_message_v2(
         self,
@@ -816,28 +815,29 @@ class AutomationErrorHandler:
         Returns:
             str: Отформатированное сообщение
         """
-        message_parts = [
-            "🚨 Ошибка автоматизации",
-            f"Серьезность: {severity.value.upper()}",
-            f"Время: {datetime.utcnow().isoformat()}",
-            f"Сообщение: {error_message}",
-        ]
-
-        if entity_type and entity_id:
-            message_parts.append(f"Сущность: {entity_type} #{entity_id}")
-
+        context_info = ""
         if error_details:
             context_items = []
             for key, value in error_details.items():
                 if isinstance(value, (str, int, float, bool)):
                     context_items.append(f"{key}: {value}")
             if context_items:
-                message_parts.append("Детали:")
-                message_parts.extend(f"• {item}" for item in context_items)
+                context_info = "\n\nДетали:\n" + "\n".join(
+                    f"• {item}" for item in context_items
+                )
 
-        message_parts.append("Требуется внимание!")
+        entity_info = ""
+        if entity_type and entity_id:
+            entity_info = f"\n\nСущность: {entity_type} (ID: {entity_id})"
 
-        return "\n".join(message_parts)
+        return f"""🚨 Ошибка автоматизации
+
+Серьезность: {severity.value.upper()}
+Время: {datetime.utcnow().isoformat()}
+
+Ошибка: {error_message}{context_info}{entity_info}
+
+Требуется внимание для исправления проблемы."""
 
 
 # Функция для создания экземпляра обработчика ошибок
@@ -849,6 +849,6 @@ def get_error_handler(db_session):
         db_session: Сессия базы данных
 
     Returns:
-        AutomationErrorHandler: Экземпляр обработчика
+        AutomationErrorHandler: Экземпляр обработчика ошибок
     """
     return AutomationErrorHandler(db_session)

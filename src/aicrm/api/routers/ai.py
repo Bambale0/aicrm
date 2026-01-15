@@ -40,10 +40,11 @@ router = APIRouter(
 )
 
 
-@router.get("/ping")
+@router.get("/ping", operation_id="ai_ping_get")
 async def ping():
     """Ping endpoint"""
     return "pong"
+
 
 # Logger for this module
 logger = get_logger(__name__)

@@ -68,6 +68,14 @@ class SystemSettings(BaseModel):
     websocket_notifications_enabled = Column(Boolean, default=True)
     push_notifications_enabled = Column(Boolean, default=False)
 
+    # Контакты для уведомлений об ошибках
+    admin_contacts = Column(
+        JSON, nullable=True
+    )  # [{"email": "...", "telegram_id": "...", "phone": "..."}]
+    critical_contacts = Column(
+        JSON, nullable=True
+    )  # [{"email": "...", "telegram_id": "...", "phone": "..."}]
+
     # Настройки бэкапа
     auto_backup_enabled = Column(Boolean, default=True)
     backup_frequency_hours = Column(Integer, default=24)

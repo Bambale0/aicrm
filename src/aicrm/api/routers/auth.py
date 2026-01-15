@@ -49,8 +49,10 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
     """Вход в систему"""
+    logger.info(f"Login attempt for username: {form_data.username}")
     user = auth_service.authenticate_user(db, form_data.username, form_data.password)
     if not user:
+        logger.warning(f"Failed login attempt for username: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -58,6 +60,7 @@ async def login(
         )
 
     access_token = auth_service.create_access_token(data={"sub": user.email})
+    logger.info(f"Successful login for user: {user.email}")
     return {"access_token": access_token, "token_type": "bearer"}
 
 

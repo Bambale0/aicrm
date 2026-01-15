@@ -7,13 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.aicrm.api.schemas.avito import (AvitoApplyVasRequest,
-                                         AvitoPromotionRequest,
-                                         AvitoStatsRequest,
-                                         AvitoUpdatePriceRequest)
+from src.aicrm.api.schemas.avito import (
+    AvitoApplyVasRequest,
+    AvitoPromotionRequest,
+    AvitoStatsRequest,
+    AvitoUpdatePriceRequest,
+)
 from src.aicrm.services.avito_handler import AvitoCommunicationHandler
-from src.aicrm.services.avito_service import (AvitoAuthError, AvitoClient,
-                                              AvitoService)
+from src.aicrm.services.avito_service import AvitoAuthError, AvitoClient, AvitoService
 
 
 class TestAvitoClient:
@@ -240,8 +241,7 @@ class TestAvitoCommunicationHandler:
 
     def test_extract_message_content_avito(self):
         """Тест извлечения содержимого сообщения из Avito"""
-        from src.aicrm.services.communication_service import \
-            CommunicationService
+        from src.aicrm.services.communication_service import CommunicationService
 
         service = CommunicationService(MagicMock())
 

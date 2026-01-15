@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["workflow"])
 
 
-@router.get("/ping")
+@router.get("/ping", operation_id="workflow_ping_get")
 async def ping():
     """Ping endpoint"""
     return "pong"

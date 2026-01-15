@@ -5,7 +5,7 @@
 
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from .email_service import EmailMessage, email_service
 from .sms_service import sms_service
@@ -407,7 +407,7 @@ class NotificationService:
 
     async def send_bulk_notifications(
         self,
-        recipients: List[Union[str, Dict[str, str]]],
+        recipients: List[Union[str, Dict[str, Any]]],
         message: str,
         channels: List[NotificationChannel],
         notification_type: NotificationType = NotificationType.INFO,
@@ -486,12 +486,8 @@ class NotificationService:
         if channels is None:
             channels = [NotificationChannel.EMAIL, NotificationChannel.TELEGRAM]
 
-        # В реальном приложении здесь нужно получить список админов из БД
-        # Пока что используем заглушки
-        admin_contacts = [
-            {"email": "admin@example.com", "telegram_id": "123456789"},
-            {"email": "support@example.com", "phone": "+1234567890"},
-        ]
+        # Получаем список администраторов из БД
+        admin_contacts = await self._get_admin_contacts()
 
         return await self.send_bulk_notifications(
             recipients=admin_contacts,
@@ -515,11 +511,8 @@ class NotificationService:
         if channels is None:
             channels = [NotificationChannel.EMAIL, NotificationChannel.TELEGRAM]
 
-        # Заглушки для менеджеров
-        manager_contacts = [
-            {"email": "manager1@example.com", "telegram_id": "987654321"},
-            {"email": "manager2@example.com", "phone": "+0987654321"},
-        ]
+        # Получаем список менеджеров из БД
+        manager_contacts = await self._get_manager_contacts()
 
         return await self.send_bulk_notifications(
             recipients=manager_contacts,
@@ -589,6 +582,80 @@ class NotificationService:
             "sms_balance": {},  # self.sms_service.get_balance() если есть метод
             "telegram_stats": {},  # self.telegram_service.get_bot_stats() если есть метод
         }
+
+    # Методы для получения контактов пользователей по ролям
+
+    async def _get_admin_contacts(self) -> List[Dict[str, Any]]:
+        """Получение контактов администраторов из БД"""
+        try:
+            if not self.db_session:
+                logger.warning(
+                    "No database session available for getting admin contacts"
+                )
+                return []
+
+            from ...models.user import User
+
+            admins = (
+                self.db_session.query(User)
+                .filter(User.role == "admin", User.is_active == True)
+                .all()
+            )
+
+            contacts = []
+            for admin in admins:
+                contact = {}
+                if admin.email:
+                    contact["email"] = admin.email
+                if admin.phone:
+                    contact["phone"] = admin.phone
+                if hasattr(admin, "telegram_id") and admin.telegram_id:
+                    contact["telegram_id"] = str(admin.telegram_id)
+                if contact:
+                    contacts.append(contact)
+
+            logger.info(f"Found {len(contacts)} admin contacts")
+            return contacts
+
+        except Exception as e:
+            logger.error(f"Failed to get admin contacts: {e}")
+            return []
+
+    async def _get_manager_contacts(self) -> List[Dict[str, Any]]:
+        """Получение контактов менеджеров из БД"""
+        try:
+            if not self.db_session:
+                logger.warning(
+                    "No database session available for getting manager contacts"
+                )
+                return []
+
+            from ...models.user import User
+
+            managers = (
+                self.db_session.query(User)
+                .filter(User.role == "manager", User.is_active == True)
+                .all()
+            )
+
+            contacts = []
+            for manager in managers:
+                contact = {}
+                if manager.email:
+                    contact["email"] = manager.email
+                if manager.phone:
+                    contact["phone"] = manager.phone
+                if hasattr(manager, "telegram_id") and manager.telegram_id:
+                    contact["telegram_id"] = str(manager.telegram_id)
+                if contact:
+                    contacts.append(contact)
+
+            logger.info(f"Found {len(contacts)} manager contacts")
+            return contacts
+
+        except Exception as e:
+            logger.error(f"Failed to get manager contacts: {e}")
+            return []
 
 
 # Глобальный экземпляр сервиса

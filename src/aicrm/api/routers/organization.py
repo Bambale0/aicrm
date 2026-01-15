@@ -18,10 +18,10 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
+
 @router.get("/ping")
 async def ping():
     return "pong"
-
 
 
 class OrganizationCreate(BaseModel):

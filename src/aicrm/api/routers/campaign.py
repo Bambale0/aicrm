@@ -41,6 +41,7 @@ async def ping():
     """Ping endpoint"""
     return "pong"
 
+
 logger = get_logger(__name__)
 
 

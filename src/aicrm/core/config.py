@@ -67,8 +67,17 @@ class Settings(BaseSettings):
 
     # App
     debug: bool = False
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "https://dev.chillcreative.ru",
+    ]
     log_level: str = "INFO"
+
+    @property
+    def allow_origins(self) -> list[str]:
+        """Получить список разрешенных origins для CORS"""
+        return self.cors_origins
 
     model_config = ConfigDict(
         env_file=".env",

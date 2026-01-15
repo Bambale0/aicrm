@@ -2,6 +2,7 @@
 Инициализация роутеров API
 """
 
+from .admin import router as admin_router
 from .ai import router as ai_router
 from .ai_manager import router as ai_manager_router
 from .ai_settings import router as ai_settings_router
@@ -18,6 +19,7 @@ from .order import router as order_router
 from .organization import router as organization_router
 from .plugin import router as plugin_router
 from .production import router as production_router
+from .system import router as system_router
 from .system_settings import router as system_settings_router
 from .task import router as task_router
 from .telegram import router as telegram_router
@@ -27,6 +29,7 @@ from .websocket import router as websocket_router
 from .workflow import router as workflow_router
 
 __all__ = [
+    "admin_router",
     "auth_router",
     "customer_router",
     "communication_router",
@@ -49,5 +52,6 @@ __all__ = [
     "campaign_router",
     "plugin_router",
     "websocket_router",
+    "system_router",
     "system_settings_router",
 ]

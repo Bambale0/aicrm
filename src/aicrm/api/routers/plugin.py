@@ -35,6 +35,7 @@ router = APIRouter(
 async def ping():
     return "pong"
 
+
 logger = logging.getLogger(__name__)
 
 # Global plugin manager instance

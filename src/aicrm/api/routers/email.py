@@ -14,7 +14,7 @@ from ...services.email_service import EmailMessage, EmailTemplate, email_service
 router = APIRouter(tags=["email"])
 
 
-@router.get("/ping")
+@router.get("/ping", operation_id="email_ping_get")
 async def ping():
     """Ping endpoint"""
     return "pong"

@@ -415,10 +415,10 @@ class EventNotificationService:
         """Обработка события назначения задачи"""
         task_title = event_data.get("task_title")
         assignee_email = event_data.get("assignee_email")
-    assignee_name = event_data.get("assignee_name")
-    # assigner_name intentionally unused
-    # compose message for assignee
-    assignee_message = f"Вам назначена задача: {task_title}"
+        assignee_name = event_data.get("assignee_name")
+        # assigner_name intentionally unused
+        # compose message for assignee
+        assignee_message = f"Вам назначена задача: {task_title}"
 
         results = {}
 

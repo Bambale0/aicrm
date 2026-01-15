@@ -131,7 +131,7 @@ class EventNotificationService:
 
             result = await self.notification_service.notify_admins(
                 message=message,
-                notification_type=NotificationType.SECURITY_ALERT,
+                notification_type=NotificationType.WARNING,
                 priority=priority,
                 channels=[NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
             )
@@ -150,14 +150,14 @@ class EventNotificationService:
         message = f"Пароль был изменен для пользователя: {user_name} ({user_email})"
 
         # Отправляем только email уведомление пользователю
-        result = await self.notification_service.send_notification(
-            recipient=user_email,
-            message=message,
-            channels=[NotificationChannel.EMAIL],
-            notification_type=NotificationType.INFO,
-            priority=NotificationPriority.MEDIUM,
-            subject="Пароль успешно изменен",
-        )
+        if user_email:
+            result = await self.notification_service.send_notification(
+                recipient=user_email,
+                message=message,
+                channels=[NotificationChannel.EMAIL],
+                notification_type=NotificationType.INFO,
+                subject="Пароль успешно изменен",
+            )
 
         return {"notification_sent": result}
 
@@ -324,7 +324,7 @@ class EventNotificationService:
 
         # Важные статусы также уведомляем менеджеров
         important_statuses = ["completed", "cancelled", "refunded"]
-        if new_status.lower() in important_statuses:
+        if new_status and new_status.lower() in important_statuses:
             manager_result = await self.notification_service.notify_managers(
                 message=message,
                 notification_type=NotificationType.ORDER_UPDATE,
@@ -392,7 +392,7 @@ class EventNotificationService:
                 recipient=customer_email,
                 message=customer_message,
                 channels=[NotificationChannel.EMAIL],
-                notification_type=NotificationType.PAYMENT_SUCCESS,
+                notification_type=NotificationType.SUCCESS,
                 priority=NotificationPriority.HIGH,
                 subject="Платеж получен",
             )
@@ -401,7 +401,7 @@ class EventNotificationService:
         # Уведомление менеджеров
         manager_result = await self.notification_service.notify_managers(
             message=message,
-            notification_type=NotificationType.PAYMENT_SUCCESS,
+            notification_type=NotificationType.SUCCESS,
             priority=NotificationPriority.MEDIUM,
             channels=[NotificationChannel.WEBSOCKET],
         )
@@ -415,10 +415,7 @@ class EventNotificationService:
         """Обработка события назначения задачи"""
         task_title = event_data.get("task_title")
         assignee_email = event_data.get("assignee_email")
-    assignee_name = event_data.get("assignee_name")
-    # assigner_name intentionally unused
-    # Compose message for assignee
-    assignee_message = f"Вам назначена задача: {task_title}"
+
         assignee_message = f"Вам назначена задача: {task_title}"
 
         results = {}
@@ -429,7 +426,7 @@ class EventNotificationService:
                 recipient=assignee_email,
                 message=assignee_message,
                 channels=[NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
-                notification_type=NotificationType.TASK_ASSIGNED,
+                notification_type=NotificationType.INFO,
                 priority=NotificationPriority.MEDIUM,
                 subject="Новая задача",
             )
@@ -443,7 +440,8 @@ class EventNotificationService:
         assignee_email = event_data.get("assignee_email")
         days_overdue = event_data.get("days_overdue", 1)
 
-    assignee_message = f"Крайний срок выполнения задачи '{task_title}' истек {days_overdue} дней назад!"
+        assignee_message = f"Крайний срок выполнения задачи '{task_title}' истек {days_overdue} дней назад!"
+        message = f"Задача просрочена: '{task_title}' ({days_overdue} дней просрочки)"
 
         results = {}
 
@@ -549,44 +547,12 @@ class EventNotificationService:
 
         result = await self.notification_service.notify_admins(
             message=message,
-            notification_type=NotificationType.SECURITY_ALERT,
+            notification_type=NotificationType.WARNING,
             priority=NotificationPriority.URGENT,
             channels=[NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
         )
 
         return {"notification_sent": result}
-
-    # Вспомогательные методы
-
-    async def schedule_reminders(self) -> Dict[str, Any]:
-        """Планировщик напоминаний о событиях"""
-        # Этот метод должен вызываться периодически (например, каждые 5 минут)
-        # для проверки предстоящих событий и отправки напоминаний
-
-        # Пример: напоминания о просроченных задачах
-        overdue_tasks = await self._get_overdue_tasks()
-        for task in overdue_tasks:
-            await self.process_event("task_overdue", task)
-
-        # Пример: напоминания о платежах
-        pending_payments = await self._get_pending_payments()
-        for payment in pending_payments:
-            await self.process_event("payment_reminder", payment)
-
-        return {
-            "overdue_tasks_checked": len(overdue_tasks),
-            "pending_payments_checked": len(pending_payments),
-        }
-
-    async def _get_overdue_tasks(self) -> List[Dict[str, Any]]:
-        """Получение просроченных задач (заглушка)"""
-        # В реальном приложении здесь запрос к БД
-        return []
-
-    async def _get_pending_payments(self) -> List[Dict[str, Any]]:
-        """Получение ожидающих платежей (заглушка)"""
-        # В реальном приложении здесь запрос к БД
-        return []
 
 
 # Функция для быстрого создания экземпляра сервиса

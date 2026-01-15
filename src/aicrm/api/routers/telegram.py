@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
+
 @router.get("/ping")
 async def ping():
     return "pong"
-
 
 
 class SendMessageRequest(BaseModel):

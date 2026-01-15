@@ -7,11 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ..models.automation import (AutomationError, AutomationExecution,
-                                 EntityType)
+from ..models.automation import AutomationError, AutomationExecution, EntityType
 from ..services.automation.error_handler import AutomationErrorHandler
-from ..services.notification_service import (NotificationChannel,
-                                             NotificationPriority)
+from ..services.notification_service import NotificationChannel, NotificationPriority
 
 
 class TestAutomationErrorHandlerWithNotifications:

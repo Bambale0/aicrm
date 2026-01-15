@@ -16,6 +16,7 @@ from ..notification_service import (
     NotificationService,
     NotificationType,
 )
+from ..system_settings_service import SystemSettingsService
 
 logger = logging.getLogger(__name__)
 
@@ -380,16 +381,13 @@ class AutomationErrorHandler:
         # Определяем получателей
         recipients = []
 
-        # Администраторы всегда получают уведомления
-        admin_contacts = [
-            {"email": "admin@example.com", "telegram_id": "123456789"},
-            {"email": "dev@example.com", "telegram_id": "987654321"},
-        ]
+        # Получаем контакты администраторов из настроек
+        admin_contacts = SystemSettingsService.get_admin_contacts(self.db)
         recipients.extend(admin_contacts)
 
-        # Для критических ошибок добавляем дополнительных получателей
+        # Для критических ошибок добавляем контакты для критических ситуаций
         if severity == ErrorSeverity.CRITICAL:
-            critical_contacts = [{"email": "ceo@example.com", "phone": "+1234567890"}]
+            critical_contacts = SystemSettingsService.get_critical_contacts(self.db)
             recipients.extend(critical_contacts)
             channels.append(NotificationChannel.SMS)
 

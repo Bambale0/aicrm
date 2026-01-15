@@ -16,8 +16,9 @@ class CustomerService:
     """Сервис для работы с клиентами"""
 
     @staticmethod
-    def create_customer(db: Session, customer_data: dict) -> Customer:
-        """Создание нового клиента или возврат существующего"""
+    def create_customer_sync(db: Session, customer_data: dict) -> Customer:
+        """Создание нового клиента или возврат существующего (sync версия)"""
+        print(f"[DEBUG] Creating customer with data: {customer_data}")
         email = customer_data.get("email")
         if email:
             # Проверяем, существует ли клиент с таким email
@@ -25,32 +26,23 @@ class CustomerService:
                 db.query(Customer).filter(Customer.email == email).first()
             )
             if existing_customer:
+                print(f"[DEBUG] Found existing customer: {existing_customer.id}")
                 # Обновляем данные существующего клиента
                 for key, value in customer_data.items():
                     if value is not None and hasattr(existing_customer, key):
                         setattr(existing_customer, key, value)
                 db.commit()
                 db.refresh(existing_customer)
+                print(f"[DEBUG] Updated existing customer: {existing_customer.id}")
                 return existing_customer
 
         # Создаем нового клиента
+        print("[DEBUG] Creating new customer")
         customer = Customer(**customer_data)
         db.add(customer)
         db.commit()
         db.refresh(customer)
-        return customer
-
-    @staticmethod
-    async def create_customer_with_automation(
-        db: Session, customer_data: dict
-    ) -> Customer:
-        """Создание нового клиента с запуском автоматизации"""
-        customer = CustomerService.create_customer(db, customer_data)
-
-        # Запускаем автоматизацию
-        automation_service = AutomationService(db)
-        await automation_service.on_customer_created(customer.id)
-
+        print(f"[DEBUG] Created customer: {customer.id}")
         return customer
 
     @staticmethod
