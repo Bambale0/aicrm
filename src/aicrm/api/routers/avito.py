@@ -1,91 +1,51 @@
 """
 API роутер для интеграции с Avito
 """
-
 from typing import List, Optional
-
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from datetime import date
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
 
-from ...core.config import settings
-from ...core.dependencies import get_db
+from ...core.database import get_db
+from ...services.avito_service import AvitoService, AvitoAPIError, AvitoRateLimitError, AvitoAuthError
 from ...services.avito_handler import AvitoCommunicationHandler
-from ...services.avito_service import (
-    AvitoAPIError,
-    AvitoAuthError,
-    AvitoRateLimitError,
-    AvitoService,
-)
-from ...utils.logging import get_logger, get_messenger_logger
-from ..schemas.avito import (  # Messenger schemas; Webhook schemas; Global settings schemas
+from ...services.avito_background_tasks import avito_background_tasks
+from ..schemas.avito import (
+    AvitoItem,
+    AvitoStatsRequest,
+    AvitoStatsResponse,
     AvitoAnalyticsRequest,
     AvitoAnalyticsResponse,
+    AvitoVasPricesResponse,
     AvitoApplyVasRequest,
     AvitoApplyVasResponse,
-    AvitoAuthCallbackResponse,
-    AvitoAuthUrlRequest,
-    AvitoAuthUrlResponse,
+    AvitoUpdatePriceRequest,
+    AvitoUpdatePriceResponse,
     AvitoCallsStatsRequest,
     AvitoCallsStatsResponse,
-    AvitoChatInfo,
-    AvitoChatMessage,
-    AvitoChatSettings,
-    AvitoChatSettingsUpdate,
-    AvitoErrorResponse,
-    AvitoGlobalSettings,
-    AvitoGlobalSettingsUpdate,
-    AvitoItem,
     AvitoItemPerformance,
-    AvitoMessengerStats,
     AvitoPricingRecommendation,
     AvitoPromotionRequest,
     AvitoPromotionResponse,
+    AvitoErrorResponse,
+    # Messenger schemas
+    AvitoChatSettings,
+    AvitoChatSettingsCreate,
+    AvitoChatSettingsUpdate,
+    AvitoChatMessage,
+    AvitoChatInfo,
     AvitoSendMessageRequest,
-    AvitoStatsRequest,
-    AvitoStatsResponse,
-    AvitoTestConnectionResponse,
-    AvitoTestWebhookResponse,
-    AvitoUpdatePriceRequest,
-    AvitoUpdatePriceResponse,
-    AvitoVasPricesResponse,
+    AvitoMessengerStats,
+    # Webhook schemas
     AvitoWebhookRequest,
     AvitoWebhookResponse,
+    AvitoWebhookMessagePayload,
+    AvitoWebhookStatusPayload
 )
+from ...utils.logging import get_logger, get_messenger_logger
 
 logger = get_logger(__name__)
 messenger_logger = get_messenger_logger()
-
-
-async def _get_available_ai_models():
-    """Получение списка доступных AI моделей для Avito чатов"""
-    try:
-        # Импортируем и используем AI модели из API
-        from ...config.openrouter_models import OPENROUTER_MODELS
-
-        if OPENROUTER_MODELS and "models" in OPENROUTER_MODELS:
-            # Возвращаем список моделей из OpenRouter
-            model_list = []
-            for model_id, model_data in OPENROUTER_MODELS["models"].items():
-                model_list.append(
-                    {"id": model_id, "name": model_data.get("name", model_id)}
-                )
-            return model_list
-        else:
-            # Fallback на статические модели
-            return [
-                {"id": "deepseek/deepseek-chat-v3.1", "name": "DeepSeek Chat v3.1"},
-                {"id": "moonshotai/kimi-k2", "name": "Kimi K2"},
-                {"id": "openai/gpt-4o", "name": "GPT-4o"},
-            ]
-    except Exception as e:
-        logger.error(f"Ошибка получения AI моделей: {e}")
-        # Fallback на статические модели в случае ошибки
-        return [
-            {"id": "deepseek/deepseek-chat-v3.1", "name": "DeepSeek Chat v3.1"},
-            {"id": "moonshotai/kimi-k2", "name": "Kimi K2"},
-            {"id": "openai/gpt-4o", "name": "GPT-4o"},
-        ]
-
 
 router = APIRouter(
     prefix="/avito",
@@ -93,15 +53,9 @@ router = APIRouter(
     responses={
         401: {"model": AvitoErrorResponse, "description": "Ошибка авторизации"},
         429: {"model": AvitoErrorResponse, "description": "Превышен лимит запросов"},
-        500: {"model": AvitoErrorResponse, "description": "Внутренняя ошибка сервера"},
-    },
+        500: {"model": AvitoErrorResponse, "description": "Внутренняя ошибка сервера"}
+    }
 )
-
-
-@router.get("/ping")
-async def ping():
-    """Ping endpoint"""
-    return "pong"
 
 
 @router.get("/items", response_model=List[AvitoItem])
@@ -125,15 +79,13 @@ async def get_active_items(db: Session = Depends(get_db)):
 
 
 @router.get("/items/{item_id}/performance", response_model=AvitoItemPerformance)
-async def get_item_performance(
-    item_id: int, days: Optional[int] = 30, db: Session = Depends(get_db)
-):
+async def get_item_performance(item_id: int, days: Optional[int] = 30, db: Session = Depends(get_db)):
     """
     Получение производительности объявления
     """
     try:
         async with AvitoService() as service:
-            performance = await service.get_item_performance(item_id, days or 30)
+            performance = await service.get_item_performance(item_id, days)
             return performance
     except AvitoAuthError:
         raise HTTPException(status_code=401, detail="Ошибка авторизации Avito")
@@ -157,8 +109,8 @@ async def get_items_stats(request: AvitoStatsRequest, db: Session = Depends(get_
                 item_ids=request.item_ids,
                 date_from=request.date_from,
                 date_to=request.date_to,
-                fields=request.fields or ["uniqViews", "uniqContacts", "uniqFavorites"],
-                period_grouping=request.period_grouping or "day",
+                fields=request.fields,
+                period_grouping=request.period_grouping
             )
             return stats
     except AvitoAuthError:
@@ -183,8 +135,8 @@ async def get_analytics(request: AvitoAnalyticsRequest, db: Session = Depends(ge
                 date_from=request.date_from,
                 date_to=request.date_to,
                 metrics=request.metrics,
-                grouping=request.grouping or "item",
-                **(request.filter or {}),
+                grouping=request.grouping,
+                **(request.filter or {})
             )
             return analytics
     except AvitoAuthError:
@@ -219,16 +171,16 @@ async def get_vas_prices(item_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/items/{item_id}/vas", response_model=AvitoApplyVasResponse)
-async def apply_vas(
-    item_id: int, request: AvitoApplyVasRequest, db: Session = Depends(get_db)
-):
+async def apply_vas(item_id: int, request: AvitoApplyVasRequest, db: Session = Depends(get_db)):
     """
     Применение услуг продвижения к объявлению
     """
     try:
         async with AvitoService() as service:
             result = await service.client.apply_vas(
-                item_id=item_id, slugs=request.slugs, stickers=request.stickers or []
+                item_id=item_id,
+                slugs=request.slugs,
+                stickers=request.stickers
             )
             return result
     except AvitoAuthError:
@@ -243,9 +195,7 @@ async def apply_vas(
 
 
 @router.put("/items/{item_id}/price", response_model=AvitoUpdatePriceResponse)
-async def update_item_price(
-    item_id: int, request: AvitoUpdatePriceRequest, db: Session = Depends(get_db)
-):
+async def update_item_price(item_id: int, request: AvitoUpdatePriceRequest, db: Session = Depends(get_db)):
     """
     Обновление цены объявления
     """
@@ -264,9 +214,7 @@ async def update_item_price(
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.post(
-    "/items/{item_id}/optimize-price", response_model=AvitoPricingRecommendation
-)
+@router.post("/items/{item_id}/optimize-price", response_model=AvitoPricingRecommendation)
 async def optimize_item_price(item_id: int, db: Session = Depends(get_db)):
     """
     Оптимизация цены объявления на основе статистики
@@ -287,9 +235,7 @@ async def optimize_item_price(item_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/items/{item_id}/promote", response_model=AvitoPromotionResponse)
-async def promote_item(
-    item_id: int, request: AvitoPromotionRequest, db: Session = Depends(get_db)
-):
+async def promote_item(item_id: int, request: AvitoPromotionRequest, db: Session = Depends(get_db)):
     """
     Применение услуги продвижения к объявлению
     """
@@ -298,12 +244,12 @@ async def promote_item(
             result = await service.apply_promotion_service(
                 item_id=item_id,
                 service_slug=request.service_slug,
-                stickers=request.stickers or [],
+                stickers=request.stickers
             )
             return {
                 "operation_id": result.get("operationId"),
                 "service_slug": request.service_slug,
-                "status": "applied",
+                "status": "applied"
             }
     except AvitoAuthError:
         raise HTTPException(status_code=401, detail="Ошибка авторизации Avito")
@@ -317,9 +263,7 @@ async def promote_item(
 
 
 @router.post("/calls/stats", response_model=AvitoCallsStatsResponse)
-async def get_calls_stats(
-    request: AvitoCallsStatsRequest, db: Session = Depends(get_db)
-):
+async def get_calls_stats(request: AvitoCallsStatsRequest, db: Session = Depends(get_db)):
     """
     Получение статистики звонков
     """
@@ -328,7 +272,7 @@ async def get_calls_stats(
             stats = await service.client.get_calls_stats(
                 date_from=request.date_from,
                 date_to=request.date_to,
-                item_ids=request.item_ids or [],
+                item_ids=request.item_ids
             )
             return stats
     except AvitoAuthError:
@@ -346,7 +290,7 @@ async def get_calls_stats(
 async def handle_avito_webhook(
     webhook_data: AvitoWebhookRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db)
 ):
     """
     Webhook обработчик для уведомлений от Avito Messenger API
@@ -374,19 +318,21 @@ async def handle_avito_webhook(
                 text = payload.get("text")
                 timestamp = payload.get("timestamp")
                 item_id = payload.get("item_id")
+                author_role = payload.get("author_role")
 
                 if not chat_id or not user_id or not text:
-                    logger.error(
-                        f"Недостаточно данных для обработки сообщения: {payload}"
-                    )
+                    logger.error(f"Недостаточно данных для обработки сообщения: {payload}")
                     continue
 
                 # Преобразуем в формат для существующего обработчика
                 message_data = {
                     "chat_id": chat_id,
                     "user_id": user_id,
-                    "message": {"text": text, "timestamp": timestamp},
-                    "item_id": item_id,
+                    "message": {
+                        "text": text,
+                        "timestamp": timestamp
+                    },
+                    "item_id": item_id
                 }
 
                 result = await handler.handle_incoming_message(message_data)
@@ -394,9 +340,7 @@ async def handle_avito_webhook(
                     processed_events += 1
                     logger.info(f"Сообщение {message_id} обработано успешно")
                 else:
-                    logger.error(
-                        f"Ошибка обработки сообщения {message_id}: {result.get('error')}"
-                    )
+                    logger.error(f"Ошибка обработки сообщения {message_id}: {result.get('error')}")
 
             elif event_type == "status_change":
                 # Обработка изменения статуса чата
@@ -405,9 +349,7 @@ async def handle_avito_webhook(
                 timestamp = payload.get("timestamp")
 
                 if not chat_id or not status:
-                    logger.error(
-                        f"Недостаточно данных для изменения статуса: {payload}"
-                    )
+                    logger.error(f"Недостаточно данных для изменения статуса: {payload}")
                     continue
 
                 # Обновляем статус чата в настройках
@@ -418,27 +360,15 @@ async def handle_avito_webhook(
                 else:
                     logger.error(f"Ошибка обновления статуса чата {chat_id}")
 
-            elif event_type == "chat_created":
-                # Обработка создания нового чата
-                chat_id = payload.get("chat_id")
-                user_id = payload.get("user_id")
-                item_id = payload.get("item_id")
-                timestamp = payload.get("timestamp")
-
-                if not chat_id:
-                    logger.error(f"Недостаточно данных для создания чата: {payload}")
-                    continue
-
-                # Автоматизация для создания чата уже не нужна - просто логируем
-                processed_events += 1
-                logger.info(f"Чат {chat_id} создан")
-
             else:
                 # Неизвестный тип события - логируем для отладки
                 logger.warning(f"Неизвестный тип webhook события: {event_type}")
                 processed_events += 1  # Считаем как обработанное
 
-        return {"status": "ok", "processed_events": processed_events}
+        return {
+            "status": "ok",
+            "processed_events": processed_events
+        }
 
     except Exception as e:
         logger.error(f"Ошибка обработки webhook от Avito: {e}")
@@ -447,7 +377,9 @@ async def handle_avito_webhook(
 
 @router.post("/messages/incoming")
 async def handle_incoming_message(
-    message_data: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+    message_data: dict,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
 ):
     """
     Обработка входящего сообщения из Avito
@@ -468,15 +400,9 @@ async def handle_incoming_message(
         result = await handler.handle_incoming_message(message_data)
 
         if not result.get("success", False):
-            raise HTTPException(
-                status_code=400,
-                detail=result.get("error", "Ошибка обработки сообщения"),
-            )
+            raise HTTPException(status_code=400, detail=result.get("error", "Ошибка обработки сообщения"))
 
-        return {
-            "status": "processed",
-            "communication_id": result.get("communication_id"),
-        }
+        return {"status": "processed", "communication_id": result.get("communication_id")}
 
     except HTTPException:
         raise
@@ -493,15 +419,90 @@ async def health_check():
     return {"status": "ok", "service": "avito_integration"}
 
 
+
+
+
+async def _count_unread_messages(chat_id: str, db: Session) -> int:
+    """Подсчет количества непрочитанных сообщений в чате"""
+    try:
+        from ...models.communication import Communication
+
+        # Считаем входящие сообщения, которые не отмечены как прочитанные
+        unread_count = db.query(Communication).filter(
+            Communication.channel == "avito",
+            Communication.extra_data.contains({"chat_id": chat_id}),
+            Communication.direction == "inbound",
+            ~Communication.extra_data.contains({"read": True})  # Не отмечены как прочитанные
+        ).count()
+
+        return unread_count
+
+    except Exception as e:
+        logger.error(f"Ошибка подсчета непрочитанных сообщений для чата {chat_id}: {e}")
+        return 0
+
+
+async def _calculate_average_response_time(db: Session) -> Optional[float]:
+    """Расчет среднего времени ответа на сообщения"""
+    try:
+        from ...models.communication import Communication
+        from sqlalchemy import func
+
+        # Получаем все пары входящее-исходящее сообщение в одном чате
+        # Группируем по чату и находим время между первым входящим и первым исходящим после него
+
+        # Это сложный запрос - получаем все сообщения, отсортированные по времени
+        messages = db.query(Communication).filter(
+            Communication.channel == "avito"
+        ).order_by(Communication.created_at).all()
+
+        response_times = []
+
+        # Группируем сообщения по чату
+        chat_messages = {}
+        for msg in messages:
+            chat_id = msg.extra_data.get("chat_id") if msg.extra_data else None
+            if chat_id:
+                if chat_id not in chat_messages:
+                    chat_messages[chat_id] = []
+                chat_messages[chat_id].append(msg)
+
+        # Для каждого чата рассчитываем время ответа
+        for chat_id, msgs in chat_messages.items():
+            # Сортируем сообщения чата по времени
+            msgs.sort(key=lambda x: x.created_at)
+
+            # Ищем пары: входящее -> исходящее
+            i = 0
+            while i < len(msgs) - 1:
+                if msgs[i].direction == "inbound":
+                    # Ищем следующее исходящее сообщение
+                    for j in range(i + 1, len(msgs)):
+                        if msgs[j].direction == "outbound":
+                            # Рассчитываем время ответа в секундах
+                            response_time = (msgs[j].created_at - msgs[i].created_at).total_seconds()
+                            if response_time > 0 and response_time < 86400:  # Менее 24 часов
+                                response_times.append(response_time)
+                            break
+                    i = j  # Пропускаем до следующего входящего
+                else:
+                    i += 1
+
+        if response_times:
+            # Возвращаем среднее время в минутах
+            return sum(response_times) / len(response_times) / 60
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Ошибка расчета среднего времени ответа: {e}")
+        return None
+
+
 # Messenger endpoints
 
-
-@router.get(
-    "/messenger/v1/accounts/{user_id}/chats", response_model=List[AvitoChatInfo]
-)
-async def get_chats(
-    user_id: int, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)
-):
+@router.get("/messenger/v1/accounts/{user_id}/chats", response_model=List[AvitoChatInfo])
+async def get_chats(user_id: int, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
     """
     Получение списка чатов с Avito
     """
@@ -511,59 +512,49 @@ async def get_chats(
             user_id=user_id,
             limit=limit,
             offset=offset,
-            operation="get_chats",
+            operation="get_chats"
         )
 
         from ...models.avito_chat import AvitoChatSettings
+        from ...models.customer import Customer
+        from ...models.communication import Communication
 
-        # Оптимизированный запрос
-        query = db.query(AvitoChatSettings)
-        if hasattr(AvitoChatSettings, "customer"):
-            query = query.options(joinedload(AvitoChatSettings.customer))
+        # Оптимизированный запрос: получаем чаты с последними сообщениями
+        # Используем простой и надежный подход - кэшируем последние сообщения в настройках чата
+        chats = db.query(AvitoChatSettings).options(
+            joinedload(AvitoChatSettings.customer)
+        ).order_by(AvitoChatSettings.last_message_at.desc().nulls_last()).offset(offset).limit(limit).all()
 
-        chats = (
-            query.order_by(AvitoChatSettings.last_message_at.desc().nulls_last())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        # Создаем словарь последних сообщений из кэшированных данных в настройках чата
+        # Это самый эффективный подход - данные уже кэшированы при получении сообщений
+        last_messages_dict = {}
+        for chat in chats:
+            # Используем кэшированное последнее сообщение из extra_data чата
+            if chat.extra_data and 'last_message_preview' in chat.extra_data:
+                last_messages_dict[chat.chat_id] = chat.extra_data['last_message_preview'][:100]
+            else:
+                # Fallback: если нет кэшированного сообщения, оставляем пустым
+                last_messages_dict[chat.chat_id] = None
 
         messenger_logger.info(
-            "Список чатов получен",
+            "Список чатов получен (оптимизированный запрос)",
             user_id=user_id,
             chats_count=len(chats),
-            operation="get_chats",
+            operation="get_chats"
         )
 
         result = []
         for chat in chats:
-            customer_name = (
-                chat.customer.name
-                if hasattr(chat, "customer") and chat.customer
-                else None
-            )
-            customer_email = (
-                chat.customer.email
-                if hasattr(chat, "customer") and chat.customer
-                else None
-            )
-
-            result.append(
-                {
-                    "chat_id": chat.chat_id,
-                    "customer_name": customer_name,
-                    "customer_email": customer_email,
-                    "last_message": getattr(chat, "last_message_preview", None),
-                    "last_message_at": (
-                        chat.last_message_at.isoformat()
-                        if chat.last_message_at
-                        else None
-                    ),
-                    "message_count": chat.message_count,
-                    "ai_enabled": chat.ai_enabled,
-                    "unread_count": getattr(chat, "unread_count", 0),
-                }
-            )
+            result.append({
+                "chat_id": chat.chat_id,
+                "customer_name": chat.customer.name if chat.customer else None,
+                "customer_email": chat.customer.email if chat.customer else None,
+                "last_message": last_messages_dict.get(chat.chat_id),
+                "last_message_at": chat.last_message_at.isoformat() if chat.last_message_at else None,
+                "message_count": chat.message_count,
+                "ai_enabled": chat.ai_enabled,
+                "unread_count": chat.unread_count
+            })
 
         return result
 
@@ -572,9 +563,7 @@ async def get_chats(
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.get(
-    "/messenger/v1/accounts/{user_id}/chats/{chat_id}", response_model=AvitoChatSettings
-)
+@router.get("/messenger/v1/accounts/{user_id}/chats/{chat_id}", response_model=AvitoChatSettings)
 async def get_chat_settings(user_id: int, chat_id: str, db: Session = Depends(get_db)):
     """
     Получение настроек чата
@@ -591,22 +580,14 @@ async def get_chat_settings(user_id: int, chat_id: str, db: Session = Depends(ge
             "chat_id": settings.chat_id,
             "customer_id": settings.customer_id,
             "ai_enabled": settings.ai_enabled,
-            "ai_model": await _get_available_ai_models(),
+            "ai_model": settings.ai_model,
             "ai_temperature": settings.ai_temperature,
             "notifications_enabled": settings.notifications_enabled,
             "message_count": settings.message_count,
-            "last_message_at": (
-                settings.last_message_at.isoformat()
-                if settings.last_message_at
-                else None
-            ),
-            "last_ai_response_at": (
-                settings.last_ai_response_at.isoformat()
-                if settings.last_ai_response_at
-                else None
-            ),
+            "last_message_at": settings.last_message_at.isoformat() if settings.last_message_at else None,
+            "last_ai_response_at": settings.last_ai_response_at.isoformat() if settings.last_ai_response_at else None,
             "created_at": settings.created_at.isoformat(),
-            "updated_at": settings.updated_at.isoformat(),
+            "updated_at": settings.updated_at.isoformat()
         }
 
     except HTTPException:
@@ -616,23 +597,14 @@ async def get_chat_settings(user_id: int, chat_id: str, db: Session = Depends(ge
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.put(
-    "/messenger/v1/accounts/{user_id}/chats/{chat_id}", response_model=AvitoChatSettings
-)
-async def update_chat_settings(
-    user_id: int,
-    chat_id: str,
-    settings: AvitoChatSettingsUpdate,
-    db: Session = Depends(get_db),
-):
+@router.put("/messenger/v1/accounts/{user_id}/chats/{chat_id}", response_model=AvitoChatSettings)
+async def update_chat_settings(user_id: int, chat_id: str, settings: AvitoChatSettingsUpdate, db: Session = Depends(get_db)):
     """
     Обновление настроек чата
     """
     try:
         handler = AvitoCommunicationHandler(db)
-        updated_settings = await handler.update_chat_settings(
-            chat_id, settings.dict(exclude_unset=True)
-        )
+        updated_settings = await handler.update_chat_settings(chat_id, settings.dict(exclude_unset=True))
 
         if not updated_settings:
             raise HTTPException(status_code=404, detail="Чат не найден")
@@ -646,18 +618,10 @@ async def update_chat_settings(
             "ai_temperature": updated_settings.ai_temperature,
             "notifications_enabled": updated_settings.notifications_enabled,
             "message_count": updated_settings.message_count,
-            "last_message_at": (
-                updated_settings.last_message_at.isoformat()
-                if updated_settings.last_message_at
-                else None
-            ),
-            "last_ai_response_at": (
-                updated_settings.last_ai_response_at.isoformat()
-                if updated_settings.last_ai_response_at
-                else None
-            ),
+            "last_message_at": updated_settings.last_message_at.isoformat() if updated_settings.last_message_at else None,
+            "last_ai_response_at": updated_settings.last_ai_response_at.isoformat() if updated_settings.last_ai_response_at else None,
             "created_at": updated_settings.created_at.isoformat(),
-            "updated_at": updated_settings.updated_at.isoformat(),
+            "updated_at": updated_settings.updated_at.isoformat()
         }
 
     except HTTPException:
@@ -688,52 +652,30 @@ async def toggle_chat_ai(chat_id: str, enabled: bool, db: Session = Depends(get_
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.get(
-    "/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages",
-    response_model=List[AvitoChatMessage],
-)
-async def get_chat_messages(
-    user_id: int,
-    chat_id: str,
-    limit: int = 50,
-    offset: int = 0,
-    db: Session = Depends(get_db),
-):
+@router.get("/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages", response_model=List[AvitoChatMessage])
+async def get_chat_messages(user_id: int, chat_id: str, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
     """
     Получение истории сообщений чата
     """
     try:
         from ...models.communication import Communication
 
-        messages = (
-            db.query(Communication)
-            .filter(
-                Communication.channel == "avito",
-                Communication.extra_data.contains({"chat_id": chat_id}),
-            )
-            .order_by(Communication.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
+        messages = db.query(Communication).filter(
+            Communication.channel == "avito",
+            Communication.extra_data.contains({"chat_id": chat_id})
+        ).order_by(Communication.created_at.desc()).offset(offset).limit(limit).all()
 
         result = []
         for msg in messages:
-            result.append(
-                {
-                    "id": msg.id,
-                    "chat_id": chat_id,
-                    "direction": msg.direction,
-                    "message_content": msg.message_content,
-                    "intent": msg.intent,
-                    "ai_generated": (
-                        msg.extra_data.get("ai_generated", False)
-                        if msg.extra_data
-                        else False
-                    ),
-                    "created_at": msg.created_at.isoformat(),
-                }
-            )
+            result.append({
+                "id": msg.id,
+                "chat_id": chat_id,
+                "direction": msg.direction,
+                "message_content": msg.message_content,
+                "intent": msg.intent,
+                "ai_generated": msg.extra_data.get("ai_generated", False) if msg.extra_data else False,
+                "created_at": msg.created_at.isoformat()
+            })
 
         return result
 
@@ -743,12 +685,7 @@ async def get_chat_messages(
 
 
 @router.post("/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages")
-async def send_message(
-    user_id: int,
-    chat_id: str,
-    request: AvitoSendMessageRequest,
-    db: Session = Depends(get_db),
-):
+async def send_message(user_id: int, chat_id: str, request: AvitoSendMessageRequest, db: Session = Depends(get_db)):
     """
     Отправка сообщения в чат
     """
@@ -759,14 +696,57 @@ async def send_message(
             chat_id=chat_id,
             use_ai=request.use_ai,
             message_length=len(request.message),
-            operation="send_message",
+            operation="send_message"
         )
 
         handler = AvitoCommunicationHandler(db)
 
-        response_text = request.message
+        if request.use_ai:
+            # Используем AI для генерации ответа
+            messenger_logger.info(
+                "Генерация AI ответа для чата",
+                chat_id=chat_id,
+                operation="send_message"
+            )
 
-        # Отправка сообщения через Avito Messenger API
+            # Получаем историю чата для контекста
+            chat_history = await handler.get_chat_history(chat_id, limit=10)
+
+            # Получаем настройки чата для параметров AI
+            chat_settings = await handler.get_chat_settings(chat_id)
+            ai_model = chat_settings.ai_model if chat_settings else None
+            ai_temperature = chat_settings.ai_temperature if chat_settings else 0.7
+
+            # Генерируем AI ответ
+            from ...services.ai.intent_service import AIIntentService
+            ai_service = AIIntentService()
+
+            # Получаем контекст клиента
+            customer_context = {}
+            if chat_settings and chat_settings.customer_id:
+                from ...models.customer import Customer
+                customer = db.query(Customer).filter(Customer.id == chat_settings.customer_id).first()
+                if customer:
+                    customer_context = {
+                        "customer_name": customer.name,
+                        "order_count": customer.total_orders,
+                        "preferences": customer.preferences or {}
+                    }
+
+            # Генерируем ответ на основе истории и контекста
+            ai_result = await ai_service.process_customer_message(
+                request.message,
+                customer_context
+            )
+            response_text = ai_result["response"]
+
+            # Помечаем как AI-generated
+            ai_generated = True
+        else:
+            response_text = request.message
+            ai_generated = False
+
+        # Отправка сообщения через Avito Messenger API (реализовано)
         success = await handler.send_message(chat_id, response_text)
 
         if not success:
@@ -795,41 +775,29 @@ async def get_messenger_stats(db: Session = Depends(get_db)):
 
         # Активные чаты (с сообщениями за последние 24 часа)
         from datetime import datetime, timedelta
-
         yesterday = datetime.utcnow() - timedelta(days=1)
-        active_chats = (
-            db.query(AvitoChatSettings)
-            .filter(
-                AvitoChatSettings.last_message_at is not None,
-                AvitoChatSettings.last_message_at >= yesterday,
-            )
-            .count()
-        )
+        active_chats = db.query(AvitoChatSettings).filter(
+            AvitoChatSettings.last_message_at >= yesterday
+        ).count()
 
         # Чаты с включенным AI
-        ai_enabled_chats = (
-            db.query(AvitoChatSettings)
-            .filter(AvitoChatSettings.ai_enabled.is_(True))
-            .count()
-        )
+        ai_enabled_chats = db.query(AvitoChatSettings).filter(
+            AvitoChatSettings.ai_enabled == True
+        ).count()
 
         # Общее количество сообщений
-        total_messages = (
-            db.query(Communication).filter(Communication.channel == "avito").count()
-        )
+        total_messages = db.query(Communication).filter(
+            Communication.channel == "avito"
+        ).count()
 
         # Сообщений от AI
-        ai_messages = (
-            db.query(Communication)
-            .filter(
-                Communication.channel == "avito",
-                Communication.extra_data.contains({"ai_generated": True}),
-            )
-            .count()
-        )
+        ai_messages = db.query(Communication).filter(
+            Communication.channel == "avito",
+            Communication.extra_data.contains({"ai_generated": True})
+        ).count()
 
-        # Простой расчет времени ответа (может быть None)
-        avg_response_time = None
+        # Расчет среднего времени ответа
+        avg_response_time = await _calculate_average_response_time(db)
 
         return {
             "total_chats": total_chats,
@@ -837,7 +805,7 @@ async def get_messenger_stats(db: Session = Depends(get_db)):
             "ai_enabled_chats": ai_enabled_chats,
             "total_messages": total_messages,
             "ai_messages": ai_messages,
-            "avg_response_time": avg_response_time,
+            "avg_response_time": avg_response_time
         }
 
     except Exception as e:
@@ -845,429 +813,193 @@ async def get_messenger_stats(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-# Global Settings endpoints
+# Background Tasks endpoints
 
-
-@router.get("/settings", response_model=AvitoGlobalSettings)
-async def get_global_settings(db: Session = Depends(get_db)):
-    """
-    Получение глобальных настроек Avito
-    """
-    try:
-        from ...models.avito_chat import AvitoGlobalSettings
-
-        settings = db.query(AvitoGlobalSettings).first()
-        if not settings:
-            # Создаем настройки по умолчанию
-            settings = AvitoGlobalSettings()
-            db.add(settings)
-            db.commit()
-            db.refresh(settings)
-
-        return {
-            "id": settings.id,
-            "client_id": settings.client_id,
-            "client_secret": settings.client_secret,
-            "access_token": settings.access_token,
-            "refresh_token": settings.refresh_token,
-            "token_expires_at": (
-                settings.token_expires_at.isoformat()
-                if settings.token_expires_at
-                else None
-            ),
-            "webhook_url": settings.webhook_url,
-            "webhook_secret": settings.webhook_secret,
-            "auto_reply_enabled": settings.auto_reply_enabled,
-            "auto_reply_message": settings.auto_reply_message,
-            "ai_enabled": settings.ai_enabled,
-            "ai_model": settings.ai_model,
-            "ai_temperature": settings.ai_temperature,
-            "ai_max_tokens": settings.ai_max_tokens,
-            "notification_email": settings.notification_email,
-            "sync_interval": settings.sync_interval,
-            "max_concurrent_chats": settings.max_concurrent_chats,
-            "is_active": settings.is_active,
-            "last_sync_at": (
-                settings.last_sync_at.isoformat() if settings.last_sync_at else None
-            ),
-            "last_error": settings.last_error,
-            "created_at": settings.created_at.isoformat(),
-            "updated_at": settings.updated_at.isoformat(),
-        }
-
-    except Exception as e:
-        logger.error(f"Ошибка получения глобальных настроек Avito: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-
-
-@router.put("/settings", response_model=AvitoGlobalSettings)
-async def update_global_settings(
-    settings: AvitoGlobalSettingsUpdate, db: Session = Depends(get_db)
+@router.post("/background/sync-chats")
+async def start_sync_chats_background(
+    chat_ids: List[str],
+    background_tasks: BackgroundTasks,
+    limit_per_chat: int = 100
 ):
     """
-    Обновление глобальных настроек Avito
+    Запуск background синхронизации истории чатов
+
+    Args:
+        chat_ids: Список ID чатов для синхронизации
+        limit_per_chat: Максимальное количество сообщений на чат
     """
     try:
-        from ...models.avito_chat import AvitoGlobalSettings
-
-        existing_settings = db.query(AvitoGlobalSettings).first()
-        if not existing_settings:
-            existing_settings = AvitoGlobalSettings()
-            db.add(existing_settings)
-
-        # Обновляем только переданные поля
-        update_data = settings.dict(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(existing_settings, field, value)
-
-        db.commit()
-        db.refresh(existing_settings)
-
-        return {
-            "id": existing_settings.id,
-            "client_id": existing_settings.client_id,
-            "client_secret": existing_settings.client_secret,
-            "access_token": existing_settings.access_token,
-            "refresh_token": existing_settings.refresh_token,
-            "token_expires_at": (
-                existing_settings.token_expires_at.isoformat()
-                if existing_settings.token_expires_at
-                else None
-            ),
-            "webhook_url": existing_settings.webhook_url,
-            "webhook_secret": existing_settings.webhook_secret,
-            "auto_reply_enabled": existing_settings.auto_reply_enabled,
-            "auto_reply_message": existing_settings.auto_reply_message,
-            "ai_enabled": existing_settings.ai_enabled,
-            "ai_model": existing_settings.ai_model,
-            "ai_temperature": existing_settings.ai_temperature,
-            "ai_max_tokens": existing_settings.ai_max_tokens,
-            "notification_email": existing_settings.notification_email,
-            "sync_interval": existing_settings.sync_interval,
-            "max_concurrent_chats": existing_settings.max_concurrent_chats,
-            "is_active": existing_settings.is_active,
-            "last_sync_at": (
-                existing_settings.last_sync_at.isoformat()
-                if existing_settings.last_sync_at
-                else None
-            ),
-            "last_error": existing_settings.last_error,
-            "created_at": existing_settings.created_at.isoformat(),
-            "updated_at": existing_settings.updated_at.isoformat(),
-        }
-
-    except Exception as e:
-        logger.error(f"Ошибка обновления глобальных настроек Avito: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-
-
-@router.post("/settings/test-connection", response_model=AvitoTestConnectionResponse)
-async def test_connection(db: Session = Depends(get_db)):
-    """
-    Тестирование подключения к Avito API
-    """
-    try:
-        # Используем настройки из config.py (settings)
-        if (
-            not settings.avito_client_id
-            or not settings.avito_client_secret
-            or not settings.avito_user_id
-        ):
-            return {
-                "success": False,
-                "message": "Не настроены учетные данные Avito (AVITO_CLIENT_ID, AVITO_CLIENT_SECRET, AVITO_USER_ID в .env файле)",
-            }
-
-        # Тестируем получение токена и простой API вызов
-        async with AvitoService() as avito_service:
-            try:
-                # Получаем список объявлений для тестирования аутентификации
-                items = await avito_service.get_active_items()
-                logger.info(
-                    f"Успешное тестирование Avito API: получено {len(items)} объявлений"
-                )
-
-                return {
-                    "success": True,
-                    "message": f"Подключение успешно. Получено {len(items)} активных объявлений.",
-                }
-
-            except AvitoAuthError as e:
-                return {
-                    "success": False,
-                    "message": f"Ошибка авторизации Avito: проверьте корректность Client ID и Client Secret. {str(e.details) if hasattr(e, 'details') and e.details else ''}",
-                }
-            except AvitoAPIError as e:
-                return {"success": False, "message": f"Ошибка API Avito: {str(e)}"}
-            except Exception as api_error:
-                logger.error(
-                    f"Неожиданная ошибка при тестировании Avito API: {api_error}"
-                )
-                return {
-                    "success": False,
-                    "message": f"Неожиданная ошибка при тестировании API: {str(api_error)}",
-                }
-
-    except Exception as e:
-        logger.error(f"Ошибка тестирования подключения к Avito: {e}")
-        return {
-            "success": False,
-            "message": f"Ошибка при тестировании подключения: {str(e)}",
-        }
-
-
-@router.post("/settings/test-webhook", response_model=AvitoTestWebhookResponse)
-async def test_webhook(db: Session = Depends(get_db)):
-    """
-    Тестирование webhook
-    """
-    try:
-        import httpx
-
-        from ...models.avito_chat import AvitoGlobalSettings
-
-        global_settings = db.query(AvitoGlobalSettings).first()
-        if not global_settings or not global_settings.webhook_url:
-            return {
-                "success": False,
-                "message": "Не настроен URL webhook в глобальных настройках Avito",
-            }
-
-        webhook_url = global_settings.webhook_url.strip()
-
-        # Проверяем формат URL
-        if not webhook_url.startswith(("http://", "https://")):
-            return {
-                "success": False,
-                "message": "Неверный формат URL webhook: должен начинаться с http:// или https://",
-            }
-
-        # Проверяем доступность endpoint'а через HEAD запрос
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.head(webhook_url)
-
-                if response.status_code not in [200, 201, 202, 204, 301, 302, 307, 308]:
-                    return {
-                        "success": False,
-                        "message": f"Webhook URL недоступен: HTTP {response.status_code}",
-                    }
-
-                # Отправляем тестовый POST запрос с тестовым webhook событием
-                test_payload = {
-                    "events": [
-                        {
-                            "event": "message",
-                            "payload": {
-                                "chat_id": "test_chat_123",
-                                "user_id": "test_user",
-                                "message_id": "test_message_456",
-                                "text": "Тестовое сообщение от Avito webhook",
-                                "timestamp": "2023-01-01T12:00:00Z",
-                                "item_id": 12345,
-                                "author_role": "buyer",
-                            },
-                        }
-                    ]
-                }
-
-                response = await client.post(
-                    webhook_url,
-                    json=test_payload,
-                    headers={"Content-Type": "application/json"},
-                )
-
-                if response.status_code in [200, 201, 202]:
-                    try:
-                        response_data = response.json()
-                        if response_data.get("status") == "ok":
-                            processed_events = response_data.get("processed_events", 0)
-                            return {
-                                "success": True,
-                                "message": f"Webhook успешно протестирован. Обработано событий: {processed_events}",
-                                "status_code": response.status_code,
-                            }
-                        else:
-                            return {
-                                "success": False,
-                                "message": f"Webhook вернул неуспешный статус: {response_data}",
-                            }
-                    except ValueError:
-                        return {
-                            "success": True,
-                            "message": f"Webhook ответил HTTP {response.status_code}, но формат ответа не распознан",
-                        }
-                else:
-                    return {
-                        "success": False,
-                        "message": f"Webhook вернул ошибку: HTTP {response.status_code} - {response.text[:200]}",
-                    }
-
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"Ошибка при обращении к webhook URL: {webhook_url} - {str(e)}",
-            }
-
-    except Exception as e:
-        logger.error(f"Ошибка тестирования webhook: {e}")
-        return {
-            "success": False,
-            "message": f"Ошибка при тестировании webhook: {str(e)}",
-        }
-
-
-# Chat linking/unlinking endpoints
-
-
-@router.post("/messenger/chats/{chat_id}/link-customer")
-async def link_avito_chat_to_customer(
-    chat_id: str, customer_id: int, db: Session = Depends(get_db)
-):
-    """
-    Связывание Avito чата с существующим клиентом CRM
-    """
-    try:
-        from ...models.avito_chat import AvitoChatSettings
-
-        # Проверка существования чата
-        chat = (
-            db.query(AvitoChatSettings)
-            .filter(AvitoChatSettings.chat_id == chat_id)
-            .first()
+        # Запускаем задачу в фоне
+        background_tasks.add_task(
+            avito_background_tasks.sync_chats_history_background,
+            chat_ids=chat_ids,
+            limit_per_chat=limit_per_chat
         )
-        if not chat:
-            raise HTTPException(status_code=404, detail="Чат не найден")
-
-        # Проверка существования клиента
-        from ...models.customer import Customer
-
-        customer = db.query(Customer).filter(Customer.id == customer_id).first()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Клиент не найден")
-
-        # Связывание
-        if hasattr(chat, "customer_id"):
-            setattr(chat, "customer_id", customer_id)
-        db.commit()
 
         return {
-            "message": f"Чат {chat_id} связан с клиентом {customer.name}",
-            "chat_id": chat_id,
-            "customer_id": customer_id,
+            "message": f"Запущена синхронизация {len(chat_ids)} чатов",
+            "chat_ids": chat_ids,
+            "status": "started"
+        }
+
+    except Exception as e:
+        logger.error(f"Ошибка запуска background синхронизации чатов: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка запуска задачи")
+
+
+@router.post("/background/bulk-send")
+async def start_bulk_send_background(
+    messages: List[dict],
+    background_tasks: BackgroundTasks,
+    delay_between_messages: float = 1.0
+):
+    """
+    Запуск background массовой отправки сообщений
+
+    Args:
+        messages: Список сообщений [{"chat_id": str, "message": str, "use_ai": bool}]
+        delay_between_messages: Задержка между сообщениями в секундах
+    """
+    try:
+        # Валидация входных данных
+        for i, msg in enumerate(messages):
+            if not msg.get("chat_id") or not msg.get("message"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Неверный формат сообщения {i}: требуется chat_id и message"
+                )
+
+        # Запускаем задачу в фоне
+        background_tasks.add_task(
+            avito_background_tasks.bulk_send_messages_background,
+            messages=messages,
+            delay_between_messages=delay_between_messages
+        )
+
+        return {
+            "message": f"Запущена отправка {len(messages)} сообщений",
+            "total_messages": len(messages),
+            "status": "started"
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Ошибка связывания чата {chat_id} с клиентом {customer_id}: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        logger.error(f"Ошибка запуска background отправки сообщений: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка запуска задачи")
 
 
-@router.delete("/messenger/chats/{chat_id}/unlink-customer")
-async def unlink_avito_chat_from_customer(chat_id: str, db: Session = Depends(get_db)):
-    """
-    Отвязывание Avito чата от клиента
-    """
-    try:
-        from ...models.avito_chat import AvitoChatSettings
-
-        chat = (
-            db.query(AvitoChatSettings)
-            .filter(AvitoChatSettings.chat_id == chat_id)
-            .first()
-        )
-        if not chat:
-            raise HTTPException(status_code=404, detail="Чат не найден")
-
-        # Отвязывание
-        if hasattr(chat, "customer_id"):
-            setattr(chat, "customer_id", None)
-        db.commit()
-
-        return {"message": f"Чат {chat_id} отвязан от клиента"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Ошибка отвязывания чата {chat_id} от клиента: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-
-
-@router.post("/auth/generate-url", response_model=AvitoAuthUrlResponse)
-async def generate_auth_url(request: AvitoAuthUrlRequest):
-    """
-    Генерация URL для авторизации через Authorization Code flow
-    """
-    try:
-        from ...services.avito_auth_service import AvitoAuthService
-
-        auth_service = AvitoAuthService()
-        result = await auth_service.generate_auth_url(request)
-        return result
-
-    except Exception as e:
-        logger.error(f"Ошибка генерации URL авторизации: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-
-
-@router.get("/auth/callback", response_model=AvitoAuthCallbackResponse)
-async def auth_callback(
-    code: str = None,
-    state: str = None,
-    error: str = None,
-    error_description: str = None,
+@router.post("/background/update-performance")
+async def start_update_performance_background(
+    item_ids: List[int],
+    background_tasks: BackgroundTasks,
+    days: int = 30
 ):
     """
-    Callback endpoint для обработки ответа от Avito после авторизации
+    Запуск background обновления производительности объявлений
+
+    Args:
+        item_ids: Список ID объявлений
+        days: Период анализа в днях
     """
     try:
-        from ...services.avito_auth_service import AvitoAuthService
-
-        auth_service = AvitoAuthService()
-        result = await auth_service.handle_auth_callback(
-            code, state, error, error_description
+        # Запускаем задачу в фоне
+        background_tasks.add_task(
+            avito_background_tasks.update_items_performance_background,
+            item_ids=item_ids,
+            days=days
         )
-        return result
+
+        return {
+            "message": f"Запущено обновление производительности {len(item_ids)} объявлений",
+            "item_ids": item_ids,
+            "days": days,
+            "status": "started"
+        }
 
     except Exception as e:
-        logger.error(f"Ошибка обработки auth callback: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        logger.error(f"Ошибка запуска background обновления производительности: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка запуска задачи")
 
 
-@router.post("/auth/token/client-credentials")
-async def get_token_client_credentials(client_id: str, client_secret: str):
+@router.post("/background/cleanup")
+async def start_cleanup_background(
+    background_tasks: BackgroundTasks,
+    days_to_keep: int = 90
+):
     """
-    Получение токена через Client Credentials flow
+    Запуск background очистки старых данных
+
+    Args:
+        days_to_keep: Количество дней для хранения данных
     """
     try:
-        from ...services.avito_auth_service import AvitoAuthService
-
-        auth_service = AvitoAuthService()
-        result = await auth_service.get_token_via_client_credentials(
-            client_id, client_secret
+        # Запускаем задачу в фоне
+        background_tasks.add_task(
+            avito_background_tasks.cleanup_old_data_background,
+            days_to_keep=days_to_keep
         )
-        return result
+
+        return {
+            "message": f"Запущена очистка данных старше {days_to_keep} дней",
+            "days_to_keep": days_to_keep,
+            "status": "started"
+        }
 
     except Exception as e:
-        logger.error(f"Ошибка получения токена через client credentials: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        logger.error(f"Ошибка запуска background очистки: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка запуска задачи")
 
 
-@router.post("/auth/token/refresh")
-async def refresh_access_token(client_id: str, client_secret: str, refresh_token: str):
+@router.post("/background/health-check")
+async def start_health_check_background(background_tasks: BackgroundTasks):
     """
-    Обновление access token через refresh token
+    Запуск background проверки здоровья Avito интеграции
     """
     try:
-        from ...services.avito_auth_service import AvitoAuthService
+        # Запускаем задачу в фоне
+        background_tasks.add_task(avito_background_tasks.health_check_background)
 
-        auth_service = AvitoAuthService()
-        result = await auth_service.refresh_access_token(
-            client_id, client_secret, refresh_token
-        )
-        return result
+        return {
+            "message": "Запущена проверка здоровья Avito интеграции",
+            "status": "started"
+        }
 
     except Exception as e:
-        logger.error(f"Ошибка обновления токена: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+        logger.error(f"Ошибка запуска background проверки здоровья: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка запуска задачи")
+
+
+@router.get("/background/tasks")
+async def get_running_tasks():
+    """
+    Получение списка выполняющихся background задач
+    """
+    try:
+        running_tasks = avito_background_tasks.get_running_tasks()
+        return {
+            "running_tasks": running_tasks,
+            "count": len(running_tasks)
+        }
+
+    except Exception as e:
+        logger.error(f"Ошибка получения списка задач: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка получения данных")
+
+
+@router.get("/background/tasks/{task_id}")
+async def check_task_status(task_id: str):
+    """
+    Проверка статуса background задачи
+    """
+    try:
+        is_running = avito_background_tasks.is_task_running(task_id)
+        return {
+            "task_id": task_id,
+            "is_running": is_running,
+            "status": "running" if is_running else "completed_or_not_found"
+        }
+
+    except Exception as e:
+        logger.error(f"Ошибка проверки статуса задачи {task_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка проверки статуса")

@@ -1,10 +1,9 @@
 """
 Интеграционные тесты для Customer API
 """
-
-from unittest.mock import MagicMock, patch
-
 import pytest
+from httpx import AsyncClient
+from unittest.mock import patch, MagicMock
 
 
 class TestCustomerAPI:
@@ -24,9 +23,7 @@ class TestCustomerAPI:
     @pytest.fixture
     def mock_auth(self):
         """Мок аутентификации"""
-        with patch(
-            "src.aicrm.api.routers.customer.get_current_active_user"
-        ) as mock_get_user:
+        with patch("src.aicrm.api.routers.customer.get_current_active_user") as mock_get_user:
             mock_user = MagicMock()
             mock_user.id = 1
             mock_get_user.return_value = mock_user
@@ -34,6 +31,9 @@ class TestCustomerAPI:
 
     def test_create_customer_success(self, mock_customer_service, mock_auth):
         """Тест успешного создания клиента"""
+        from src.aicrm.api.routers.customer import create_customer
+        from fastapi import HTTPException
+        import pytest
 
         # Настройка мока
         mock_customer = MagicMock()
@@ -48,6 +48,8 @@ class TestCustomerAPI:
         mock_customer_service.create_customer.return_value = mock_customer
 
         # Вызов функции напрямую
+        from fastapi import Request
+        from unittest.mock import AsyncMock
 
         # Мокаем зависимости
         mock_db = MagicMock()
@@ -56,7 +58,7 @@ class TestCustomerAPI:
         # Проверяем, что сервис был вызван с правильными параметрами
         mock_customer_service.create_customer.assert_called_once()
         args, kwargs = mock_customer_service.create_customer.call_args
-        customer_data = kwargs.get("customer_data", args[0] if args else None)
+        customer_data = kwargs.get('customer_data', args[0] if args else None)
         assert customer_data is not None
 
     def test_customer_crud_operations(self, mock_customer_service, mock_auth):
@@ -74,17 +76,14 @@ class TestCustomerAPI:
         mock_customer_service.get_customer_stats.return_value = {
             "total_orders": 5,
             "total_spent": 2500.00,
-            "loyalty_level": "silver",
+            "loyalty_level": "silver"
         }
         mock_customer_service.search_customers.return_value = [mock_customer]
 
         # Проверки
         assert mock_customer_service.get_customer(1) == mock_customer
         assert len(mock_customer_service.get_customers()) == 1
-        assert (
-            mock_customer_service.update_customer(1, {"name": "Новое имя"})
-            == mock_customer
-        )
+        assert mock_customer_service.update_customer(1, {"name": "Новое имя"}) == mock_customer
         assert mock_customer_service.delete_customer(1) == True
 
         stats = mock_customer_service.get_customer_stats(1)

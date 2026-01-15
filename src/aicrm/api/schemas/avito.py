@@ -1,17 +1,14 @@
 """
 Pydantic схемы для Avito API
 """
-
+from typing import List, Optional, Dict, Any
 from datetime import date
-from enum import Enum
-from typing import Any, Dict, List, Optional
-
 from pydantic import BaseModel, Field, validator
+from enum import Enum
 
 
 class AvitoItemStatus(str, Enum):
     """Статус объявления Avito"""
-
     ACTIVE = "active"
     REMOVED = "removed"
     OLD = "old"
@@ -23,20 +20,14 @@ class AvitoItemStatus(str, Enum):
 
 class AvitoVasInfo(BaseModel):
     """Информация о примененной услуге VAS"""
-
     vas_id: str = Field(..., description="Идентификатор услуги")
     finish_time: Optional[str] = Field(None, description="Дата завершения услуги")
-    schedule: Optional[List[str]] = Field(
-        None, description="Информация о следующих применениях"
-    )
+    schedule: Optional[List[str]] = Field(None, description="Информация о следующих применениях")
 
 
 class AvitoItemInfo(BaseModel):
     """Информация об объявлении Avito"""
-
-    autoload_item_id: Optional[str] = Field(
-        None, description="ID из файла автозагрузки"
-    )
+    autoload_item_id: Optional[str] = Field(None, description="ID из файла автозагрузки")
     finish_time: Optional[str] = Field(None, description="Дата завершения объявления")
     start_time: Optional[str] = Field(None, description="Дата создания объявления")
     status: AvitoItemStatus = Field(..., description="Статус объявления")
@@ -46,7 +37,6 @@ class AvitoItemInfo(BaseModel):
 
 class AvitoItem(BaseModel):
     """Объявление Avito"""
-
     id: int = Field(..., description="Идентификатор объявления")
     title: str = Field(..., description="Наименование объявления")
     address: Optional[str] = Field(None, description="Адрес объявления")
@@ -58,30 +48,23 @@ class AvitoItem(BaseModel):
 
 class AvitoStatsRequest(BaseModel):
     """Запрос статистики объявлений"""
-
     item_ids: List[int] = Field(..., description="Идентификаторы объявлений")
     date_from: date = Field(..., description="Дата начала периода")
     date_to: date = Field(..., description="Дата окончания периода")
     fields: Optional[List[str]] = Field(
-        ["uniqViews", "uniqContacts", "uniqFavorites"], description="Поля статистики"
+        ["uniqViews", "uniqContacts", "uniqFavorites"],
+        description="Поля статистики"
     )
     period_grouping: Optional[str] = Field("day", description="Группировка по периодам")
 
-    @validator("fields")
+    @validator('fields')
     def validate_fields(cls, v):
-        allowed_fields = [
-            "views",
-            "uniqViews",
-            "contacts",
-            "uniqContacts",
-            "favorites",
-            "uniqFavorites",
-        ]
+        allowed_fields = ["views", "uniqViews", "contacts", "uniqContacts", "favorites", "uniqFavorites"]
         if not all(field in allowed_fields for field in v):
             raise ValueError(f"Поля должны быть из списка: {allowed_fields}")
         return v
 
-    @validator("period_grouping")
+    @validator('period_grouping')
     def validate_period_grouping(cls, v):
         allowed_groupings = ["day", "week", "month"]
         if v not in allowed_groupings:
@@ -91,36 +74,28 @@ class AvitoStatsRequest(BaseModel):
 
 class AvitoStatsDay(BaseModel):
     """Статистика за день"""
-
     date: str = Field(..., description="Дата (YYYY-MM-DD)")
     uniqViews: Optional[int] = Field(None, description="Уникальные просмотры")
     uniqContacts: Optional[int] = Field(None, description="Уникальные контакты")
-    uniqFavorites: Optional[int] = Field(
-        None, description="Уникальные добавления в избранное"
-    )
+    uniqFavorites: Optional[int] = Field(None, description="Уникальные добавления в избранное")
     views: Optional[int] = Field(None, description="Все просмотры (deprecated)")
     contacts: Optional[int] = Field(None, description="Все контакты (deprecated)")
-    favorites: Optional[int] = Field(
-        None, description="Все добавления в избранное (deprecated)"
-    )
+    favorites: Optional[int] = Field(None, description="Все добавления в избранное (deprecated)")
 
 
 class AvitoItemStats(BaseModel):
     """Статистика объявления"""
-
     itemId: int = Field(..., description="Идентификатор объявления")
     stats: List[AvitoStatsDay] = Field(..., description="Статистика по дням")
 
 
 class AvitoStatsResponse(BaseModel):
     """Ответ со статистикой"""
-
     result: Dict[str, Any] = Field(..., description="Результаты статистики")
 
 
 class AvitoAnalyticsRequest(BaseModel):
     """Запрос аналитики"""
-
     date_from: date = Field(..., description="Дата начала периода")
     date_to: date = Field(..., description="Дата окончания периода")
     metrics: List[str] = Field(..., description="Метрики для анализа")
@@ -129,7 +104,7 @@ class AvitoAnalyticsRequest(BaseModel):
     offset: Optional[int] = Field(0, description="Смещение")
     filter: Optional[Dict[str, Any]] = Field(None, description="Фильтры")
 
-    @validator("grouping")
+    @validator('grouping')
     def validate_grouping(cls, v):
         allowed_groupings = ["totals", "item", "day", "week", "month"]
         if v not in allowed_groupings:
@@ -139,13 +114,11 @@ class AvitoAnalyticsRequest(BaseModel):
 
 class AvitoAnalyticsResponse(BaseModel):
     """Ответ аналитики"""
-
     result: Dict[str, Any] = Field(..., description="Результаты аналитики")
 
 
 class AvitoVasPrice(BaseModel):
     """Цена услуги VAS"""
-
     slug: str = Field(..., description="Идентификатор услуги")
     price: int = Field(..., description="Цена со скидкой")
     priceOld: Optional[int] = Field(None, description="Цена без скидки")
@@ -153,7 +126,6 @@ class AvitoVasPrice(BaseModel):
 
 class AvitoSticker(BaseModel):
     """Информация о стикере"""
-
     id: int = Field(..., description="Идентификатор стикера")
     title: str = Field(..., description="Название стикера")
     description: str = Field(..., description="Описание стикера")
@@ -161,48 +133,39 @@ class AvitoSticker(BaseModel):
 
 class AvitoItemVasPrices(BaseModel):
     """Цены VAS для объявления"""
-
     itemId: int = Field(..., description="Идентификатор объявления")
     vas: List[AvitoVasPrice] = Field(..., description="Услуги VAS")
-    stickers: Optional[List[AvitoSticker]] = Field(
-        None, description="Доступные стикеры"
-    )
+    stickers: Optional[List[AvitoSticker]] = Field(None, description="Доступные стикеры")
 
 
 class AvitoVasPricesResponse(BaseModel):
     """Ответ с ценами VAS"""
-
     prices: List[AvitoItemVasPrices] = Field(..., description="Цены для объявлений")
 
 
 class AvitoApplyVasRequest(BaseModel):
     """Запрос на применение VAS"""
-
     slugs: List[str] = Field(..., description="Идентификаторы услуг")
     stickers: Optional[List[int]] = Field(None, description="Идентификаторы стикеров")
 
 
 class AvitoApplyVasResponse(BaseModel):
     """Ответ на применение VAS"""
-
     operationId: int = Field(..., description="Идентификатор операции")
 
 
 class AvitoUpdatePriceRequest(BaseModel):
     """Запрос на обновление цены"""
-
     price: int = Field(..., gt=0, description="Новая цена в рублях")
 
 
 class AvitoUpdatePriceResponse(BaseModel):
     """Ответ на обновление цены"""
-
     result: Dict[str, bool] = Field(..., description="Результат операции")
 
 
 class AvitoCallsStatsRequest(BaseModel):
     """Запрос статистики звонков"""
-
     date_from: date = Field(..., description="Дата начала периода")
     date_to: date = Field(..., description="Дата окончания периода")
     item_ids: Optional[List[int]] = Field(None, description="Идентификаторы объявлений")
@@ -210,7 +173,6 @@ class AvitoCallsStatsRequest(BaseModel):
 
 class AvitoCallsStatsDay(BaseModel):
     """Статистика звонков за день"""
-
     date: str = Field(..., description="Дата (YYYY-MM-DD)")
     answered: int = Field(..., description="Отвеченные звонки")
     calls: int = Field(..., description="Все звонки")
@@ -220,7 +182,6 @@ class AvitoCallsStatsDay(BaseModel):
 
 class AvitoCallsStatsItem(BaseModel):
     """Статистика звонков по объявлению"""
-
     employeeId: int = Field(..., description="ID сотрудника")
     itemId: int = Field(..., description="ID объявления")
     days: List[AvitoCallsStatsDay] = Field(..., description="Статистика по дням")
@@ -228,32 +189,24 @@ class AvitoCallsStatsItem(BaseModel):
 
 class AvitoCallsStatsResponse(BaseModel):
     """Ответ со статистикой звонков"""
-
-    result: Dict[str, List[AvitoCallsStatsItem]] = Field(
-        ..., description="Результаты статистики"
-    )
+    result: Dict[str, List[AvitoCallsStatsItem]] = Field(..., description="Результаты статистики")
 
 
 # Схемы для бизнес-логики
 
-
 class AvitoItemPerformance(BaseModel):
     """Производительность объявления"""
-
     item_id: int = Field(..., description="Идентификатор объявления")
     title: Optional[str] = Field(None, description="Название объявления")
     status: AvitoItemStatus = Field(..., description="Статус объявления")
     url: Optional[str] = Field(None, description="URL объявления")
     stats: Dict[str, Any] = Field(..., description="Статистика просмотров")
     calls: Dict[str, Any] = Field(..., description="Статистика звонков")
-    vas_active: List[AvitoVasInfo] = Field(
-        default_factory=list, description="Активные VAS"
-    )
+    vas_active: List[AvitoVasInfo] = Field(default_factory=list, description="Активные VAS")
 
 
 class AvitoPricingRecommendation(BaseModel):
     """Рекомендация по ценообразованию"""
-
     item_id: int = Field(..., description="Идентификатор объявления")
     current_conversion: float = Field(..., description="Текущая конверсия")
     total_views: int = Field(..., description="Общее количество просмотров")
@@ -263,7 +216,6 @@ class AvitoPricingRecommendation(BaseModel):
 
 class AvitoPromotionRequest(BaseModel):
     """Запрос на применение продвижения"""
-
     item_id: int = Field(..., description="Идентификатор объявления")
     service_slug: str = Field(..., description="Идентификатор услуги")
     stickers: Optional[List[int]] = Field(None, description="Идентификаторы стикеров")
@@ -271,7 +223,6 @@ class AvitoPromotionRequest(BaseModel):
 
 class AvitoPromotionResponse(BaseModel):
     """Ответ на применение продвижения"""
-
     operation_id: int = Field(..., description="Идентификатор операции")
     service_slug: str = Field(..., description="Идентификатор услуги")
     status: str = Field(..., description="Статус операции")
@@ -279,16 +230,13 @@ class AvitoPromotionResponse(BaseModel):
 
 # Схемы ошибок
 
-
 class AvitoErrorResponse(BaseModel):
     """Ответ с ошибкой"""
-
     error: Dict[str, Any] = Field(..., description="Информация об ошибке")
 
 
 class AvitoValidationError(BaseModel):
     """Ошибка валидации"""
-
     code: int = Field(..., description="Код ошибки")
     message: str = Field(..., description="Сообщение об ошибке")
     fields: Optional[Dict[str, Any]] = Field(None, description="Ошибки полей")
@@ -296,57 +244,41 @@ class AvitoValidationError(BaseModel):
 
 # Схемы для мессенджера
 
-
 class AvitoChatSettingsBase(BaseModel):
     """Базовая схема настроек чата"""
-
     ai_enabled: bool = Field(True, description="Включены ли AI ответы")
-    ai_model: str = Field(
-        "deepseek/deepseek-coder:33b-instruct", description="Модель AI"
-    )
+    ai_model: str = Field("deepseek/deepseek-coder:33b-instruct", description="Модель AI")
     ai_temperature: int = Field(70, ge=0, le=100, description="Температура AI (0-100)")
     notifications_enabled: bool = Field(True, description="Включены ли уведомления")
 
 
 class AvitoChatSettingsCreate(AvitoChatSettingsBase):
     """Создание настроек чата"""
-
     chat_id: str = Field(..., description="ID чата в Avito")
 
 
 class AvitoChatSettingsUpdate(BaseModel):
     """Обновление настроек чата"""
-
     ai_enabled: Optional[bool] = Field(None, description="Включены ли AI ответы")
     ai_model: Optional[str] = Field(None, description="Модель AI")
-    ai_temperature: Optional[int] = Field(
-        None, ge=0, le=100, description="Температура AI (0-100)"
-    )
-    notifications_enabled: Optional[bool] = Field(
-        None, description="Включены ли уведомления"
-    )
+    ai_temperature: Optional[int] = Field(None, ge=0, le=100, description="Температура AI (0-100)")
+    notifications_enabled: Optional[bool] = Field(None, description="Включены ли уведомления")
 
 
 class AvitoChatSettings(AvitoChatSettingsBase):
     """Настройки чата с метаданными"""
-
     id: int = Field(..., description="ID настройки")
     chat_id: str = Field(..., description="ID чата в Avito")
     customer_id: Optional[int] = Field(None, description="ID клиента")
     message_count: int = Field(..., description="Количество сообщений")
-    last_message_at: Optional[str] = Field(
-        None, description="Время последнего сообщения"
-    )
-    last_ai_response_at: Optional[str] = Field(
-        None, description="Время последнего AI ответа"
-    )
+    last_message_at: Optional[str] = Field(None, description="Время последнего сообщения")
+    last_ai_response_at: Optional[str] = Field(None, description="Время последнего AI ответа")
     created_at: str = Field(..., description="Время создания")
     updated_at: str = Field(..., description="Время обновления")
 
 
 class AvitoChatMessage(BaseModel):
     """Сообщение в чате"""
-
     id: int = Field(..., description="ID сообщения")
     chat_id: str = Field(..., description="ID чата")
     direction: str = Field(..., description="Направление (inbound/outbound)")
@@ -358,14 +290,11 @@ class AvitoChatMessage(BaseModel):
 
 class AvitoChatInfo(BaseModel):
     """Информация о чате"""
-
     chat_id: str = Field(..., description="ID чата")
     customer_name: Optional[str] = Field(None, description="Имя клиента")
     customer_email: Optional[str] = Field(None, description="Email клиента")
     last_message: Optional[str] = Field(None, description="Последнее сообщение")
-    last_message_at: Optional[str] = Field(
-        None, description="Время последнего сообщения"
-    )
+    last_message_at: Optional[str] = Field(None, description="Время последнего сообщения")
     message_count: int = Field(..., description="Количество сообщений")
     ai_enabled: bool = Field(True, description="AI включен")
     unread_count: int = Field(0, description="Количество непрочитанных")
@@ -373,46 +302,33 @@ class AvitoChatInfo(BaseModel):
 
 class AvitoSendMessageRequest(BaseModel):
     """Запрос на отправку сообщения"""
-
-    message: str = Field(
-        ..., min_length=1, max_length=1000, description="Текст сообщения"
-    )
+    message: str = Field(..., min_length=1, max_length=1000, description="Текст сообщения")
     use_ai: bool = Field(False, description="Использовать AI для генерации ответа")
 
 
 class AvitoMessengerStats(BaseModel):
     """Статистика мессенджера"""
-
     total_chats: int = Field(..., description="Общее количество чатов")
     active_chats: int = Field(..., description="Активные чаты")
     ai_enabled_chats: int = Field(..., description="Чаты с включенным AI")
     total_messages: int = Field(..., description="Общее количество сообщений")
     ai_messages: int = Field(..., description="Сообщений от AI")
-    avg_response_time: Optional[float] = Field(
-        None, description="Среднее время ответа (секунды)"
-    )
-
+    avg_response_time: Optional[float] = Field(None, description="Среднее время ответа (секунды)")
 
 # Схемы для Messenger API
 
-
 class AvitoChat(BaseModel):
     """Чат из Avito API"""
-
     id: str = Field(..., description="ID чата")
     user_id: str = Field(..., description="ID пользователя")
     item_id: Optional[int] = Field(None, description="ID объявления")
     created: str = Field(..., description="Время создания")
     updated: str = Field(..., description="Время обновления")
     unread_count: int = Field(0, description="Количество непрочитанных сообщений")
-    last_message: Optional[Dict[str, Any]] = Field(
-        None, description="Последнее сообщение"
-    )
-
+    last_message: Optional[Dict[str, Any]] = Field(None, description="Последнее сообщение")
 
 class AvitoMessage(BaseModel):
     """Сообщение из Avito API"""
-
     id: str = Field(..., description="ID сообщения")
     type: str = Field(..., description="Тип сообщения")
     text: Optional[str] = Field(None, description="Текст сообщения")
@@ -420,41 +336,45 @@ class AvitoMessage(BaseModel):
     author_id: str = Field(..., description="ID автора")
     author_role: str = Field(..., description="Роль автора")
 
-
 class AvitoChatsResponse(BaseModel):
     """Ответ со списком чатов"""
-
     chats: List[AvitoChat] = Field(..., description="Список чатов")
     total: int = Field(..., description="Общее количество чатов")
     limit: int = Field(..., description="Лимит")
     offset: int = Field(..., description="Смещение")
 
-
 class AvitoMessagesResponse(BaseModel):
     """Ответ со списком сообщений"""
-
     messages: List[AvitoMessage] = Field(..., description="Список сообщений")
     total: int = Field(..., description="Общее количество сообщений")
     limit: int = Field(..., description="Лимит")
     offset: int = Field(..., description="Смещение")
 
+class AvitoSendMessageRequest(BaseModel):
+    """Запрос на отправку сообщения в Avito"""
+    message: str = Field(..., min_length=1, max_length=1000, description="Текст сообщения")
+
+class AvitoSendMessageResponse(BaseModel):
+    """Ответ на отправку сообщения"""
+    message_id: str = Field(..., description="ID отправленного сообщения")
+    success: bool = Field(True, description="Успешность операции")
 
 class AvitoWebhookSubscribeRequest(BaseModel):
     """Запрос на подписку webhook"""
-
     url: str = Field(..., description="URL для webhook уведомлений")
     events: List[str] = Field(["message"], description="События для подписки")
 
-
 class AvitoWebhookUnsubscribeRequest(BaseModel):
     """Запрос на отписку webhook"""
-
     url: str = Field(..., description="URL для отписки")
 
+class AvitoWebhookResponse(BaseModel):
+    """Ответ webhook операций"""
+    success: bool = Field(..., description="Успешность операции")
+    webhook_id: Optional[str] = Field(None, description="ID webhook подписки")
 
 class AvitoWebhookEvent(BaseModel):
     """Событие webhook от Avito"""
-
     event: str = Field(..., description="Тип события")
     timestamp: str = Field(..., description="Время события")
     payload: Dict[str, Any] = Field(..., description="Данные события")
@@ -462,7 +382,6 @@ class AvitoWebhookEvent(BaseModel):
 
 class AvitoWebhookMessagePayload(BaseModel):
     """Payload для webhook события нового сообщения"""
-
     chat_id: str = Field(..., description="ID чата")
     message_id: str = Field(..., description="ID сообщения")
     user_id: str = Field(..., description="ID пользователя")
@@ -474,7 +393,6 @@ class AvitoWebhookMessagePayload(BaseModel):
 
 class AvitoWebhookStatusPayload(BaseModel):
     """Payload для webhook события изменения статуса"""
-
     chat_id: str = Field(..., description="ID чата")
     status: str = Field(..., description="Новый статус чата")
     timestamp: str = Field(..., description="Время изменения")
@@ -482,268 +400,22 @@ class AvitoWebhookStatusPayload(BaseModel):
 
 class AvitoWebhookRequest(BaseModel):
     """Входящий webhook запрос от Avito"""
-
     events: List[AvitoWebhookEvent] = Field(..., description="Список событий")
 
 
 class AvitoWebhookResponse(BaseModel):
     """Ответ на webhook запрос"""
-
     status: str = Field("ok", description="Статус обработки")
     processed_events: int = Field(..., description="Количество обработанных событий")
 
-
-# Схемы для глобальных настроек Avito
-
-
-class AvitoGlobalSettingsBase(BaseModel):
-    """Базовая схема глобальных настроек Avito"""
-
-    client_id: Optional[str] = Field(None, description="Client ID для Avito API")
-    client_secret: Optional[str] = Field(
-        None, description="Client Secret для Avito API"
-    )
-    access_token: Optional[str] = Field(None, description="Access Token")
-    refresh_token: Optional[str] = Field(None, description="Refresh Token")
-    token_expires_at: Optional[str] = Field(None, description="Время истечения токена")
-    webhook_url: Optional[str] = Field(None, description="URL для webhook")
-    webhook_secret: Optional[str] = Field(None, description="Секрет для webhook")
-    auto_reply_enabled: bool = Field(False, description="Включен ли автоответчик")
-    auto_reply_message: str = Field(
-        "Спасибо за ваше сообщение. Мы свяжемся с вами в ближайшее время.",
-        description="Сообщение автоответчика",
-    )
-    ai_enabled: bool = Field(True, description="Включен ли AI по умолчанию")
-    ai_model: str = Field("gpt-4", description="Модель AI по умолчанию")
-    ai_temperature: int = Field(70, ge=0, le=100, description="Температура AI (0-100)")
-    ai_max_tokens: int = Field(
-        1000, ge=100, le=4000, description="Максимальное количество токенов"
-    )
-    notification_email: Optional[str] = Field(None, description="Email для уведомлений")
-    sync_interval: int = Field(
-        300, ge=60, le=3600, description="Интервал синхронизации (секунды)"
-    )
-    max_concurrent_chats: int = Field(
-        10, ge=1, le=100, description="Максимальное количество одновременных чатов"
-    )
-
-
-class AvitoGlobalSettingsCreate(AvitoGlobalSettingsBase):
-    """Создание глобальных настроек Avito"""
-
-    pass
-
-
-class AvitoGlobalSettingsUpdate(BaseModel):
-    """Обновление глобальных настроек Avito"""
-
-    client_id: Optional[str] = Field(None, description="Client ID для Avito API")
-    client_secret: Optional[str] = Field(
-        None, description="Client Secret для Avito API"
-    )
-    access_token: Optional[str] = Field(None, description="Access Token")
-    refresh_token: Optional[str] = Field(None, description="Refresh Token")
-    token_expires_at: Optional[str] = Field(None, description="Время истечения токена")
-    webhook_url: Optional[str] = Field(None, description="URL для webhook")
-    webhook_secret: Optional[str] = Field(None, description="Секрет для webhook")
-    auto_reply_enabled: Optional[bool] = Field(
-        None, description="Включен ли автоответчик"
-    )
-    auto_reply_message: Optional[str] = Field(
-        None, description="Сообщение автоответчика"
-    )
-    ai_enabled: Optional[bool] = Field(None, description="Включен ли AI по умолчанию")
-    ai_model: Optional[str] = Field(None, description="Модель AI по умолчанию")
-    ai_temperature: Optional[int] = Field(
-        None, ge=0, le=100, description="Температура AI (0-100)"
-    )
-    ai_max_tokens: Optional[int] = Field(
-        None, ge=100, le=4000, description="Максимальное количество токенов"
-    )
-    notification_email: Optional[str] = Field(None, description="Email для уведомлений")
-    sync_interval: Optional[int] = Field(
-        None, ge=60, le=3600, description="Интервал синхронизации (секунды)"
-    )
-    max_concurrent_chats: Optional[int] = Field(
-        None, ge=1, le=100, description="Максимальное количество одновременных чатов"
-    )
-
-
-class AvitoGlobalSettings(AvitoGlobalSettingsBase):
-    """Глобальные настройки Avito с метаданными"""
-
-    id: int = Field(..., description="ID настройки")
-    is_active: bool = Field(False, description="Активна ли интеграция")
-    last_sync_at: Optional[str] = Field(
-        None, description="Время последней синхронизации"
-    )
-    last_error: Optional[str] = Field(None, description="Последняя ошибка")
-    created_at: str = Field(..., description="Время создания")
-    updated_at: str = Field(..., description="Время обновления")
-
-
-class AvitoTestConnectionResponse(BaseModel):
-    """Ответ на тест подключения"""
-
-    success: bool = Field(..., description="Успешность подключения")
-    message: str = Field(..., description="Сообщение о результате")
-
-
-class AvitoTestWebhookResponse(BaseModel):
-    """Ответ на тест webhook"""
-
-    success: bool = Field(..., description="Успешность webhook")
-    message: str = Field(..., description="Сообщение о результате")
-
-
 class AvitoSyncChatsRequest(BaseModel):
     """Запрос на синхронизацию чатов"""
-
     limit: int = Field(100, ge=1, le=1000, description="Лимит чатов для синхронизации")
     force_sync: bool = Field(False, description="Принудительная синхронизация")
 
-
 class AvitoSyncChatsResponse(BaseModel):
     """Ответ на синхронизацию чатов"""
-
     synced_chats: int = Field(..., description="Количество синхронизированных чатов")
     created_chats: int = Field(..., description="Количество созданных чатов")
     total_chats: int = Field(..., description="Общее количество чатов в Avito")
     success: bool = Field(True, description="Успешность операции")
-
-
-# Схемы для OAuth авторизации
-
-
-class AvitoAuthType(str, Enum):
-    """Тип авторизации Avito"""
-
-    CLIENT_CREDENTIALS = "client_credentials"
-    AUTHORIZATION_CODE = "authorization_code"
-
-
-class AvitoTokenRequest(BaseModel):
-    """Запрос на получение токена (Client Credentials)"""
-
-    grant_type: str = Field("client_credentials", description="Тип гранта")
-    client_id: str = Field(..., description="Client ID")
-    client_secret: str = Field(..., description="Client Secret")
-
-
-class AvitoTokenResponse(BaseModel):
-    """Ответ с токеном"""
-
-    access_token: str = Field(..., description="Access Token")
-    token_type: str = Field(..., description="Тип токена")
-    expires_in: int = Field(..., description="Время жизни токена в секундах")
-    scope: Optional[str] = Field(None, description="Область доступа")
-
-
-class AvitoAuthorizationCodeRequest(BaseModel):
-    """Запрос на получение токена (Authorization Code)"""
-
-    grant_type: str = Field("authorization_code", description="Тип гранта")
-    client_id: str = Field(..., description="Client ID")
-    client_secret: str = Field(..., description="Client Secret")
-    code: str = Field(..., description="Authorization Code")
-    redirect_uri: Optional[str] = Field(None, description="Redirect URI")
-
-
-class AvitoAuthorizationCodeResponse(BaseModel):
-    """Ответ с токенами (Authorization Code)"""
-
-    access_token: str = Field(..., description="Access Token")
-    token_type: str = Field(..., description="Тип токена")
-    expires_in: int = Field(..., description="Время жизни токена в секундах")
-    refresh_token: str = Field(..., description="Refresh Token")
-    scope: Optional[str] = Field(None, description="Область доступа")
-
-
-class AvitoRefreshTokenRequest(BaseModel):
-    """Запрос на обновление токена"""
-
-    grant_type: str = Field("refresh_token", description="Тип гранта")
-    client_id: str = Field(..., description="Client ID")
-    client_secret: str = Field(..., description="Client Secret")
-    refresh_token: str = Field(..., description="Refresh Token")
-
-
-class AvitoRefreshTokenResponse(BaseModel):
-    """Ответ на обновление токена"""
-
-    access_token: str = Field(..., description="Новый Access Token")
-    token_type: str = Field(..., description="Тип токена")
-    expires_in: int = Field(..., description="Время жизни токена в секундах")
-    refresh_token: str = Field(..., description="Новый Refresh Token")
-    scope: Optional[str] = Field(None, description="Область доступа")
-
-
-class AvitoOAuthState(BaseModel):
-    """Состояние OAuth для защиты от CSRF"""
-
-    state: str = Field(..., description="Уникальный state")
-    redirect_uri: str = Field(..., description="Redirect URI")
-    created_at: str = Field(..., description="Время создания")
-    expires_at: str = Field(..., description="Время истечения")
-
-
-class AvitoAuthUrlRequest(BaseModel):
-    """Запрос на получение URL авторизации"""
-
-    client_id: str = Field(..., description="Client ID приложения")
-    redirect_uri: str = Field(..., description="Redirect URI")
-    scope: List[str] = Field(..., description="Запрашиваемые скоупы")
-    state: Optional[str] = Field(None, description="State для защиты CSRF")
-
-
-class AvitoAuthUrlResponse(BaseModel):
-    """Ответ с URL авторизации"""
-
-    auth_url: str = Field(..., description="URL для авторизации")
-    state: str = Field(..., description="State для проверки")
-
-
-class AvitoAuthCallbackRequest(BaseModel):
-    """Запрос от callback после авторизации"""
-
-    code: str = Field(..., description="Authorization Code")
-    state: str = Field(..., description="State")
-    error: Optional[str] = Field(None, description="Ошибка авторизации")
-    error_description: Optional[str] = Field(None, description="Описание ошибки")
-
-
-class AvitoAuthCallbackResponse(BaseModel):
-    """Ответ на callback авторизации"""
-
-    success: bool = Field(..., description="Успешность авторизации")
-    access_token: Optional[str] = Field(None, description="Access Token")
-    refresh_token: Optional[str] = Field(None, description="Refresh Token")
-    expires_in: Optional[int] = Field(None, description="Время жизни токена")
-    error: Optional[str] = Field(None, description="Ошибка")
-
-
-class AvitoTokenInfo(BaseModel):
-    """Информация о токене"""
-
-    active: bool = Field(..., description="Активен ли токен")
-    scope: Optional[str] = Field(None, description="Область доступа")
-    client_id: Optional[str] = Field(None, description="Client ID")
-    username: Optional[str] = Field(None, description="Имя пользователя")
-    token_type: Optional[str] = Field(None, description="Тип токена")
-    exp: Optional[int] = Field(None, description="Время истечения (timestamp)")
-    iat: Optional[int] = Field(None, description="Время выдачи (timestamp)")
-    nbf: Optional[int] = Field(None, description="Не раньше (timestamp)")
-    sub: Optional[str] = Field(None, description="Subject")
-    aud: Optional[str] = Field(None, description="Audience")
-    iss: Optional[str] = Field(None, description="Issuer")
-    jti: Optional[str] = Field(None, description="JWT ID")
-
-
-class AvitoWebhookAuthEvent(BaseModel):
-    """Событие webhook авторизации"""
-
-    type: str = Field(..., description="Тип события")
-    user_id: str = Field(..., description="ID пользователя")
-    client_id: str = Field(..., description="Client ID")
-    scope: str = Field(..., description="Область доступа")
-    timestamp: str = Field(..., description="Время события")

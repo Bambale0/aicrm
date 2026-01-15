@@ -1,18 +1,17 @@
 """
 Конфигурация приложения
 """
-
+import os
 from typing import Optional
-
-from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
     """Настройки приложения"""
 
     # База данных
-    database_url: str = "sqlite:///./test.db"
+    database_url: str = "postgresql+psycopg2://user:password@localhost/aicrm"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -35,54 +34,26 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: Optional[str] = None
     smtp_password: Optional[str] = None
-    from_email: Optional[str] = None
 
     # Twilio
     twilio_account_sid: Optional[str] = None
     twilio_auth_token: Optional[str] = None
     twilio_phone_number: Optional[str] = None
-    sms_provider: Optional[str] = None
-    sms_api_key: Optional[str] = None
-    sms_login: Optional[str] = None
-    sms_password: Optional[str] = None
-    sms_sender: Optional[str] = None
 
     # Avito
     avito_client_id: Optional[str] = None
     avito_client_secret: Optional[str] = None
     avito_user_id: Optional[int] = None
 
-    # Google Calendar
-    google_calendar_client_id: Optional[str] = None
-    google_calendar_client_secret: Optional[str] = None
-    google_calendar_refresh_token: Optional[str] = None
-
-    # Outlook
-    outlook_client_id: Optional[str] = None
-    outlook_client_secret: Optional[str] = None
-    outlook_tenant_id: Optional[str] = None
-
-    # Calendar
-    calendar_provider: Optional[str] = None
-
     # App
     debug: bool = False
-    cors_origins: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "https://dev.chillcreative.ru",
-    ]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
     log_level: str = "INFO"
-
-    @property
-    def allow_origins(self) -> list[str]:
-        """Получить список разрешенных origins для CORS"""
-        return self.cors_origins
 
     model_config = ConfigDict(
         env_file=".env",
         case_sensitive=False,
-        extra="ignore",  # Allow extra fields from environment
+        extra='ignore'  # Allow extra fields from environment
     )
 
 

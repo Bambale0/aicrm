@@ -1,10 +1,9 @@
 """
 Интеграционные тесты для Avito API
 """
-
-from unittest.mock import AsyncMock, MagicMock, patch
-
+import pytest
 from httpx import AsyncClient
+from unittest.mock import patch, MagicMock
 
 
 class TestAvitoAPI:
@@ -18,15 +17,15 @@ class TestAvitoAPI:
                 "title": "Футболка с принтом",
                 "price": 1500,
                 "status": "active",
-                "url": "https://avito.ru/item/12345",
+                "url": "https://avito.ru/item/12345"
             },
             {
                 "id": 67890,
                 "title": "Худи с логотипом",
                 "price": 2500,
                 "status": "active",
-                "url": "https://avito.ru/item/67890",
-            },
+                "url": "https://avito.ru/item/67890"
+            }
         ]
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -54,7 +53,6 @@ class TestAvitoAPI:
 
             # Мокаем исключение AvitoAuthError
             from src.aicrm.services.avito_service import AvitoAuthError
-
             mock_service.get_active_items.side_effect = AvitoAuthError("Invalid token")
 
             response = await async_client.get("/avito/items")
@@ -72,7 +70,7 @@ class TestAvitoAPI:
             "favorites": 8,
             "conversion_rate": 8.0,
             "avg_position": 5.2,
-            "period_days": 30,
+            "period_days": 30
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -90,25 +88,18 @@ class TestAvitoAPI:
             assert data["contacts"] == 12
             assert "conversion_rate" in data
 
-    async def test_get_item_performance_with_days_param(
-        self, async_client: AsyncClient
-    ):
+    async def test_get_item_performance_with_days_param(self, async_client: AsyncClient):
         """Тест получения производительности с параметром дней"""
         item_id = 12345
         days = 7
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
             mock_service = MagicMock()
-            mock_service.get_item_performance.return_value = {
-                "item_id": item_id,
-                "period_days": days,
-            }
+            mock_service.get_item_performance.return_value = {"item_id": item_id, "period_days": days}
             mock_service_class.return_value.__aenter__.return_value = mock_service
             mock_service_class.return_value.__aexit__.return_value = None
 
-            response = await async_client.get(
-                f"/avito/items/{item_id}/performance?days={days}"
-            )
+            response = await async_client.get(f"/avito/items/{item_id}/performance?days={days}")
 
             assert response.status_code == 200
             data = response.json()
@@ -121,15 +112,15 @@ class TestAvitoAPI:
             "date_from": "2024-01-01",
             "date_to": "2024-01-31",
             "fields": ["views", "contacts"],
-            "period_grouping": "day",
+            "period_grouping": "day"
         }
 
         mock_stats = {
             "items": [
                 {"item_id": 12345, "stats": {"views": 100, "contacts": 5}},
-                {"item_id": 67890, "stats": {"views": 80, "contacts": 3}},
+                {"item_id": 67890, "stats": {"views": 80, "contacts": 3}}
             ],
-            "period_grouping": "day",
+            "period_grouping": "day"
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -151,17 +142,17 @@ class TestAvitoAPI:
             "date_from": "2024-01-01",
             "date_to": "2024-01-31",
             "metrics": ["views", "contacts", "favorites"],
-            "grouping": "day",
+            "grouping": "day"
         }
 
         mock_analytics = {
             "metrics": {
                 "views": {"total": 1250, "avg": 40.3},
                 "contacts": {"total": 45, "avg": 1.5},
-                "favorites": {"total": 23, "avg": 0.7},
+                "favorites": {"total": 23, "avg": 0.7}
             },
             "grouping": "day",
-            "period": {"from": "2024-01-01", "to": "2024-01-31"},
+            "period": {"from": "2024-01-01", "to": "2024-01-31"}
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -184,20 +175,13 @@ class TestAvitoAPI:
         mock_prices = {
             "vas_services": [
                 {"slug": "premium", "name": "Премиум", "price": 150, "currency": "RUB"},
-                {
-                    "slug": "highlight",
-                    "name": "Выделение",
-                    "price": 50,
-                    "currency": "RUB",
-                },
+                {"slug": "highlight", "name": "Выделение", "price": 50, "currency": "RUB"}
             ]
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
             mock_service = MagicMock()
-            mock_service.get_promotion_options.return_value = mock_prices[
-                "vas_services"
-            ]
+            mock_service.get_promotion_options.return_value = mock_prices["vas_services"]
             mock_service_class.return_value.__aenter__.return_value = mock_service
             mock_service_class.return_value.__aexit__.return_value = None
 
@@ -213,14 +197,14 @@ class TestAvitoAPI:
         item_id = 12345
         request_data = {
             "slugs": ["premium", "highlight"],
-            "stickers": ["new", "discount"],
+            "stickers": ["new", "discount"]
         }
 
         mock_result = {
             "operation_id": "op_123456",
             "status": "applied",
             "services": request_data["slugs"],
-            "stickers": request_data["stickers"],
+            "stickers": request_data["stickers"]
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -229,9 +213,7 @@ class TestAvitoAPI:
             mock_service_class.return_value.__aenter__.return_value = mock_service
             mock_service_class.return_value.__aexit__.return_value = None
 
-            response = await async_client.post(
-                f"/avito/items/{item_id}/vas", json=request_data
-            )
+            response = await async_client.post(f"/avito/items/{item_id}/vas", json=request_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -247,7 +229,7 @@ class TestAvitoAPI:
             "item_id": item_id,
             "new_price": new_price,
             "old_price": 1500,
-            "updated_at": "2024-01-15T10:00:00Z",
+            "updated_at": "2024-01-15T10:00:00Z"
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -257,7 +239,8 @@ class TestAvitoAPI:
             mock_service_class.return_value.__aexit__.return_value = None
 
             response = await async_client.put(
-                f"/avito/items/{item_id}/price", json={"price": new_price}
+                f"/avito/items/{item_id}/price",
+                json={"price": new_price}
             )
 
             assert response.status_code == 200
@@ -277,8 +260,8 @@ class TestAvitoAPI:
             "reasoning": "На основе анализа конкурентов и просмотров",
             "expected_improvement": {
                 "contacts_increase": 25,
-                "conversion_improvement": 15,
-            },
+                "conversion_improvement": 15
+            }
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -298,13 +281,16 @@ class TestAvitoAPI:
     async def test_promote_item_success(self, async_client: AsyncClient):
         """Тест успешного применения продвижения"""
         item_id = 12345
-        request_data = {"service_slug": "premium", "stickers": ["new"]}
+        request_data = {
+            "service_slug": "premium",
+            "stickers": ["new"]
+        }
 
         mock_result = {
             "operation_id": "promo_123456",
             "service_slug": "premium",
             "status": "applied",
-            "stickers": ["new"],
+            "stickers": ["new"]
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -313,9 +299,7 @@ class TestAvitoAPI:
             mock_service_class.return_value.__aenter__.return_value = mock_service
             mock_service_class.return_value.__aexit__.return_value = None
 
-            response = await async_client.post(
-                f"/avito/items/{item_id}/promote", json=request_data
-            )
+            response = await async_client.post(f"/avito/items/{item_id}/promote", json=request_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -328,16 +312,21 @@ class TestAvitoAPI:
         request_data = {
             "date_from": "2024-01-01",
             "date_to": "2024-01-31",
-            "item_ids": [12345, 67890],
+            "item_ids": [12345, 67890]
         }
 
         mock_stats = {
-            "calls": {"total": 25, "answered": 18, "missed": 7, "avg_duration": 180},
+            "calls": {
+                "total": 25,
+                "answered": 18,
+                "missed": 7,
+                "avg_duration": 180
+            },
             "items": [
                 {"item_id": 12345, "calls": 15, "answered": 12},
-                {"item_id": 67890, "calls": 10, "answered": 6},
+                {"item_id": 67890, "calls": 10, "answered": 6}
             ],
-            "period": {"from": "2024-01-01", "to": "2024-01-31"},
+            "period": {"from": "2024-01-01", "to": "2024-01-31"}
         }
 
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
@@ -361,28 +350,24 @@ class TestAvitoAPI:
             "user_id": "user_456",
             "message": {
                 "text": "Здравствуйте, футболка еще в наличии?",
-                "timestamp": "2024-01-15T10:00:00Z",
+                "timestamp": "2024-01-15T10:00:00Z"
             },
-            "item_id": 12345,
+            "item_id": 12345
         }
 
         mock_result = {
             "success": True,
             "communication_id": 789,
             "intent": "question",
-            "ai_response": "Да, футболка в наличии. Могу оформить заказ.",
+            "ai_response": "Да, футболка в наличии. Могу оформить заказ."
         }
 
-        with patch(
-            "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-        ) as mock_handler_class:
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class:
             mock_handler = MagicMock()
             mock_handler.handle_incoming_message.return_value = mock_result
             mock_handler_class.return_value = mock_handler
 
-            response = await async_client.post(
-                "/avito/messages/incoming", json=message_data
-            )
+            response = await async_client.post("/avito/messages/incoming", json=message_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -401,11 +386,8 @@ class TestAvitoAPI:
         """Тест ошибки превышения лимита запросов"""
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
             from src.aicrm.services.avito_service import AvitoRateLimitError
-
             mock_service = MagicMock()
-            mock_service.get_active_items.side_effect = AvitoRateLimitError(
-                "Rate limit exceeded"
-            )
+            mock_service.get_active_items.side_effect = AvitoRateLimitError("Rate limit exceeded")
             mock_service_class.return_value.__aenter__.return_value = mock_service
             mock_service_class.return_value.__aexit__.return_value = None
 
@@ -418,11 +400,8 @@ class TestAvitoAPI:
         """Тест общей ошибки API"""
         with patch("src.aicrm.api.routers.avito.AvitoService") as mock_service_class:
             from src.aicrm.services.avito_service import AvitoAPIError
-
             mock_service = MagicMock()
-            mock_service.get_active_items.side_effect = AvitoAPIError(
-                "API temporarily unavailable"
-            )
+            mock_service.get_active_items.side_effect = AvitoAPIError("API temporarily unavailable")
             mock_service_class.return_value.__aenter__.return_value = mock_service
             mock_service_class.return_value.__aexit__.return_value = None
 
@@ -437,7 +416,7 @@ class TestAvitoAPI:
         request_data = {
             "item_ids": [],  # Пустой список
             "date_from": "invalid-date",
-            "date_to": "2024-01-31",
+            "date_to": "2024-01-31"
         }
 
         response = await async_client.post("/avito/items/stats", json=request_data)
@@ -454,7 +433,7 @@ class TestAvitoAPI:
                 "last_message_at": "2024-01-15T10:00:00Z",
                 "message_count": 5,
                 "ai_enabled": True,
-                "unread_count": 0,
+                "unread_count": 0
             },
             {
                 "chat_id": "chat_2",
@@ -463,14 +442,12 @@ class TestAvitoAPI:
                 "last_message_at": "2024-01-14T15:30:00Z",
                 "message_count": 3,
                 "ai_enabled": False,
-                "unread_count": 1,
-            },
+                "unread_count": 1
+            }
         ]
 
         with patch("src.aicrm.api.routers.avito.db") as mock_db:
-            mock_db.query.return_value.options.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = (
-                []
-            )
+            mock_db.query.return_value.options.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = []
 
             # Мокаем чаты с настройками
             mock_chat_settings = []
@@ -483,9 +460,7 @@ class TestAvitoAPI:
                 mock_setting.ai_enabled = chat["ai_enabled"]
                 mock_chat_settings.append(mock_setting)
 
-            mock_db.query.return_value.options.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = (
-                mock_chat_settings
-            )
+            mock_db.query.return_value.options.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = mock_chat_settings
 
             response = await async_client.get("/avito/messenger/chats")
 
@@ -501,19 +476,14 @@ class TestAvitoAPI:
             "ai_enabled_chats": 12,
             "total_messages": 450,
             "ai_messages": 180,
-            "avg_response_time": 300,
+            "avg_response_time": 300
         }
 
         with patch("src.aicrm.api.routers.avito.db") as mock_db:
             # Мокаем запросы к БД
             mock_db.query.return_value.count.return_value = 25  # total_chats
-            mock_db.query.return_value.filter.return_value.count.side_effect = [
-                18,
-                12,
-            ]  # active_chats, ai_enabled_chats
-            mock_db.query.return_value.filter.return_value.all.return_value = (
-                []
-            )  # messages
+            mock_db.query.return_value.filter.return_value.count.side_effect = [18, 12]  # active_chats, ai_enabled_chats
+            mock_db.query.return_value.filter.return_value.all.return_value = []  # messages
 
             response = await async_client.get("/avito/messenger/stats")
 
@@ -529,22 +499,21 @@ class TestAvitoAPI:
         """Тест успешной отправки сообщения с AI генерацией"""
         user_id = 12345
         chat_id = "chat_123"
-        request_data = {"message": "Расскажите о ваших услугах печати", "use_ai": True}
+        request_data = {
+            "message": "Расскажите о ваших услугах печати",
+            "use_ai": True
+        }
 
         # Мокаем AI ответ
         mock_ai_result = {
             "intent": "question",
             "response": "Мы предлагаем различные услуги печати: футболки, худи, кружки и многое другое. Какой товар вас интересует?",
-            "needs_human_intervention": False,
+            "needs_human_intervention": False
         }
 
-        with (
-            patch(
-                "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-            ) as mock_handler_class,
-            patch("src.aicrm.api.routers.avito.AIIntentService") as mock_ai_class,
-            patch("src.aicrm.api.routers.avito.db") as mock_db,
-        ):
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class, \
+             patch("src.aicrm.api.routers.avito.AIIntentService") as mock_ai_class, \
+             patch("src.aicrm.api.routers.avito.db") as mock_db:
 
             mock_handler = MagicMock()
             mock_handler.send_message.return_value = True
@@ -566,14 +535,9 @@ class TestAvitoAPI:
             mock_customer.name = "Иван Иванов"
             mock_customer.total_orders = 5
             mock_customer.preferences = {"communication_channels": ["avito"]}
-            mock_db.query.return_value.filter.return_value.first.return_value = (
-                mock_customer
-            )
+            mock_db.query.return_value.filter.return_value.first.return_value = mock_customer
 
-            response = await async_client.post(
-                f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages",
-                json=request_data,
-            )
+            response = await async_client.post(f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages", json=request_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -584,19 +548,17 @@ class TestAvitoAPI:
         """Тест успешной отправки сообщения без AI"""
         user_id = 12345
         chat_id = "chat_123"
-        request_data = {"message": "Спасибо за информацию!", "use_ai": False}
+        request_data = {
+            "message": "Спасибо за информацию!",
+            "use_ai": False
+        }
 
-        with patch(
-            "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-        ) as mock_handler_class:
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class:
             mock_handler = MagicMock()
             mock_handler.send_message.return_value = True
             mock_handler_class.return_value = mock_handler
 
-            response = await async_client.post(
-                f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages",
-                json=request_data,
-            )
+            response = await async_client.post(f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages", json=request_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -606,17 +568,17 @@ class TestAvitoAPI:
         """Тест отправки сообщения с ошибкой AI"""
         user_id = 12345
         chat_id = "chat_123"
-        request_data = {"message": "Test message", "use_ai": True}
+        request_data = {
+            "message": "Test message",
+            "use_ai": True
+        }
 
         with patch("src.aicrm.api.routers.avito.AIIntentService") as mock_ai_class:
             mock_ai = MagicMock()
             mock_ai.process_customer_message.side_effect = Exception("AI Service Error")
             mock_ai_class.return_value = mock_ai
 
-            response = await async_client.post(
-                f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages",
-                json=request_data,
-            )
+            response = await async_client.post(f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages", json=request_data)
 
             assert response.status_code == 500
             assert "ошибка" in response.json()["detail"].lower()
@@ -638,19 +600,15 @@ class TestAvitoAPI:
             "last_message_at": "2024-01-15T10:00:00Z",
             "last_ai_response_at": "2024-01-15T09:45:00Z",
             "created_at": "2024-01-10T08:00:00Z",
-            "updated_at": "2024-01-15T10:00:00Z",
+            "updated_at": "2024-01-15T10:00:00Z"
         }
 
-        with patch(
-            "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-        ) as mock_handler_class:
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class:
             mock_handler = MagicMock()
             mock_handler.get_chat_settings.return_value = MagicMock(**mock_settings)
             mock_handler_class.return_value = mock_handler
 
-            response = await async_client.get(
-                f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}"
-            )
+            response = await async_client.get(f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}")
 
             assert response.status_code == 200
             data = response.json()
@@ -663,16 +621,12 @@ class TestAvitoAPI:
         user_id = 12345
         chat_id = "nonexistent_chat"
 
-        with patch(
-            "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-        ) as mock_handler_class:
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class:
             mock_handler = MagicMock()
             mock_handler.get_chat_settings.return_value = None
             mock_handler_class.return_value = mock_handler
 
-            response = await async_client.get(
-                f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}"
-            )
+            response = await async_client.get(f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}")
 
             assert response.status_code == 404
             assert "не найдены" in response.json()["detail"]
@@ -684,7 +638,7 @@ class TestAvitoAPI:
         update_data = {
             "ai_enabled": False,
             "ai_temperature": 0.9,
-            "notifications_enabled": False,
+            "notifications_enabled": False
         }
 
         mock_updated_settings = MagicMock()
@@ -701,17 +655,12 @@ class TestAvitoAPI:
         mock_updated_settings.created_at = None
         mock_updated_settings.updated_at = None
 
-        with patch(
-            "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-        ) as mock_handler_class:
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class:
             mock_handler = MagicMock()
             mock_handler.update_chat_settings.return_value = mock_updated_settings
             mock_handler_class.return_value = mock_handler
 
-            response = await async_client.put(
-                f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}",
-                json=update_data,
-            )
+            response = await async_client.put(f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}", json=update_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -723,16 +672,12 @@ class TestAvitoAPI:
         """Тест успешного переключения AI для чата"""
         chat_id = "chat_123"
 
-        with patch(
-            "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-        ) as mock_handler_class:
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class:
             mock_handler = MagicMock()
             mock_handler.toggle_ai_for_chat.return_value = True
             mock_handler_class.return_value = mock_handler
 
-            response = await async_client.post(
-                f"/avito/messenger/chats/{chat_id}/toggle-ai?enabled=true"
-            )
+            response = await async_client.post(f"/avito/messenger/chats/{chat_id}/toggle-ai?enabled=true")
 
             assert response.status_code == 200
             data = response.json()
@@ -743,16 +688,12 @@ class TestAvitoAPI:
         """Тест переключения AI для несуществующего чата"""
         chat_id = "nonexistent_chat"
 
-        with patch(
-            "src.aicrm.api.routers.avito.AvitoCommunicationHandler"
-        ) as mock_handler_class:
+        with patch("src.aicrm.api.routers.avito.AvitoCommunicationHandler") as mock_handler_class:
             mock_handler = MagicMock()
             mock_handler.toggle_ai_for_chat.return_value = False
             mock_handler_class.return_value = mock_handler
 
-            response = await async_client.post(
-                f"/avito/messenger/chats/{chat_id}/toggle-ai?enabled=false"
-            )
+            response = await async_client.post(f"/avito/messenger/chats/{chat_id}/toggle-ai?enabled=false")
 
             assert response.status_code == 404
             assert "не найден" in response.json()["detail"]
@@ -770,7 +711,7 @@ class TestAvitoAPI:
                 "message_content": "Здравствуйте, футболка еще в наличии?",
                 "intent": "question",
                 "ai_generated": False,
-                "created_at": "2024-01-15T10:00:00Z",
+                "created_at": "2024-01-15T10:00:00Z"
             },
             {
                 "id": 2,
@@ -779,14 +720,12 @@ class TestAvitoAPI:
                 "message_content": "Да, футболка в наличии. Могу оформить заказ.",
                 "intent": None,
                 "ai_generated": True,
-                "created_at": "2024-01-15T10:05:00Z",
-            },
+                "created_at": "2024-01-15T10:05:00Z"
+            }
         ]
 
         with patch("src.aicrm.api.routers.avito.db") as mock_db:
-            mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = (
-                []
-            )
+            mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = []
 
             # Мокаем сообщения
             for msg_data in mock_messages:
@@ -797,13 +736,9 @@ class TestAvitoAPI:
                 mock_msg.intent = msg_data["intent"]
                 mock_msg.extra_data = {"ai_generated": msg_data["ai_generated"]}
                 mock_msg.created_at = None  # Для простоты
-                mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value.append(
-                    mock_msg
-                )
+                mock_db.query.return_value.filter.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value.append(mock_msg)
 
-            response = await async_client.get(
-                f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages"
-            )
+            response = await async_client.get(f"/avito/messenger/v1/accounts/{user_id}/chats/{chat_id}/messages")
 
             assert response.status_code == 200
             data = response.json()
@@ -822,17 +757,12 @@ class TestAvitoAPI:
                 "last_message_at": None,
                 "message_count": 5,
                 "ai_enabled": True,
-                "unread_count": 2,
+                "unread_count": 2
             }
         ]
 
-        with (
-            patch("src.aicrm.api.routers.avito.db") as mock_db,
-            patch(
-                "src.aicrm.api.routers.avito._count_unread_messages",
-                new_callable=AsyncMock,
-            ) as mock_count,
-        ):
+        with patch("src.aicrm.api.routers.avito.db") as mock_db, \
+             patch("src.aicrm.api.routers.avito._count_unread_messages", new_callable=AsyncMock) as mock_count:
 
             # Мокаем настройки чатов
             mock_chat_settings = []
@@ -845,16 +775,12 @@ class TestAvitoAPI:
                 mock_setting.ai_enabled = chat["ai_enabled"]
                 mock_chat_settings.append(mock_setting)
 
-            mock_db.query.return_value.options.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = (
-                mock_chat_settings
-            )
+            mock_db.query.return_value.options.return_value.order_by.return_value.offset.return_value.limit.return_value.all.return_value = mock_chat_settings
 
             # Мокаем подсчет непрочитанных
             mock_count.return_value = 2
 
-            response = await async_client.get(
-                f"/avito/messenger/v1/accounts/{user_id}/chats"
-            )
+            response = await async_client.get(f"/avito/messenger/v1/accounts/{user_id}/chats")
 
             assert response.status_code == 200
             data = response.json()
@@ -864,23 +790,13 @@ class TestAvitoAPI:
 
     async def test_messenger_stats_with_response_time(self, async_client: AsyncClient):
         """Тест получения статистики мессенджера с расчетом времени ответа"""
-        with (
-            patch("src.aicrm.api.routers.avito.db") as mock_db,
-            patch(
-                "src.aicrm.api.routers.avito._calculate_average_response_time",
-                new_callable=AsyncMock,
-            ) as mock_calc,
-        ):
+        with patch("src.aicrm.api.routers.avito.db") as mock_db, \
+             patch("src.aicrm.api.routers.avito._calculate_average_response_time", new_callable=AsyncMock) as mock_calc:
 
             # Мокаем запросы к БД
             mock_db.query.return_value.count.return_value = 10  # total_chats
-            mock_db.query.return_value.filter.return_value.count.side_effect = [
-                7,
-                5,
-            ]  # active_chats, ai_enabled_chats
-            mock_db.query.return_value.filter.return_value.all.return_value = (
-                []
-            )  # messages
+            mock_db.query.return_value.filter.return_value.count.side_effect = [7, 5]  # active_chats, ai_enabled_chats
+            mock_db.query.return_value.filter.return_value.all.return_value = []  # messages
 
             # Мокаем расчет времени ответа
             mock_calc.return_value = 15.5  # 15.5 минут

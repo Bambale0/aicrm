@@ -1,4 +1,4 @@
-е[MASTER]
+[MASTER]
 # Use multiple processes to speed up Pylint.
 jobs=0
 
@@ -27,6 +27,9 @@ disable=
 [REPORTS]
 # Set the output format
 output-format=text
+
+# Include message's id in output
+include-ids=yes
 
 # Template used to display messages
 msg-template='{path}:{line}:{column}: [{msg_id}({symbol}), {obj}] {msg}'

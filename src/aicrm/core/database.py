@@ -1,44 +1,25 @@
 """
 Настройка базы данных
 """
-
-from typing import AsyncGenerator, Generator
-
 from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from ..core.config import settings
 
 # Используем URL из настроек
 DATABASE_URL = settings.database_url
 
-# Конфигурация для разных типов баз данных
+# Для SQLite используем обычный sqlite3 драйвер
 if DATABASE_URL.startswith("sqlite"):
-    # Для SQLite используем обычный sqlite3 драйвер
-    sync_database_url = DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite://")
-    async_database_url = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
-    connect_args = {"check_same_thread": False} if settings.debug else {}
-    poolclass = StaticPool
-elif DATABASE_URL.startswith("postgresql"):
-    # Для PostgreSQL используем psycopg2 для sync и asyncpg для async
-    sync_database_url = DATABASE_URL
-    async_database_url = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
-    connect_args = {}
-    poolclass = None
-else:
-    # Для других баз данных
-    sync_database_url = DATABASE_URL
-    async_database_url = DATABASE_URL
-    connect_args = {}
-    poolclass = None
+    DATABASE_URL = DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite://")
 
 engine = create_engine(
-    sync_database_url,
+    DATABASE_URL,
     echo=settings.debug,
-    poolclass=poolclass if settings.debug else None,
-    connect_args=connect_args,
+    poolclass=StaticPool if settings.debug else None,
+    connect_args={"check_same_thread": False} if settings.debug else {},
 )
 
 SessionLocal = sessionmaker(
@@ -49,7 +30,7 @@ SessionLocal = sessionmaker(
 
 # Асинхронная версия для API тестов
 async_engine = create_async_engine(
-    async_database_url,
+    DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://") if DATABASE_URL.startswith("sqlite") else DATABASE_URL,
     echo=settings.debug,
 )
 
@@ -76,7 +57,3 @@ async def get_async_db() -> AsyncSession:
         yield db
     finally:
         await db.close()
-
-
-# Alias for compatibility
-get_master_db = get_db

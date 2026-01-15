@@ -1,19 +1,13 @@
 """
 Сервис интеграции с Avito API
 """
-
-import json
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
-
+from typing import Dict, Any, List, Optional
+from datetime import datetime, date, timedelta
 import httpx
+import logging
+import json
 import redis.asyncio as redis
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from ..core.config import settings
 from ..utils.logging import get_logger
@@ -35,12 +29,7 @@ class AvitoAuthError(Exception):
 class AvitoAPIError(Exception):
     """Ошибка API Avito"""
 
-    def __init__(
-        self,
-        message: str = "Ошибка API Avito",
-        status_code: int = None,
-        response_data: dict = None,
-    ):
+    def __init__(self, message: str = "Ошибка API Avito", status_code: int = None, response_data: dict = None):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -72,9 +61,7 @@ class AvitoAPIError(Exception):
 class AvitoRateLimitError(Exception):
     """Превышен лимит запросов Avito"""
 
-    def __init__(
-        self, message: str = "Превышен лимит запросов Avito", retry_after: int = None
-    ):
+    def __init__(self, message: str = "Превышен лимит запросов Avito", retry_after: int = None):
         super().__init__(message)
         self.message = message
         self.retry_after = retry_after  # секунды до следующего запроса
@@ -84,11 +71,7 @@ class AvitoRateLimitError(Exception):
 class AvitoNetworkError(Exception):
     """Сетевая ошибка при работе с Avito API"""
 
-    def __init__(
-        self,
-        message: str = "Сетевая ошибка Avito API",
-        original_error: Exception = None,
-    ):
+    def __init__(self, message: str = "Сетевая ошибка Avito API", original_error: Exception = None):
         super().__init__(message)
         self.message = message
         self.original_error = original_error
@@ -108,55 +91,11 @@ class AvitoTimeoutError(Exception):
 class AvitoValidationError(Exception):
     """Ошибка валидации данных Avito"""
 
-    def __init__(
-        self, message: str = "Ошибка валидации данных Avito", field_errors: dict = None
-    ):
+    def __init__(self, message: str = "Ошибка валидации данных Avito", field_errors: dict = None):
         super().__init__(message)
         self.message = message
         self.field_errors = field_errors or {}
         self.error_type = "validation"
-
-
-class AvitoCircuitBreakerError(Exception):
-    """Ошибка Circuit Breaker - сервис временно недоступен"""
-
-    def __init__(
-        self,
-        message: str = "Avito API временно недоступен (Circuit Breaker)",
-        service_name: str = "avito_api",
-    ):
-        super().__init__(message)
-        self.message = message
-        self.service_name = service_name
-        self.error_type = "circuit_breaker"
-
-
-class AvitoServiceUnavailableError(Exception):
-    """Сервис Avito временно недоступен"""
-
-    def __init__(
-        self, message: str = "Avito API временно недоступен", retry_after: int = None
-    ):
-        super().__init__(message)
-        self.message = message
-        self.retry_after = retry_after
-        self.error_type = "service_unavailable"
-
-
-class AvitoQuotaExceededError(Exception):
-    """Превышена квота API Avito"""
-
-    def __init__(
-        self,
-        message: str = "Превышена квота API Avito",
-        quota_type: str = None,
-        reset_time: str = None,
-    ):
-        super().__init__(message)
-        self.message = message
-        self.quota_type = quota_type
-        self.reset_time = reset_time
-        self.error_type = "quota_exceeded"
 
 
 class AvitoClient:
@@ -164,13 +103,11 @@ class AvitoClient:
     HTTP клиент для работы с Avito API
     """
 
-    def __init__(self, auth_type: str = "client_credentials"):
+    def __init__(self):
         self.base_url = "https://api.avito.ru"
-        self.auth_type = auth_type  # "client_credentials" или "authorization_code"
         self.client_id = settings.avito_client_id
         self.client_secret = settings.avito_client_secret
         self.access_token = None
-        self.refresh_token = None
         self.token_expires_at = None
         self.user_id = settings.avito_user_id
 
@@ -178,7 +115,10 @@ class AvitoClient:
         self.http_client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=30.0,
-            headers={"Content-Type": "application/json", "User-Agent": "AI-CRM/1.0"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "AI-CRM/1.0"
+            }
         )
 
     async def __aenter__(self):
@@ -201,13 +141,6 @@ class AvitoClient:
         return datetime.utcnow() < (self.token_expires_at - timedelta(minutes=5))
 
     async def _refresh_token(self):
-        """Обновление access token"""
-        if self.auth_type == "authorization_code" and self.refresh_token:
-            await self._refresh_token_via_refresh_token()
-        else:
-            await self._refresh_token_via_client_credentials()
-
-    async def _refresh_token_via_client_credentials(self):
         """Обновление access token через Client Credentials"""
         try:
             response = await self.http_client.post(
@@ -215,17 +148,17 @@ class AvitoClient:
                 data={
                     "grant_type": "client_credentials",
                     "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                },
+                    "client_secret": self.client_secret
+                }
             )
             response.raise_for_status()
-            token_data = await response.json()
+            token_data = response.json()
 
             self.access_token = token_data["access_token"]
             expires_in = token_data.get("expires_in", 3600)
             self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
-            logger.info("Avito access token обновлен (Client Credentials)")
+            logger.info("Avito access token обновлен")
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
@@ -234,84 +167,17 @@ class AvitoClient:
         except Exception as e:
             raise AvitoAPIError(f"Ошибка получения токена: {str(e)}")
 
-    async def _refresh_token_via_refresh_token(self):
-        """Обновление access token через Refresh Token"""
-        try:
-            response = await self.http_client.post(
-                "/token",
-                data={
-                    "grant_type": "refresh_token",
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "refresh_token": self.refresh_token,
-                },
-            )
-            response.raise_for_status()
-            token_data = await response.json()
-
-            self.access_token = token_data["access_token"]
-            self.refresh_token = token_data.get("refresh_token", self.refresh_token)
-            expires_in = token_data.get("expires_in", 3600)
-            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-
-            logger.info("Avito access token обновлен (Refresh Token)")
-
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 401:
-                raise AvitoAuthError("Неверный refresh token")
-            raise AvitoAPIError(f"Ошибка обновления токена: {e.response.text}")
-        except Exception as e:
-            raise AvitoAPIError(f"Ошибка обновления токена: {str(e)}")
-
-    async def get_token_via_authorization_code(
-        self, code: str, redirect_uri: str = None
-    ) -> Dict[str, Any]:
-        """Получение токена через Authorization Code"""
-        try:
-            data = {
-                "grant_type": "authorization_code",
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "code": code,
-            }
-            if redirect_uri:
-                data["redirect_uri"] = redirect_uri
-
-            response = await self.http_client.post("/token", data=data)
-            response.raise_for_status()
-            token_data = await response.json()
-
-            self.access_token = token_data["access_token"]
-            self.refresh_token = token_data.get("refresh_token")
-            expires_in = token_data.get("expires_in", 3600)
-            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-
-            logger.info("Avito токен получен через Authorization Code")
-            return token_data
-
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 400:
-                raise AvitoAuthError("Неверный authorization code")
-            raise AvitoAPIError(f"Ошибка получения токена: {e.response.text}")
-        except Exception as e:
-            raise AvitoAPIError(f"Ошибка получения токена: {str(e)}")
-
-    def set_tokens(
-        self, access_token: str, refresh_token: str = None, expires_in: int = 3600
-    ):
-        """Установка токенов вручную"""
-        self.access_token = access_token
-        self.refresh_token = refresh_token
-        self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-        logger.info("Avito токены установлены вручную")
-
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
+        retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError))
     )
     async def _make_request(
-        self, method: str, endpoint: str, operation_type: str = "read", **kwargs
+        self,
+        method: str,
+        endpoint: str,
+        operation_type: str = "read",
+        **kwargs
     ) -> Dict[str, Any]:
         """Выполнение HTTP запроса с обработкой ошибок и rate limiting"""
         # Проверка rate limit перед запросом
@@ -328,9 +194,9 @@ class AvitoClient:
 
         token = await self._ensure_token()
 
-        headers = kwargs.get("headers", {})
-        headers["Authorization"] = f"Bearer {token}"
-        kwargs["headers"] = headers
+        headers = kwargs.get('headers', {})
+        headers['Authorization'] = f'Bearer {token}'
+        kwargs['headers'] = headers
 
         try:
             response = await self.http_client.request(method, endpoint, **kwargs)
@@ -347,17 +213,17 @@ class AvitoClient:
                 # Токен истек, попробуем обновить
                 self.access_token = None
                 token = await self._ensure_token()
-                headers["Authorization"] = f"Bearer {token}"
-                kwargs["headers"] = headers
+                headers['Authorization'] = f'Bearer {token}'
+                kwargs['headers'] = headers
                 response = await self.http_client.request(method, endpoint, **kwargs)
                 response.raise_for_status()
                 return response.json() if response.content else {}
             elif e.response.status_code == 429:
                 # Извлекаем информацию о rate limit из заголовков
-                retry_after = e.response.headers.get("Retry-After")
+                retry_after = e.response.headers.get('Retry-After')
                 raise AvitoRateLimitError(
                     f"Превышен лимит запросов Avito для {endpoint}",
-                    retry_after=int(retry_after) if retry_after else None,
+                    retry_after=int(retry_after) if retry_after else None
                 )
             elif e.response.status_code == 422:
                 # Ошибка валидации данных
@@ -365,18 +231,16 @@ class AvitoClient:
                     error_data = e.response.json()
                     raise AvitoValidationError(
                         f"Ошибка валидации данных: {error_data.get('message', 'Неверный формат данных')}",
-                        field_errors=error_data.get("errors", {}),
+                        field_errors=error_data.get('errors', {})
                     )
                 except:
-                    raise AvitoValidationError(
-                        f"Ошибка валидации данных: {e.response.text}"
-                    )
+                    raise AvitoValidationError(f"Ошибка валидации данных: {e.response.text}")
             elif e.response.status_code >= 500:
                 # Серверная ошибка Avito
                 raise AvitoAPIError(
                     f"Серверная ошибка Avito: {e.response.status_code}",
                     status_code=e.response.status_code,
-                    response_data={"error": "server_error"},
+                    response_data={"error": "server_error"}
                 )
             else:
                 # Другие ошибки API
@@ -385,36 +249,31 @@ class AvitoClient:
                     raise AvitoAPIError(
                         f"API ошибка {e.response.status_code}: {error_data.get('message', e.response.text)}",
                         status_code=e.response.status_code,
-                        response_data=error_data,
+                        response_data=error_data
                     )
                 except:
                     raise AvitoAPIError(
                         f"API ошибка {e.response.status_code}: {e.response.text}",
-                        status_code=e.response.status_code,
+                        status_code=e.response.status_code
                     )
-        except httpx.TimeoutException:
-            raise AvitoTimeoutError(
-                f"Таймаут запроса к Avito API: {endpoint}", timeout_seconds=30
-            )
+        except httpx.TimeoutException as e:
+            raise AvitoTimeoutError(f"Таймаут запроса к Avito API: {endpoint}", timeout_seconds=30)
         except httpx.ConnectError as e:
-            raise AvitoNetworkError(
-                f"Ошибка подключения к Avito API: {endpoint}", original_error=e
-            )
+            raise AvitoNetworkError(f"Ошибка подключения к Avito API: {endpoint}", original_error=e)
         except httpx.RequestError as e:
-            raise AvitoNetworkError(
-                f"Ошибка сети при запросе к Avito API: {endpoint}", original_error=e
-            )
+            raise AvitoNetworkError(f"Ошибка сети при запросе к Avito API: {endpoint}", original_error=e)
         except Exception as e:
-            raise AvitoAPIError(
-                f"Неизвестная ошибка при запросе к {endpoint}: {str(e)}"
-            )
+            raise AvitoAPIError(f"Неизвестная ошибка при запросе к {endpoint}: {str(e)}")
 
     # Методы API
 
     async def get_items(self, **params) -> List[Dict[str, Any]]:
         """Получение списка объявлений"""
         response = await self._make_request(
-            "GET", "/core/v1/items", operation_type="read", params=params
+            "GET",
+            "/core/v1/items",
+            operation_type="read",
+            params=params
         )
         return response.get("resources", [])
 
@@ -423,7 +282,7 @@ class AvitoClient:
         return await self._make_request(
             "GET",
             f"/core/v1/accounts/{self.user_id}/items/{item_id}/",
-            operation_type="read",
+            operation_type="read"
         )
 
     async def get_item_stats(
@@ -432,7 +291,7 @@ class AvitoClient:
         date_from: date,
         date_to: date,
         fields: List[str] = None,
-        period_grouping: str = "day",
+        period_grouping: str = "day"
     ) -> Dict[str, Any]:
         """Получение статистики объявлений"""
         if fields is None:
@@ -443,14 +302,14 @@ class AvitoClient:
             "dateFrom": date_from.isoformat(),
             "dateTo": date_to.isoformat(),
             "fields": fields,
-            "periodGrouping": period_grouping,
+            "periodGrouping": period_grouping
         }
 
         return await self._make_request(
             "POST",
             f"/stats/v1/accounts/{self.user_id}/items",
             operation_type="read",
-            json=data,
+            json=data
         )
 
     async def get_analytics(
@@ -459,7 +318,7 @@ class AvitoClient:
         date_to: date,
         metrics: List[str],
         grouping: str = "item",
-        **filters,
+        **filters
     ) -> Dict[str, Any]:
         """Получение аналитики по профилю"""
         data = {
@@ -468,7 +327,7 @@ class AvitoClient:
             "metrics": metrics,
             "grouping": grouping,
             "limit": 1000,
-            "offset": 0,
+            "offset": 0
         }
 
         if filters:
@@ -478,7 +337,7 @@ class AvitoClient:
             "POST",
             f"/stats/v2/accounts/{self.user_id}/items",
             operation_type="read",
-            json=data,
+            json=data
         )
 
     async def get_vas_prices(self, item_ids: List[int]) -> List[Dict[str, Any]]:
@@ -487,19 +346,20 @@ class AvitoClient:
             "POST",
             f"/core/v1/accounts/{self.user_id}/vas/prices",
             operation_type="read",
-            json={"itemIds": item_ids},
+            json={"itemIds": item_ids}
         )
 
-    async def apply_vas(
-        self, item_id: int, slugs: List[str], stickers: List[int] = None
-    ) -> Dict[str, Any]:
+    async def apply_vas(self, item_id: int, slugs: List[str], stickers: List[int] = None) -> Dict[str, Any]:
         """Применение услуг продвижения"""
         data = {"slugs": slugs}
         if stickers:
             data["stickers"] = stickers
 
         return await self._make_request(
-            "PUT", f"/core/v2/items/{item_id}/vas/", operation_type="write", json=data
+            "PUT",
+            f"/core/v2/items/{item_id}/vas/",
+            operation_type="write",
+            json=data
         )
 
     async def update_price(self, item_id: int, price: int) -> Dict[str, Any]:
@@ -508,14 +368,20 @@ class AvitoClient:
             "POST",
             f"/core/v1/items/{item_id}/update_price",
             operation_type="write",
-            json={"price": price},
+            json={"price": price}
         )
 
     async def get_calls_stats(
-        self, date_from: date, date_to: date, item_ids: List[int] = None
+        self,
+        date_from: date,
+        date_to: date,
+        item_ids: List[int] = None
     ) -> Dict[str, Any]:
         """Получение статистики звонков"""
-        data = {"dateFrom": date_from.isoformat(), "dateTo": date_to.isoformat()}
+        data = {
+            "dateFrom": date_from.isoformat(),
+            "dateTo": date_to.isoformat()
+        }
         if item_ids:
             data["itemIds"] = item_ids
 
@@ -523,7 +389,7 @@ class AvitoClient:
             "POST",
             f"/core/v1/accounts/{self.user_id}/calls/stats/",
             operation_type="read",
-            json=data,
+            json=data
         )
 
     # Messenger API методы
@@ -533,10 +399,13 @@ class AvitoClient:
         item_ids: Optional[str] = None,
         unread_only: Optional[bool] = None,
         limit: int = 100,
-        offset: int = 0,
+        offset: int = 0
     ) -> Dict[str, Any]:
         """Получение списка чатов"""
-        params = {"limit": limit, "offset": offset}
+        params = {
+            "limit": limit,
+            "offset": offset
+        }
         if item_ids:
             params["itemIds"] = item_ids
         if unread_only is not None:
@@ -546,7 +415,7 @@ class AvitoClient:
             "GET",
             f"/messenger/v1/accounts/{self.user_id}/chats",
             operation_type="read",
-            params=params,
+            params=params
         )
 
     async def get_chat_by_id(self, chat_id: str) -> Dict[str, Any]:
@@ -554,44 +423,64 @@ class AvitoClient:
         return await self._make_request(
             "GET",
             f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}",
-            operation_type="read",
+            operation_type="read"
         )
 
     async def get_messages(
-        self, chat_id: str, limit: int = 100, offset: int = 0
+        self,
+        chat_id: str,
+        limit: int = 100,
+        offset: int = 0
     ) -> Dict[str, Any]:
         """Получение списка сообщений (v1)"""
-        params = {"limit": limit, "offset": offset}
+        params = {
+            "limit": limit,
+            "offset": offset
+        }
 
         return await self._make_request(
             "GET",
             f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages/",
             operation_type="read",
-            params=params,
+            params=params
         )
 
     async def get_messages_v2(
-        self, chat_id: str, limit: int = 100, offset: int = 0
+        self,
+        chat_id: str,
+        limit: int = 100,
+        offset: int = 0
     ) -> Dict[str, Any]:
         """Получение списка сообщений (v2)"""
-        params = {"limit": limit, "offset": offset}
+        params = {
+            "limit": limit,
+            "offset": offset
+        }
 
         return await self._make_request(
             "GET",
             f"/messenger/v2/accounts/{self.user_id}/chats/{chat_id}/messages/",
             operation_type="read",
-            params=params,
+            params=params
         )
 
-    async def send_message(self, chat_id: str, message: str) -> Dict[str, Any]:
+    async def send_message(
+        self,
+        chat_id: str,
+        message: str
+    ) -> Dict[str, Any]:
         """Отправка сообщения"""
-        data = {"message": {"text": message}}
+        data = {
+            "message": {
+                "text": message
+            }
+        }
 
         return await self._make_request(
             "POST",
             f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages",
             operation_type="write",
-            json=data,
+            json=data
         )
 
     async def mark_chat_read(self, chat_id: str) -> Dict[str, Any]:
@@ -599,19 +488,25 @@ class AvitoClient:
         return await self._make_request(
             "POST",
             f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/read",
-            operation_type="write",
+            operation_type="write"
         )
 
-    async def delete_message(self, chat_id: str, message_id: str) -> Dict[str, Any]:
+    async def delete_message(
+        self,
+        chat_id: str,
+        message_id: str
+    ) -> Dict[str, Any]:
         """Удаление сообщения"""
         return await self._make_request(
             "POST",
             f"/messenger/v1/accounts/{self.user_id}/chats/{chat_id}/messages/{message_id}",
-            operation_type="write",
+            operation_type="write"
         )
 
     async def add_to_blacklist(
-        self, user_id: str, reason: Optional[str] = None
+        self,
+        user_id: str,
+        reason: Optional[str] = None
     ) -> None:
         """Добавление пользователя в черный список"""
         data = {"userId": user_id}
@@ -622,23 +517,34 @@ class AvitoClient:
             "POST",
             f"/messenger/v1/accounts/{self.user_id}/blacklist",
             operation_type="write",
-            json=data,
+            json=data
         )
 
     async def subscribe_webhook(
-        self, url: str, events: List[str] = None
+        self,
+        url: str,
+        events: List[str] = None
     ) -> Dict[str, Any]:
         """Подписка на webhook уведомления"""
         if events is None:
             events = ["message"]
 
-        data = {"url": url, "events": events}
+        data = {
+            "url": url,
+            "events": events
+        }
 
         return await self._make_request(
-            "POST", "/messenger/v1/webhook", operation_type="write", json=data
+            "POST",
+            "/messenger/v1/webhook",
+            operation_type="write",
+            json=data
         )
 
-    async def unsubscribe_webhook(self, url: str) -> Dict[str, Any]:
+    async def unsubscribe_webhook(
+        self,
+        url: str
+    ) -> Dict[str, Any]:
         """Отписка от webhook уведомлений"""
         data = {"url": url}
 
@@ -646,20 +552,28 @@ class AvitoClient:
             "POST",
             "/messenger/v1/webhook/unsubscribe",
             operation_type="write",
-            json=data,
+            json=data
         )
 
     async def subscribe_webhook_v2(
-        self, url: str, events: List[str] = None
+        self,
+        url: str,
+        events: List[str] = None
     ) -> Dict[str, Any]:
         """Подписка на webhook уведомления (v2)"""
         if events is None:
             events = ["message"]
 
-        data = {"url": url, "events": events}
+        data = {
+            "url": url,
+            "events": events
+        }
 
         return await self._make_request(
-            "POST", "/messenger/v2/webhook", operation_type="write", json=data
+            "POST",
+            "/messenger/v2/webhook",
+            operation_type="write",
+            json=data
         )
 
 
@@ -692,9 +606,7 @@ class AvitoCache:
             logger.warning(f"Ошибка чтения из кэша {key}: {e}")
             return None
 
-    async def set_cached(
-        self, key: str, data: Dict[str, Any], ttl_seconds: int
-    ) -> None:
+    async def set_cached(self, key: str, data: Dict[str, Any], ttl_seconds: int) -> None:
         """Сохранение данных в кэш"""
         try:
             redis_client = await self._get_redis()
@@ -710,9 +622,7 @@ class AvitoCache:
             keys = await redis_client.keys(pattern)
             if keys:
                 await redis_client.delete(*keys)
-                logger.info(
-                    f"Invalidated {len(keys)} cache keys matching pattern: {pattern}"
-                )
+                logger.info(f"Invalidated {len(keys)} cache keys matching pattern: {pattern}")
         except Exception as e:
             logger.warning(f"Ошибка инвалидации кэша {pattern}: {e}")
 
@@ -733,18 +643,14 @@ class AvitoService:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.client.__aexit__(exc_type, exc_val, exc_tb)
 
-    async def get_active_items(
-        self, use_cache_fallback: bool = True
-    ) -> List[Dict[str, Any]]:
+    async def get_active_items(self, use_cache_fallback: bool = True) -> List[Dict[str, Any]]:
         """Получение активных объявлений с кэшированием и graceful degradation"""
         cache_key = f"avito:active_items:{self.client.user_id}"
 
         # Проверяем кэш
         cached_data = await self.cache.get_cached(cache_key)
         if cached_data:
-            logger.info(
-                f"Возвращены активные объявления из кэша ({len(cached_data)} шт.)"
-            )
+            logger.info(f"Возвращены активные объявления из кэша ({len(cached_data)} шт.)")
             return cached_data
 
         try:
@@ -755,15 +661,9 @@ class AvitoService:
             await self.cache.set_cached(cache_key, items, ttl_seconds=300)
             return items
         except (AvitoNetworkError, AvitoTimeoutError, AvitoAPIError) as e:
-            if (
-                use_cache_fallback
-                and isinstance(e, (AvitoNetworkError, AvitoTimeoutError))
-                or (isinstance(e, AvitoAPIError) and e.error_subtype == "server_error")
-            ):
+            if use_cache_fallback and isinstance(e, (AvitoNetworkError, AvitoTimeoutError)) or (isinstance(e, AvitoAPIError) and e.error_subtype == "server_error"):
                 # Graceful degradation: возвращаем пустой список с предупреждением
-                logger.warning(
-                    f"Avito API недоступен ({e.error_type}), возвращаем пустой список для graceful degradation"
-                )
+                logger.warning(f"Avito API недоступен ({e.error_type}), возвращаем пустой список для graceful degradation")
                 return []
             else:
                 logger.error(f"Ошибка получения объявлений: {e}")
@@ -776,7 +676,9 @@ class AvitoService:
             raise
 
     async def get_item_performance(
-        self, item_id: int, days: int = 30
+        self,
+        item_id: int,
+        days: int = 30
     ) -> Dict[str, Any]:
         """Получение производительности объявления с кэшированием"""
         cache_key = f"avito:item_performance:{item_id}:{days}"
@@ -793,12 +695,16 @@ class AvitoService:
 
             # Статистика просмотров
             stats = await self.client.get_item_stats(
-                item_ids=[item_id], date_from=date_from, date_to=date_to
+                item_ids=[item_id],
+                date_from=date_from,
+                date_to=date_to
             )
 
             # Статистика звонков
             calls_stats = await self.client.get_calls_stats(
-                date_from=date_from, date_to=date_to, item_ids=[item_id]
+                date_from=date_from,
+                date_to=date_to,
+                item_ids=[item_id]
             )
 
             # Информация об объявлении
@@ -811,7 +717,7 @@ class AvitoService:
                 "url": item_info.get("url"),
                 "stats": stats.get("result", {}),
                 "calls": calls_stats.get("result", {}),
-                "vas_active": item_info.get("vas", []),
+                "vas_active": item_info.get("vas", [])
             }
 
             # Кэшируем на 10 минут
@@ -835,12 +741,8 @@ class AvitoService:
             if not stats:
                 return {"recommendation": "Недостаточно данных для анализа"}
 
-            total_views = sum(
-                day.get("uniqViews", 0) for day in stats[0].get("stats", [])
-            )
-            total_contacts = sum(
-                day.get("uniqContacts", 0) for day in stats[0].get("stats", [])
-            )
+            total_views = sum(day.get("uniqViews", 0) for day in stats[0].get("stats", []))
+            total_contacts = sum(day.get("uniqContacts", 0) for day in stats[0].get("stats", []))
 
             if total_views == 0:
                 conversion_rate = 0
@@ -849,9 +751,7 @@ class AvitoService:
 
             # Простая логика оптимизации
             if conversion_rate < 0.01:  # Менее 1% конверсии
-                recommendation = (
-                    "Увеличить цену на 5-10% для повышения качества трафика"
-                )
+                recommendation = "Увеличить цену на 5-10% для повышения качества трафика"
             elif conversion_rate > 0.05:  # Более 5% конверсии
                 recommendation = "Цена оптимальна, рассмотреть применение VAS услуг"
             else:
@@ -862,7 +762,7 @@ class AvitoService:
                 "current_conversion": conversion_rate,
                 "total_views": total_views,
                 "total_contacts": total_contacts,
-                "recommendation": recommendation,
+                "recommendation": recommendation
             }
 
         except Exception as e:
@@ -870,12 +770,17 @@ class AvitoService:
             raise
 
     async def apply_promotion_service(
-        self, item_id: int, service_slug: str, stickers: List[int] = None
+        self,
+        item_id: int,
+        service_slug: str,
+        stickers: List[int] = None
     ) -> Dict[str, Any]:
         """Применение услуги продвижения с инвалидацией кэша"""
         try:
             result = await self.client.apply_vas(
-                item_id=item_id, slugs=[service_slug], stickers=stickers
+                item_id=item_id,
+                slugs=[service_slug],
+                stickers=stickers
             )
 
             logger.info(f"Применена услуга {service_slug} к объявлению {item_id}")
@@ -935,7 +840,7 @@ class AvitoService:
         item_ids: Optional[str] = None,
         unread_only: Optional[bool] = None,
         limit: int = 100,
-        offset: int = 0,
+        offset: int = 0
     ) -> Dict[str, Any]:
         """Получение списка чатов из Avito"""
         try:
@@ -953,7 +858,11 @@ class AvitoService:
             raise
 
     async def get_avito_messages(
-        self, chat_id: str, limit: int = 100, offset: int = 0, use_v2: bool = True
+        self,
+        chat_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        use_v2: bool = True
     ) -> Dict[str, Any]:
         """Получение сообщений из чата Avito"""
         try:
@@ -985,22 +894,21 @@ class AvitoService:
             logger.error(f"Ошибка отметки чата {chat_id} как прочитанного: {e}")
             raise
 
-    async def delete_avito_message(
-        self, chat_id: str, message_id: str
-    ) -> Dict[str, Any]:
+    async def delete_avito_message(self, chat_id: str, message_id: str) -> Dict[str, Any]:
         """Удаление сообщения в Avito"""
         try:
             result = await self.client.delete_message(chat_id, message_id)
             logger.info(f"Сообщение {message_id} удалено из чата {chat_id}")
             return result
         except Exception as e:
-            logger.error(
-                f"Ошибка удаления сообщения {message_id} из чата {chat_id}: {e}"
-            )
+            logger.error(f"Ошибка удаления сообщения {message_id} из чата {chat_id}: {e}")
             raise
 
     async def subscribe_avito_webhook(
-        self, webhook_url: str, events: List[str] = None, use_v2: bool = False
+        self,
+        webhook_url: str,
+        events: List[str] = None,
+        use_v2: bool = False
     ) -> Dict[str, Any]:
         """Подписка на webhook уведомления Avito"""
         try:
@@ -1008,7 +916,7 @@ class AvitoService:
                 result = await self.client.subscribe_webhook_v2(webhook_url, events)
             else:
                 result = await self.client.subscribe_webhook(webhook_url, events)
-
+            
             logger.info(f"Подписка на webhook создана: {webhook_url}")
             return result
         except Exception as e:
@@ -1025,25 +933,20 @@ class AvitoService:
             logger.error(f"Ошибка отмены подписки на webhook {webhook_url}: {e}")
             raise
 
-    async def add_user_to_blacklist(
-        self, user_id: str, reason: Optional[str] = None
-    ) -> None:
+    async def add_user_to_blacklist(self, user_id: str, reason: Optional[str] = None) -> None:
         """Добавление пользователя в черный список Avito"""
         try:
             await self.client.add_to_blacklist(user_id, reason)
             logger.info(f"Пользователь {user_id} добавлен в черный список")
         except Exception as e:
-            logger.error(
-                f"Ошибка добавления пользователя {user_id} в черный список: {e}"
-            )
+            logger.error(f"Ошибка добавления пользователя {user_id} в черный список: {e}")
             raise
 
-    async def sync_avito_chats_with_db(
-        self, db_session, limit: int = 100
-    ) -> Dict[str, Any]:
+    async def sync_avito_chats_with_db(self, db_session, limit: int = 100) -> Dict[str, Any]:
         """Синхронизация чатов из Avito с базой данных"""
         try:
             from ..models.avito_chat import AvitoChatSettings
+            from ..models.customer import Customer
 
             # Получаем чаты из Avito
             avito_chats = await self.get_avito_chats(limit=limit)
@@ -1057,31 +960,29 @@ class AvitoService:
                         continue
 
                     # Проверяем существование чата в базе
-                    existing_chat = (
-                        db_session.query(AvitoChatSettings)
-                        .filter(AvitoChatSettings.chat_id == chat_id)
-                        .first()
-                    )
+                    existing_chat = db_session.query(AvitoChatSettings).filter(
+                        AvitoChatSettings.chat_id == chat_id
+                    ).first()
 
                     if not existing_chat:
                         # Создаем новый чат
                         chat_settings = AvitoChatSettings(
-                            chat_id=chat_id, ai_enabled=True, notifications_enabled=True
+                            chat_id=chat_id,
+                            ai_enabled=True,
+                            notifications_enabled=True
                         )
                         db_session.add(chat_settings)
                         created_count += 1
-
+                    
                     synced_count += 1
 
                 db_session.commit()
-                logger.info(
-                    f"Синхронизировано {synced_count} чатов, создано {created_count} новых"
-                )
+                logger.info(f"Синхронизировано {synced_count} чатов, создано {created_count} новых")
 
             return {
                 "synced_chats": synced_count,
                 "created_chats": created_count,
-                "total_chats": len(avito_chats.get("chats", [])),
+                "total_chats": len(avito_chats.get("chats", []))
             }
 
         except Exception as e:

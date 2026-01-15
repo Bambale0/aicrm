@@ -1,9 +1,7 @@
 """
 Сервис управления задачами
 """
-
 from typing import List, Optional
-
 from sqlalchemy.orm import Session
 
 from ..models.task import Task
@@ -35,7 +33,7 @@ class TaskService:
         limit: int = 100,
         assigned_to: Optional[int] = None,
         status: Optional[str] = None,
-        priority: Optional[str] = None,
+        priority: Optional[str] = None
     ) -> List[Task]:
         """Получение списка задач с фильтрацией"""
         query = db.query(Task)
@@ -50,7 +48,11 @@ class TaskService:
         return query.offset(skip).limit(limit).all()
 
     @staticmethod
-    def update_task(db: Session, task_id: int, update_data: dict) -> Optional[Task]:
+    def update_task(
+        db: Session,
+        task_id: int,
+        update_data: dict
+    ) -> Optional[Task]:
         """Обновление данных задачи"""
         task = TaskService.get_task(db, task_id)
         if not task:

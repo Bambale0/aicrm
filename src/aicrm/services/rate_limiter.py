@@ -1,12 +1,9 @@
 """
 Rate limiter для Avito API
 """
-
-import time
 from typing import Optional
-
 import redis.asyncio as redis
-
+import time
 from ..core.config import settings
 from ..utils.logging import get_logger
 
@@ -44,9 +41,7 @@ class AvitoRateLimiter:
         if self.redis_client:
             await self.redis_client.close()
 
-    async def check_rate_limit(
-        self, operation_type: str, user_id: str
-    ) -> tuple[bool, int, float]:
+    async def check_rate_limit(self, operation_type: str, user_id: str) -> tuple[bool, int, float]:
         """
         Проверка rate limit для операции
 
@@ -78,9 +73,7 @@ class AvitoRateLimiter:
             time_to_reset = (current_minute + 1) * 60 - time.time()
 
             if current_count >= limit:
-                logger.warning(
-                    f"Rate limit exceeded для {operation_type} операции пользователя {user_id}"
-                )
+                logger.warning(f"Rate limit exceeded для {operation_type} операции пользователя {user_id}")
                 return False, remaining, time_to_reset
 
             # Увеличиваем счетчик
@@ -128,7 +121,7 @@ class AvitoRateLimiter:
                 "limit": limit,
                 "remaining": remaining,
                 "reset_time": time_to_reset,
-                "current_count": current_count,
+                "current_count": current_count
             }
 
         except Exception as e:
@@ -147,6 +140,7 @@ class AvitoRateLimiter:
 
         try:
             # Удаляем все ключи для данного пользователя и типа операции
+            current_minute = int(time.time() // 60)
             pattern = f"{self.key_prefix}:{user_id}:{operation_type}:*"
 
             # Получаем все ключи по паттерну
@@ -155,9 +149,7 @@ class AvitoRateLimiter:
             if keys:
                 await self.redis_client.delete(*keys)
 
-            logger.info(
-                f"Сброшен rate limit для {operation_type} операций пользователя {user_id}"
-            )
+            logger.info(f"Сброшен rate limit для {operation_type} операций пользователя {user_id}")
             return True
 
         except Exception as e:
@@ -176,7 +168,3 @@ async def get_avito_rate_limiter() -> AvitoRateLimiter:
         _rate_limiter_instance = AvitoRateLimiter()
         await _rate_limiter_instance.__aenter__()
     return _rate_limiter_instance
-
-
-# Глобальный экземпляр для импорта
-rate_limiter = AvitoRateLimiter()

@@ -1,23 +1,20 @@
 """
 Юнит-тесты для API схем (Pydantic моделей)
 """
-
-from datetime import datetime, timedelta
-
 import pytest
+from datetime import datetime, date, timedelta
 
-from src.aicrm.api.schemas.customer import Customer, CustomerCreate, CustomerUpdate
 from src.aicrm.api.schemas.order import (
-    OrderCreate,
-    OrderItem,
-    OrderListResponse,
-    OrderResponse,
-    OrderUpdate,
-    ProductionProgressResponse,
-    ProductionStepResponse,
-    StepUpdateRequest,
+    OrderCreate, OrderUpdate, OrderResponse, OrderItem,
+    ProductionProgressResponse, ProductionStepResponse, StepUpdateRequest,
+    OrderListResponse
 )
-from src.aicrm.api.schemas.task import Task, TaskCreate, TaskUpdate
+from src.aicrm.api.schemas.customer import (
+    CustomerCreate, CustomerUpdate, Customer
+)
+from src.aicrm.api.schemas.task import (
+    TaskCreate, TaskUpdate, Task
+)
 from src.aicrm.models.order import OrderStatus
 
 
@@ -31,7 +28,7 @@ class TestOrderSchemas:
             quantity=3,
             size="L",
             color="black",
-            design_url="https://example.com/design.jpg",
+            design_url="https://example.com/design.jpg"
         )
 
         assert item.product_type == "tshirt"
@@ -60,12 +57,12 @@ class TestOrderSchemas:
             customer_id=1,
             items=[
                 OrderItem(product_type="tshirt", quantity=2),
-                OrderItem(product_type="hoodie", quantity=1),
+                OrderItem(product_type="hoodie", quantity=1)
             ],
             requirements="Срочный заказ",
             deadline=deadline,
             notes="Доставить к вечеру",
-            source="website",
+            source="website"
         )
 
         assert order.customer_id == 1
@@ -78,7 +75,7 @@ class TestOrderSchemas:
         update = OrderUpdate(
             status=OrderStatus.IN_PRODUCTION,
             requirements="Измененные требования",
-            deadline=datetime.utcnow() + timedelta(days=5),
+            deadline=datetime.utcnow() + timedelta(days=5)
         )
 
         assert update.status == OrderStatus.IN_PRODUCTION
@@ -100,7 +97,7 @@ class TestOrderSchemas:
             progress_percentage=45.5,
             is_overdue=False,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
 
         assert response.id == 1
@@ -123,7 +120,7 @@ class TestOrderSchemas:
             assigned_user_id=2,
             notes="В работе",
             is_overdue=False,
-            progress_percentage=50.0,
+            progress_percentage=50.0
         )
 
         assert response.id == 1
@@ -135,21 +132,13 @@ class TestOrderSchemas:
         """Тест создания ProductionProgressResponse"""
         steps = [
             ProductionStepResponse(
-                id=1,
-                name="Этап 1",
-                status="completed",
-                sequence_number=1,
-                is_overdue=False,
-                progress_percentage=100.0,
+                id=1, name="Этап 1", status="completed", sequence_number=1,
+                is_overdue=False, progress_percentage=100.0
             ),
             ProductionStepResponse(
-                id=2,
-                name="Этап 2",
-                status="in_progress",
-                sequence_number=2,
-                is_overdue=False,
-                progress_percentage=50.0,
-            ),
+                id=2, name="Этап 2", status="in_progress", sequence_number=2,
+                is_overdue=False, progress_percentage=50.0
+            )
         ]
 
         response = ProductionProgressResponse(
@@ -161,7 +150,7 @@ class TestOrderSchemas:
             current_step="Этап 2",
             next_step=None,
             is_overdue=False,
-            steps=steps,
+            steps=steps
         )
 
         assert response.total_steps == 2
@@ -175,7 +164,7 @@ class TestOrderSchemas:
             status="completed",
             actual_hours=25.5,
             notes="Завершено успешно",
-            assigned_user_id=3,
+            assigned_user_id=3
         )
 
         assert request.status == "completed"
@@ -187,32 +176,27 @@ class TestOrderSchemas:
         """Тест создания OrderListResponse"""
         orders = [
             OrderResponse(
-                id=1,
-                customer_id=1,
-                status=OrderStatus.READY,
-                status_display="Готов",
-                total_amount=1500.00,
-                source="website",
-                progress_percentage=100.0,
-                is_overdue=False,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                id=1, customer_id=1, status=OrderStatus.READY,
+                status_display="Готов", total_amount=1500.00,
+                source="website", progress_percentage=100.0,
+                is_overdue=False, created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
             ),
             OrderResponse(
-                id=2,
-                customer_id=2,
-                status=OrderStatus.IN_PRODUCTION,
-                status_display="В производстве",
-                total_amount=3200.00,
-                source="avito",
-                progress_percentage=60.0,
-                is_overdue=False,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-            ),
+                id=2, customer_id=2, status=OrderStatus.IN_PRODUCTION,
+                status_display="В производстве", total_amount=3200.00,
+                source="avito", progress_percentage=60.0,
+                is_overdue=False, created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
         ]
 
-        response = OrderListResponse(orders=orders, total=2, page=1, per_page=20)
+        response = OrderListResponse(
+            orders=orders,
+            total=2,
+            page=1,
+            per_page=20
+        )
 
         assert len(response.orders) == 2
         assert response.total == 2
@@ -231,7 +215,7 @@ class TestCustomerSchemas:
             phone="+7-999-123-45-67",
             address="Москва, ул. Ленина, 10",
             contact_info={"telegram": "@ivanov"},
-            notes="Постоянный клиент",
+            notes="Постоянный клиент"
         )
 
         assert customer.name == "Иван Иванов"
@@ -253,7 +237,7 @@ class TestCustomerSchemas:
             name="Иван Петров",
             phone="+7-999-999-99-99",
             address="СПб, Невский пр.",
-            notes="Обновленная информация",
+            notes="Обновленная информация"
         )
 
         assert update.name == "Иван Петров"
@@ -273,7 +257,7 @@ class TestCustomerSchemas:
             loyalty_level="gold",
             notes="VIP клиент",
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
 
         assert response.id == 1
@@ -296,7 +280,7 @@ class TestTaskSchemas:
             assigned_to=2,
             due_date=due_date,
             estimated_hours=8,
-            tags="design,urgent",
+            tags="design,urgent"
         )
 
         assert task.title == "Подготовить дизайн"
@@ -322,7 +306,7 @@ class TestTaskSchemas:
             due_date=datetime.utcnow() + timedelta(days=5),
             estimated_hours=12,
             actual_hours=10,
-            tags="updated,important",
+            tags="updated,important"
         )
 
         assert update.title == "Обновленный заголовок"
@@ -346,7 +330,7 @@ class TestTaskSchemas:
             estimated_hours=8,
             actual_hours=6,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
 
         assert response.id == 1

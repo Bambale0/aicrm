@@ -1,12 +1,10 @@
 """
 Модель этапа производства
 """
-
-import enum
-from datetime import datetime
-
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, Enum, ForeignKey, Float
 from sqlalchemy.orm import relationship
+from datetime import datetime
+import enum
 
 from .base import BaseModel
 
@@ -53,7 +51,6 @@ class ProductionStep(BaseModel):
             return False
 
         from datetime import timedelta
-
         expected_completion = self.started_at + timedelta(hours=self.estimated_hours)
         return datetime.utcnow() > expected_completion
 

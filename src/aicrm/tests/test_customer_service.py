@@ -1,14 +1,13 @@
 """
 Юнит-тесты для CustomerService
 """
-
-from unittest.mock import MagicMock
-
 import pytest
+from unittest.mock import MagicMock, patch
 from sqlalchemy.orm import Session
 
-from src.aicrm.models.customer import Customer
 from src.aicrm.services.customer import CustomerService
+from src.aicrm.models.customer import Customer
+from src.aicrm.models.order import Order
 
 
 class TestCustomerService:
@@ -26,7 +25,7 @@ class TestCustomerService:
             "name": "Иван Иванов",
             "email": "ivan@example.com",
             "phone": "+7-999-123-45-67",
-            "address": "Москва, ул. Ленина, 10",
+            "address": "Москва, ул. Ленина, 10"
         }
 
     @pytest.fixture
@@ -39,14 +38,12 @@ class TestCustomerService:
         customer.loyalty_level = "bronze"
         return customer
 
-    def test_create_customer_success(
-        self, mock_db, sample_customer_data, sample_customer
-    ):
+    def test_create_customer_success(self, mock_db, sample_customer_data, sample_customer):
         """Тест успешного создания клиента"""
         # Настройка мока
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
-        mock_db.refresh.side_effect = lambda obj: setattr(obj, "id", 1)
+        mock_db.refresh.side_effect = lambda obj: setattr(obj, 'id', 1)
 
         # Вызов метода
         result = CustomerService.create_customer(mock_db, sample_customer_data)
@@ -61,9 +58,7 @@ class TestCustomerService:
 
     def test_get_customer_found(self, mock_db, sample_customer):
         """Тест получения существующего клиента"""
-        mock_db.query.return_value.filter.return_value.first.return_value = (
-            sample_customer
-        )
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_customer
 
         result = CustomerService.get_customer(mock_db, 1)
 
@@ -80,9 +75,7 @@ class TestCustomerService:
 
     def test_get_customers_no_filters(self, mock_db, sample_customer):
         """Тест получения списка клиентов без фильтров"""
-        mock_db.query.return_value.offset.return_value.limit.return_value.all.return_value = [
-            sample_customer
-        ]
+        mock_db.query.return_value.offset.return_value.limit.return_value.all.return_value = [sample_customer]
 
         result = CustomerService.get_customers(mock_db)
 
@@ -91,9 +84,7 @@ class TestCustomerService:
 
     def test_get_customers_with_search(self, mock_db, sample_customer):
         """Тест получения списка клиентов с поиском"""
-        mock_db.query.return_value.filter.return_value.offset.return_value.limit.return_value.all.return_value = [
-            sample_customer
-        ]
+        mock_db.query.return_value.filter.return_value.offset.return_value.limit.return_value.all.return_value = [sample_customer]
 
         result = CustomerService.get_customers(mock_db, search="Иван")
 
@@ -107,9 +98,7 @@ class TestCustomerService:
         """Тест успешного обновления клиента"""
         update_data = {"phone": "+7-999-999-99-99", "address": "СПб, Невский пр."}
 
-        mock_db.query.return_value.filter.return_value.first.return_value = (
-            sample_customer
-        )
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_customer
 
         result = CustomerService.update_customer(mock_db, 1, update_data)
 
@@ -128,9 +117,7 @@ class TestCustomerService:
 
     def test_delete_customer_success(self, mock_db, sample_customer):
         """Тест успешного удаления клиента"""
-        mock_db.query.return_value.filter.return_value.first.return_value = (
-            sample_customer
-        )
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_customer
 
         result = CustomerService.delete_customer(mock_db, 1)
 
@@ -153,9 +140,7 @@ class TestCustomerService:
         mock_stats.last_order_date = None
         mock_stats.average_order_value = 833.33
 
-        mock_db.query.return_value.filter.return_value.first.return_value = (
-            sample_customer
-        )
+        mock_db.query.return_value.filter.return_value.first.return_value = sample_customer
 
         # Мокаем сложный запрос статистики
         mock_query = mock_db.query.return_value.filter.return_value
@@ -181,9 +166,7 @@ class TestCustomerService:
 
     def test_search_customers(self, mock_db, sample_customer):
         """Тест поиска клиентов"""
-        mock_db.query.return_value.filter.return_value.limit.return_value.all.return_value = [
-            sample_customer
-        ]
+        mock_db.query.return_value.filter.return_value.limit.return_value.all.return_value = [sample_customer]
 
         result = CustomerService.search_customers(mock_db, "Иван")
 

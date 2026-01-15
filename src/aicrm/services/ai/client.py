@@ -1,12 +1,10 @@
 """
 Унифицированный AI клиент
 """
-
-import logging
-from typing import Any, Dict, List, Optional
-
 import httpx
-from openai import AsyncOpenAI, OpenAI
+import logging
+from openai import OpenAI, AsyncOpenAI
+from typing import List, Dict, Any, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ...core.ai_config import AIProvider, ai_config
@@ -34,15 +32,15 @@ class UnifiedAIClient:
                 base_url=config["base_url"],
                 default_headers={
                     "Authorization": f"Bearer {config['api_key']}",
-                    "Content-Type": "application/json",
+                    "Content-Type": "application/json"
                 },
-                timeout=httpx.Timeout(30.0),
+                timeout=httpx.Timeout(30.0)
             )
         else:
             return OpenAI(
                 api_key=config["api_key"],
                 base_url=config["base_url"],
-                timeout=httpx.Timeout(30.0),
+                timeout=httpx.Timeout(30.0)
             )
 
     def _initialize_async_client(self) -> AsyncOpenAI:
@@ -55,15 +53,15 @@ class UnifiedAIClient:
                 base_url=config["base_url"],
                 default_headers={
                     "Authorization": f"Bearer {config['api_key']}",
-                    "Content-Type": "application/json",
+                    "Content-Type": "application/json"
                 },
-                timeout=httpx.Timeout(30.0),
+                timeout=httpx.Timeout(30.0)
             )
         else:
             return AsyncOpenAI(
                 api_key=config["api_key"],
                 base_url=config["base_url"],
-                timeout=httpx.Timeout(30.0),
+                timeout=httpx.Timeout(30.0)
             )
 
     def _get_provider_config(self) -> Dict[str, str]:
@@ -71,31 +69,32 @@ class UnifiedAIClient:
         if self.provider == AIProvider.OPENROUTER:
             return {
                 "api_key": ai_config.OPENROUTER_API_KEY,
-                "base_url": ai_config.OPENROUTER_BASE_URL,
+                "base_url": ai_config.OPENROUTER_BASE_URL
             }
         elif self.provider == AIProvider.OPENAI:
             return {
                 "api_key": ai_config.OPENAI_API_KEY,
-                "base_url": ai_config.OPENAI_BASE_URL or "https://api.openai.com/v1",
+                "base_url": ai_config.OPENAI_BASE_URL or "https://api.openai.com/v1"
             }
         elif self.provider == AIProvider.HUGGINGFACE:
             # Hugging Face использует другой API, обработаем отдельно
             return {
                 "api_key": ai_config.HUGGINGFACE_API_KEY,
-                "base_url": "https://api-inference.huggingface.co",
+                "base_url": "https://api-inference.huggingface.co"
             }
         else:
             raise ValueError(f"Неподдерживаемый AI провайдер: {self.provider}")
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
     )
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: Optional[int] = None
     ) -> str:
         """
         Унифицированный метод завершения чата, работающий со всеми провайдерами
@@ -104,9 +103,7 @@ class UnifiedAIClient:
             if self.provider == AIProvider.HUGGINGFACE:
                 return await self._huggingface_completion(messages, model, temperature)
             else:
-                return await self._openai_completion(
-                    messages, model, temperature, max_tokens
-                )
+                return await self._openai_completion(messages, model, temperature, max_tokens)
 
         except Exception as e:
             logger.error(f"Ошибка AI API: {e}")
@@ -117,14 +114,12 @@ class UnifiedAIClient:
         messages: List[Dict[str, str]],
         model: Optional[str],
         temperature: float,
-        max_tokens: Optional[int],
+        max_tokens: Optional[int]
     ) -> str:
         """Завершение через OpenAI-совместимый API (работает с OpenRouter)"""
         if self.provider == AIProvider.OPENROUTER:
             # Для OpenRouter используем прямой HTTP запрос
-            return await self._openrouter_completion(
-                messages, model, temperature, max_tokens
-            )
+            return await self._openrouter_completion(messages, model, temperature, max_tokens)
         else:
             # Для других провайдеров используем OpenAI клиент
             model = model or ai_config.DEFAULT_MODEL
@@ -134,7 +129,7 @@ class UnifiedAIClient:
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens or ai_config.MAX_TOKENS,
-                stream=False,
+                stream=False
             )
 
             return response.choices[0].message.content
@@ -144,7 +139,7 @@ class UnifiedAIClient:
         messages: List[Dict[str, str]],
         model: Optional[str],
         temperature: float,
-        max_tokens: Optional[int],
+        max_tokens: Optional[int]
     ) -> str:
         """Прямой запрос к OpenRouter API"""
         model = model or ai_config.DEFAULT_MODEL
@@ -154,26 +149,27 @@ class UnifiedAIClient:
                 f"{ai_config.OPENROUTER_BASE_URL}/chat/completions",
                 headers={
                     "Authorization": f"Bearer {ai_config.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
+                    "Content-Type": "application/json"
                 },
                 json={
                     "model": model,
                     "messages": messages,
                     "temperature": temperature,
-                    "max_tokens": max_tokens or ai_config.MAX_TOKENS,
-                },
+                    "max_tokens": max_tokens or ai_config.MAX_TOKENS
+                }
             )
 
             if response.status_code == 200:
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
             else:
-                raise Exception(
-                    f"Ошибка OpenRouter API: {response.status_code} - {response.text}"
-                )
+                raise Exception(f"Ошибка OpenRouter API: {response.status_code} - {response.text}")
 
     async def _huggingface_completion(
-        self, messages: List[Dict[str, str]], model: Optional[str], temperature: float
+        self,
+        messages: List[Dict[str, str]],
+        model: Optional[str],
+        temperature: float
     ) -> str:
         """Завершение через Hugging Face Inference API"""
         # Конвертация сообщений в формат промпта
@@ -188,15 +184,15 @@ class UnifiedAIClient:
                     "parameters": {
                         "temperature": temperature,
                         "max_new_tokens": ai_config.MAX_TOKENS,
-                        "return_full_text": False,
-                    },
+                        "return_full_text": False
+                    }
                 },
-                timeout=30.0,
+                timeout=30.0
             )
 
             if response.status_code == 200:
                 result = response.json()
-                return result[0]["generated_text"]
+                return result[0]['generated_text']
             else:
                 raise Exception(f"Ошибка Hugging Face API: {response.text}")
 
@@ -204,46 +200,14 @@ class UnifiedAIClient:
         """Конвертация сообщений чата в формат промпта для Hugging Face"""
         formatted = []
         for msg in messages:
-            if msg["role"] == "system":
+            if msg['role'] == 'system':
                 formatted.append(f"System: {msg['content']}")
-            elif msg["role"] == "user":
+            elif msg['role'] == 'user':
                 formatted.append(f"Human: {msg['content']}")
-            elif msg["role"] == "assistant":
+            elif msg['role'] == 'assistant':
                 formatted.append(f"Assistant: {msg['content']}")
 
         return "\n".join(formatted) + "\nAssistant:"
-
-    def _extract_json_from_markdown(self, text: str) -> str:
-        """
-        Извлекает JSON из markdown блоков кода
-
-        Args:
-            text: Текст, который может содержать JSON в markdown блоках
-
-        Returns:
-            str: Извлеченный JSON
-
-        Raises:
-            ValueError: Если JSON не найден в тексте
-        """
-        import re
-
-        # Ищем блоки ```json ... ```
-        json_pattern = r"```(?:json)?\s*\n(.*?)\n```"
-        match = re.search(json_pattern, text, re.DOTALL | re.IGNORECASE)
-
-        if match:
-            return match.group(1).strip()
-
-        # Если не нашли с json, пробуем просто ```
-        code_pattern = r"```\s*\n(.*?)\n```"
-        match = re.search(code_pattern, text, re.DOTALL)
-
-        if match:
-            return match.group(1).strip()
-
-        # Если ничего не нашли, возвращаем оригинальный текст
-        raise ValueError("No JSON found in markdown blocks")
 
     # Методы для работы с автоматизацией
 
@@ -261,42 +225,41 @@ class UnifiedAIClient:
             messages = [
                 {
                     "role": "system",
-                    "content": "Ты - эксперт по бизнес-автоматизации. Создавай полные цепочки автоматизации на основе описаний процессов. Отвечай только в формате JSON.",
+                    "content": "Ты - эксперт по бизнес-автоматизации. Создавай полные цепочки автоматизации на основе описаний процессов. Отвечай только в формате JSON."
                 },
-                {"role": "user", "content": prompt},
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ]
 
             response_text = await self.chat_completion(
                 messages=messages,
                 temperature=0.3,  # Низкая температура для более детерминированного ответа
-                max_tokens=4000,
+                max_tokens=4000
             )
 
-            # Парсим JSON ответ, извлекая из markdown блоков если нужно
+            # Парсим JSON ответ
             import json
-
             try:
-                # Сначала пробуем распарсить как чистый JSON
                 generated_chain = json.loads(response_text)
-                return {"success": True, "generated_chain": generated_chain}
-            except json.JSONDecodeError:
-                # Если не получилось, пробуем извлечь JSON из markdown блоков
-                try:
-                    extracted_json = self._extract_json_from_markdown(response_text)
-                    generated_chain = json.loads(extracted_json)
-                    return {"success": True, "generated_chain": generated_chain}
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.error(
-                        f"Failed to parse AI response as JSON: {response_text}"
-                    )
-                    return {
-                        "success": False,
-                        "error": f"Invalid JSON response: {str(e)}",
-                    }
+                return {
+                    "success": True,
+                    "generated_chain": generated_chain
+                }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse AI response as JSON: {response_text}")
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON response: {str(e)}"
+                }
 
         except Exception as e:
             logger.error(f"Error generating automation chain: {e}")
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     async def optimize_automation_chain(self, prompt: str) -> Dict[str, Any]:
         """
@@ -312,54 +275,42 @@ class UnifiedAIClient:
             messages = [
                 {
                     "role": "system",
-                    "content": "Ты - эксперт по оптимизации бизнес-процессов. Анализируй текущие цепочки автоматизации и предлагай конкретные улучшения. Отвечай только в формате JSON.",
+                    "content": "Ты - эксперт по оптимизации бизнес-процессов. Анализируй текущие цепочки автоматизации и предлагай конкретные улучшения. Отвечай только в формате JSON."
                 },
-                {"role": "user", "content": prompt},
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ]
 
             response_text = await self.chat_completion(
                 messages=messages,
                 temperature=0.2,  # Очень низкая температура для точных рекомендаций
-                max_tokens=3000,
+                max_tokens=3000
             )
 
-            # Парсим JSON ответ, извлекая из markdown блоков если нужно
+            # Парсим JSON ответ
             import json
-
             try:
-                # Сначала пробуем распарсить как чистый JSON
                 optimization_result = json.loads(response_text)
                 return {
                     "success": True,
                     "optimizations": optimization_result.get("optimizations", []),
-                    "performance_improvements": optimization_result.get(
-                        "performance_improvements", {}
-                    ),
+                    "performance_improvements": optimization_result.get("performance_improvements", {})
                 }
-            except json.JSONDecodeError:
-                # Если не получилось, пробуем извлечь JSON из markdown блоков
-                try:
-                    extracted_json = self._extract_json_from_markdown(response_text)
-                    optimization_result = json.loads(extracted_json)
-                    return {
-                        "success": True,
-                        "optimizations": optimization_result.get("optimizations", []),
-                        "performance_improvements": optimization_result.get(
-                            "performance_improvements", {}
-                        ),
-                    }
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.error(
-                        f"Failed to parse optimization response as JSON: {response_text}"
-                    )
-                    return {
-                        "success": False,
-                        "error": f"Invalid JSON response: {str(e)}",
-                    }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse optimization response as JSON: {response_text}")
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON response: {str(e)}"
+                }
 
         except Exception as e:
             logger.error(f"Error optimizing automation chain: {e}")
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     async def analyze_automation(self, prompt: str) -> Dict[str, Any]:
         """
@@ -375,50 +326,42 @@ class UnifiedAIClient:
             messages = [
                 {
                     "role": "system",
-                    "content": "Ты - эксперт по анализу бизнес-автоматизации. Анализируй статистику и предлагай улучшения. Отвечай только в формате JSON с ключами: bottlenecks, suggestions.",
+                    "content": "Ты - эксперт по анализу бизнес-автоматизации. Анализируй статистику и предлагай улучшения. Отвечай только в формате JSON с ключами: bottlenecks, suggestions."
                 },
-                {"role": "user", "content": prompt},
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ]
 
             response_text = await self.chat_completion(
                 messages=messages,
                 temperature=0.4,  # Средняя температура для креативных идей
-                max_tokens=3500,
+                max_tokens=3500
             )
 
-            # Парсим JSON ответ, извлекая из markdown блоков если нужно
+            # Парсим JSON ответ
             import json
-
             try:
-                # Сначала пробуем распарсить как чистый JSON
                 analysis_result = json.loads(response_text)
                 return {
                     "success": True,
                     "bottlenecks": analysis_result.get("bottlenecks", []),
-                    "suggestions": analysis_result.get("suggestions", []),
+                    "suggestions": analysis_result.get("suggestions", [])
                 }
-            except json.JSONDecodeError:
-                # Если не получилось, пробуем извлечь JSON из markdown блоков
-                try:
-                    extracted_json = self._extract_json_from_markdown(response_text)
-                    analysis_result = json.loads(extracted_json)
-                    return {
-                        "success": True,
-                        "bottlenecks": analysis_result.get("bottlenecks", []),
-                        "suggestions": analysis_result.get("suggestions", []),
-                    }
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.error(
-                        f"Failed to parse analysis response as JSON: {response_text}"
-                    )
-                    return {
-                        "success": False,
-                        "error": f"Invalid JSON response: {str(e)}",
-                    }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse analysis response as JSON: {response_text}")
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON response: {str(e)}"
+                }
 
         except Exception as e:
             logger.error(f"Error analyzing automation: {e}")
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
 
 # Алиас для обратной совместимости

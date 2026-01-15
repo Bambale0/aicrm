@@ -1,16 +1,13 @@
 """
 Схемы для задач
 """
-
 from datetime import datetime
 from typing import Optional
-
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
 class TaskBase(BaseModel):
     """Базовая схема задачи"""
-
     title: str
     description: Optional[str] = None
     priority: str = "medium"  # low, medium, high
@@ -25,13 +22,11 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     """Схема создания задачи"""
-
     # Наследует все поля от TaskBase
 
 
 class TaskUpdate(BaseModel):
     """Схема обновления задачи"""
-
     title: Optional[str] = None
     description: Optional[str] = None
     priority: Optional[str] = None
@@ -46,11 +41,11 @@ class TaskUpdate(BaseModel):
 
 class Task(TaskBase):
     """Схема задачи для ответов"""
-
     id: int
     status: str
     completed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True

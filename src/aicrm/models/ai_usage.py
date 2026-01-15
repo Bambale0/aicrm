@@ -1,9 +1,8 @@
 """
 Модель учета использования AI токенов
 """
-
-from sqlalchemy import Column, Float, Integer, String, Text
-
+from sqlalchemy import Column, String, Float, Integer, DateTime, Text
+from sqlalchemy.sql import func
 from .base import BaseModel
 
 
@@ -34,14 +33,12 @@ class AIUsage(BaseModel):
     def generate_request_id() -> str:
         """Генерация уникального ID запроса"""
         import uuid
-
         return str(uuid.uuid4())
 
     @staticmethod
     def get_current_month_year() -> str:
         """Получение текущего месяца в формате YYYY-MM"""
         from datetime import datetime
-
         return datetime.utcnow().strftime("%Y-%m")
 
     def __repr__(self) -> str:

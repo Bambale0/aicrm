@@ -1,18 +1,18 @@
 """
 Сервис триггеров автоматизации
 """
-
-import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
 from sqlalchemy.orm import Session
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+import logging
 
-from ...models.automation import EntityType, Stage, Trigger, TriggerEvent
+from ...models.automation import (
+    Trigger, TriggerEvent, EntityType, Stage
+)
 from ...models.customer import Customer
 from ...models.order import Order, OrderStatus
-from ...models.production_step import ProductionStep, StepStatus
 from ...models.task import Task
+from ...models.production_step import ProductionStep, StepStatus
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class TriggerService:
         entity_type: EntityType,
         event_type: TriggerEvent,
         entity_id: int,
-        event_data: Optional[Dict[str, Any]] = None,
+        event_data: Dict[str, Any] = None
     ) -> List[Dict[str, Any]]:
         """
         Обработка события триггера - перемещение на целевую стадию
@@ -39,68 +39,66 @@ class TriggerService:
         results = []
 
         # Находим активные триггеры для этого типа события и сущности
-        triggers = (
-            self.db.query(Trigger)
-            .filter(
-                Trigger.entity_type == entity_type,
-                Trigger.event_type == event_type,
-                Trigger.is_active == True,
-            )
-            .all()
-        )
+        triggers = self.db.query(Trigger).filter(
+            Trigger.entity_type == entity_type,
+            Trigger.event_type == event_type,
+            Trigger.is_active == True
+        ).all()
 
         for trigger in triggers:
             try:
                 # Проверяем условия
                 if await self._check_trigger_conditions(trigger, entity_id, event_data):
                     # Перемещаем сущность на целевую стадию
-                    target_stage_id = int(trigger.target_stage_id)  # type: ignore
                     move_result = await self._move_to_target_stage(
-                        entity_type, entity_id, target_stage_id
+                        entity_type, entity_id, trigger.target_stage_id
                     )
 
-                    results.append(
-                        {
-                            "trigger_id": trigger.id,  # type: ignore
-                            "trigger_name": trigger.name,  # type: ignore
-                            "entity_type": entity_type.value,
-                            "entity_id": entity_id,
-                            "target_stage_id": trigger.target_stage_id,  # type: ignore
-                            "success": True,
-                            "move_result": move_result,
-                        }
-                    )
+                    results.append({
+                        "trigger_id": trigger.id,
+                        "trigger_name": trigger.name,
+                        "entity_type": entity_type.value,
+                        "entity_id": entity_id,
+                        "target_stage_id": trigger.target_stage_id,
+                        "success": True,
+                        "move_result": move_result
+                    })
 
                     logger.info(f"Trigger {trigger.name} executed successfully")
 
             except Exception as e:
                 logger.error(f"Error executing trigger {trigger.id}: {e}")
-                results.append(
-                    {"trigger_id": trigger.id, "success": False, "error": str(e)}
-                )
+                results.append({
+                    "trigger_id": trigger.id,
+                    "success": False,
+                    "error": str(e)
+                })
 
         return results
 
     async def _check_trigger_conditions(
-        self, trigger: Trigger, entity_id: int, event_data: Dict[str, Any]
+        self,
+        trigger: Trigger,
+        entity_id: int,
+        event_data: Dict[str, Any]
     ) -> bool:
         """Проверка условий срабатывания триггера"""
-        if not trigger.conditions:  # type: ignore
+        if not trigger.conditions:
             return True
 
         # Получаем данные сущности
-        entity_data = await self._get_entity_data(trigger.entity_type, entity_id)  # type: ignore
+        entity_data = await self._get_entity_data(trigger.entity_type, entity_id)
         if not entity_data:
             return False
 
         # Проверяем условия
-        return self._evaluate_conditions(trigger.conditions, entity_data, event_data)  # type: ignore
+        return self._evaluate_conditions(trigger.conditions, entity_data, event_data)
 
     def _evaluate_conditions(
         self,
         conditions: Dict[str, Any],
         entity_data: Dict[str, Any],
-        event_data: Dict[str, Any],
+        event_data: Dict[str, Any]
     ) -> bool:
         """Оценка условий"""
         for field, condition in conditions.items():
@@ -121,7 +119,7 @@ class TriggerService:
 
     def _get_nested_value(self, data: Dict[str, Any], field_path: str) -> Any:
         """Получение вложенного значения по пути field.subfield"""
-        keys = field_path.split(".")
+        keys = field_path.split('.')
         value = data
 
         for key in keys:
@@ -132,9 +130,7 @@ class TriggerService:
 
         return value
 
-    def _check_condition(
-        self, actual_value: Any, operator: str, expected_value: Any
-    ) -> bool:
+    def _check_condition(self, actual_value: Any, operator: str, expected_value: Any) -> bool:
         """Проверка условия с оператором"""
         if operator == "equals":
             return actual_value == expected_value
@@ -145,16 +141,15 @@ class TriggerService:
         elif operator == "less":
             return actual_value < expected_value if actual_value is not None else False
         elif operator == "contains":
-            return (
-                expected_value in actual_value
-                if isinstance(actual_value, (str, list))
-                else False
-            )
+            return expected_value in actual_value if isinstance(actual_value, (str, list)) else False
         else:
             return False
 
     async def _move_to_target_stage(
-        self, entity_type: EntityType, entity_id: int, target_stage_id: int
+        self,
+        entity_type: EntityType,
+        entity_id: int,
+        target_stage_id: int
     ) -> Dict[str, Any]:
         """Перемещение сущности на целевую стадию"""
         # Получаем целевую стадию
@@ -174,9 +169,7 @@ class TriggerService:
         else:
             raise ValueError(f"Unsupported entity type: {entity_type}")
 
-    async def _get_entity_data(
-        self, entity_type: EntityType, entity_id: int
-    ) -> Optional[Dict[str, Any]]:
+    async def _get_entity_data(self, entity_type: EntityType, entity_id: int) -> Optional[Dict[str, Any]]:
         """Получение данных сущности"""
         if entity_type == EntityType.CUSTOMER:
             customer = self.db.query(Customer).filter(Customer.id == entity_id).first()
@@ -188,17 +181,11 @@ class TriggerService:
             task = self.db.query(Task).filter(Task.id == entity_id).first()
             return task.__dict__ if task else None
         elif entity_type == EntityType.PRODUCTION_STEP:
-            step = (
-                self.db.query(ProductionStep)
-                .filter(ProductionStep.id == entity_id)
-                .first()
-            )
+            step = self.db.query(ProductionStep).filter(ProductionStep.id == entity_id).first()
             return step.__dict__ if step else None
         return None
 
-    async def _move_customer_to_stage(
-        self, customer_id: int, stage: Stage
-    ) -> Dict[str, Any]:
+    async def _move_customer_to_stage(self, customer_id: int, stage: Stage) -> Dict[str, Any]:
         """Перемещение клиента на стадию"""
         # Для клиентов можем обновлять статус или другие поля
         customer = self.db.query(Customer).filter(Customer.id == customer_id).first()
@@ -213,7 +200,7 @@ class TriggerService:
             "success": True,
             "entity_type": "customer",
             "entity_id": customer_id,
-            "stage_name": stage.name,
+            "stage_name": stage.name
         }
 
     async def _move_order_to_stage(self, order_id: int, stage: Stage) -> Dict[str, Any]:
@@ -225,9 +212,9 @@ class TriggerService:
         # Маппинг стадий на статусы заказов
         status_mapping = {
             "новый": OrderStatus.PENDING,
-            "в работе": OrderStatus.IN_PRODUCTION,
-            "завершен": OrderStatus.DELIVERED,
-            "отменен": OrderStatus.CANCELLED,
+            "в работе": OrderStatus.IN_PROGRESS,
+            "завершен": OrderStatus.COMPLETED,
+            "отменен": OrderStatus.CANCELLED
         }
 
         new_status = status_mapping.get(stage.name.lower())
@@ -235,16 +222,14 @@ class TriggerService:
             order.status = new_status
             self.db.commit()
 
-        logger.info(
-            f"Order {order_id} moved to stage {stage.name}, status: {new_status}"
-        )
+        logger.info(f"Order {order_id} moved to stage {stage.name}, status: {new_status}")
 
         return {
             "success": True,
             "entity_type": "order",
             "entity_id": order_id,
             "stage_name": stage.name,
-            "new_status": new_status.value if new_status else None,
+            "new_status": new_status.value if new_status else None
         }
 
     async def _move_task_to_stage(self, task_id: int, stage: Stage) -> Dict[str, Any]:
@@ -258,7 +243,7 @@ class TriggerService:
             "новая": "todo",
             "в работе": "in_progress",
             "на проверке": "review",
-            "завершена": "done",
+            "завершена": "done"
         }
 
         new_status = status_mapping.get(stage.name.lower())
@@ -273,16 +258,12 @@ class TriggerService:
             "entity_type": "task",
             "entity_id": task_id,
             "stage_name": stage.name,
-            "new_status": new_status,
+            "new_status": new_status
         }
 
-    async def _move_production_step_to_stage(
-        self, step_id: int, stage: Stage
-    ) -> Dict[str, Any]:
+    async def _move_production_step_to_stage(self, step_id: int, stage: Stage) -> Dict[str, Any]:
         """Перемещение этапа производства на стадию"""
-        step = (
-            self.db.query(ProductionStep).filter(ProductionStep.id == step_id).first()
-        )
+        step = self.db.query(ProductionStep).filter(ProductionStep.id == step_id).first()
         if not step:
             raise ValueError(f"Production step {step_id} not found")
 
@@ -290,26 +271,24 @@ class TriggerService:
         status_mapping = {
             "ожидание": StepStatus.PENDING,
             "в работе": StepStatus.IN_PROGRESS,
-            "завершен": StepStatus.COMPLETED,
+            "завершен": StepStatus.COMPLETED
         }
 
         new_status = status_mapping.get(stage.name.lower())
         if new_status:
             step.status = new_status
-            if new_status == StepStatus.IN_PROGRESS and not step.started_at:  # type: ignore
+            if new_status == StepStatus.IN_PROGRESS and not step.started_at:
                 step.started_at = datetime.utcnow()
-            elif new_status == StepStatus.COMPLETED and not step.completed_at:  # type: ignore
+            elif new_status == StepStatus.COMPLETED and not step.completed_at:
                 step.completed_at = datetime.utcnow()
             self.db.commit()
 
-        logger.info(
-            f"Production step {step_id} moved to stage {stage.name}, status: {new_status}"
-        )
+        logger.info(f"Production step {step_id} moved to stage {stage.name}, status: {new_status}")
 
         return {
             "success": True,
             "entity_type": "production_step",
             "entity_id": step_id,
             "stage_name": stage.name,
-            "new_status": new_status.value if new_status else None,
+            "new_status": new_status.value if new_status else None
         }

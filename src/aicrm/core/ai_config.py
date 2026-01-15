@@ -1,11 +1,9 @@
 """
 Конфигурация AI провайдеров
 """
-
-from enum import Enum
-from typing import Optional
-
 from pydantic_settings import BaseSettings
+from enum import Enum
+from typing import Optional, Dict, Any
 
 
 class AIProvider(str, Enum):
@@ -34,16 +32,10 @@ class AIConfig(BaseSettings):
 
     # Предпочтения моделей
     DEFAULT_MODEL: str = "deepseek/deepseek-chat"
-    FALLBACK_MODELS_STR: str = "moonshotai/kimi-k2,openai/gpt-4o"
-
-    @property
-    def FALLBACK_MODELS(self) -> list[str]:
-        """Парсинг FALLBACK_MODELS из строки"""
-        return [
-            model.strip()
-            for model in self.FALLBACK_MODELS_STR.split(",")
-            if model.strip()
-        ]
+    FALLBACK_MODELS: list = [
+        "moonshotai/kimi-k2",
+        "openai/gpt-5-nano"
+    ]
 
     # Ограничения скорости
     REQUESTS_PER_MINUTE: int = 60
@@ -52,7 +44,7 @@ class AIConfig(BaseSettings):
     model_config = {
         "env_file": [".env", "../.env", "../../.env"],
         "env_file_encoding": "utf-8",
-        "extra": "ignore",  # Allow extra fields from environment
+        "extra": "ignore"  # Allow extra fields from environment
     }
 
 

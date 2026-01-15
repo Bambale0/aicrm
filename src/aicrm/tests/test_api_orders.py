@@ -1,8 +1,10 @@
 """
 Интеграционные тесты для API заказов
 """
-
+import pytest
 from datetime import datetime, timedelta
+
+from src.aicrm.models.order import OrderStatus
 
 
 class TestOrderAPI:
@@ -17,14 +19,19 @@ class TestOrderAPI:
                     "product_type": "tshirt",
                     "quantity": 2,
                     "size": "L",
-                    "color": "black",
+                    "color": "black"
                 },
-                {"product_type": "hoodie", "quantity": 1, "size": "M", "color": "navy"},
+                {
+                    "product_type": "hoodie",
+                    "quantity": 1,
+                    "size": "M",
+                    "color": "navy"
+                }
             ],
             "requirements": "Срочный заказ",
             "deadline": (datetime.utcnow() + timedelta(days=7)).isoformat(),
             "notes": "Доставить к вечеру",
-            "source": "website",
+            "source": "website"
         }
 
         response = client.post("/orders/", json=order_data)
@@ -43,7 +50,7 @@ class TestOrderAPI:
         order_data = {
             "customer_id": 999,
             "items": [{"product_type": "tshirt", "quantity": 1}],
-            "source": "website",
+            "source": "website"
         }
 
         response = client.post("/orders/", json=order_data)
@@ -84,9 +91,7 @@ class TestOrderAPI:
 
     def test_list_orders_with_filters(self, client, sample_order):
         """Тест получения списка заказов с фильтрами"""
-        response = client.get(
-            f"/orders/?customer_id={sample_order.customer_id}&status={sample_order.status.value}"
-        )
+        response = client.get(f"/orders/?customer_id={sample_order.customer_id}&status={sample_order.status.value}")
 
         assert response.status_code == 200
         data = response.json()
@@ -99,7 +104,7 @@ class TestOrderAPI:
         update_data = {
             "status": "in_production",
             "requirements": "Обновленные требования",
-            "notes": "Обновленные заметки",
+            "notes": "Обновленные заметки"
         }
 
         response = client.put(f"/orders/{sample_order.id}", json=update_data)
@@ -117,9 +122,7 @@ class TestOrderAPI:
 
         response = client.put(f"/orders/{sample_order.id}", json=update_data)
 
-        assert (
-            response.status_code == 200
-        )  # FastAPI не проверяет бизнес-логику в схемах
+        assert response.status_code == 200  # FastAPI не проверяет бизнес-логику в схемах
         # Но в реальности это должно быть обработано в сервисе
 
     def test_update_order_not_found(self, client):
@@ -153,9 +156,7 @@ class TestOrderAPI:
         assert response.status_code == 400
         assert "Можно удалять только заказы" in response.json()["detail"]
 
-    def test_get_production_progress(
-        self, client, sample_order, sample_production_step
-    ):
+    def test_get_production_progress(self, client, sample_order, sample_production_step):
         """Тест получения прогресса производства"""
         response = client.get(f"/orders/{sample_order.id}/production-progress")
 
@@ -167,13 +168,9 @@ class TestOrderAPI:
         assert "steps" in data
         assert len(data["steps"]) >= 1
 
-    def test_start_production_step_success(
-        self, client, sample_order, sample_production_step
-    ):
+    def test_start_production_step_success(self, client, sample_order, sample_production_step):
         """Тест успешного запуска этапа производства"""
-        response = client.post(
-            f"/orders/{sample_order.id}/production-steps/{sample_production_step.id}/start"
-        )
+        response = client.post(f"/orders/{sample_order.id}/production-steps/{sample_production_step.id}/start")
 
         assert response.status_code == 200
         data = response.json()
@@ -186,20 +183,19 @@ class TestOrderAPI:
         assert response.status_code == 400
         assert "не найден" in response.json()["detail"]
 
-    def test_complete_production_step_success(
-        self, client, sample_order, sample_production_step
-    ):
+    def test_complete_production_step_success(self, client, sample_order, sample_production_step):
         """Тест успешного завершения этапа производства"""
         # Сначала запускаем этап
-        client.post(
-            f"/orders/{sample_order.id}/production-steps/{sample_production_step.id}/start"
-        )
+        client.post(f"/orders/{sample_order.id}/production-steps/{sample_production_step.id}/start")
 
         # Затем завершаем
-        complete_data = {"actual_hours": 20.5, "notes": "Завершено успешно"}
+        complete_data = {
+            "actual_hours": 20.5,
+            "notes": "Завершено успешно"
+        }
         response = client.post(
             f"/orders/{sample_order.id}/production-steps/{sample_production_step.id}/complete",
-            json=complete_data,
+            json=complete_data
         )
 
         assert response.status_code == 200
@@ -227,7 +223,7 @@ class TestOrderWorkflowIntegration:
         order_data = {
             "customer_id": sample_customer.id,
             "items": [{"product_type": "tshirt", "quantity": 1}],
-            "source": "website",
+            "source": "website"
         }
         response = client.post("/orders/", json=order_data)
         assert response.status_code == 201
@@ -241,23 +237,17 @@ class TestOrderWorkflowIntegration:
 
         # 3. Запускаем первый этап
         first_step_id = progress_data["steps"][0]["id"]
-        start_response = client.post(
-            f"/orders/{order_id}/production-steps/{first_step_id}/start"
-        )
+        start_response = client.post(f"/orders/{order_id}/production-steps/{first_step_id}/start")
         assert start_response.status_code == 200
 
         # 4. Завершаем все этапы
         for step in progress_data["steps"]:
             step_id = step["id"]
             # Запускаем этап, если не запущен
-            start_resp = client.post(
-                f"/orders/{order_id}/production-steps/{step_id}/start"
-            )
+            start_resp = client.post(f"/orders/{order_id}/production-steps/{step_id}/start")
             if start_resp.status_code == 200:  # Если удалось запустить
                 # Завершаем этап
-                complete_resp = client.post(
-                    f"/orders/{order_id}/production-steps/{step_id}/complete"
-                )
+                complete_resp = client.post(f"/orders/{order_id}/production-steps/{step_id}/complete")
                 assert complete_resp.status_code == 200
 
         # 5. Проверяем, что заказ автоматически перешел в статус READY

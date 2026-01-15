@@ -1,12 +1,10 @@
 """
 Сервис учета использования AI токенов
 """
-
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
-
-from sqlalchemy import func
+from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
+from sqlalchemy import func, and_
+from datetime import datetime, timedelta
 
 from ..models.ai_usage import AIUsage
 
@@ -26,7 +24,7 @@ class AIUsageService:
         completion_tokens: float = 0.0,
         user_id: Optional[int] = None,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        user_agent: Optional[str] = None
     ) -> AIUsage:
         """
         Логирование использования токенов
@@ -54,7 +52,7 @@ class AIUsageService:
             ip_address=ip_address,
             user_agent=user_agent,
             request_id=AIUsage.generate_request_id(),
-            month_year=AIUsage.get_current_month_year(),
+            month_year=AIUsage.get_current_month_year()
         )
 
         self.db.add(usage)
@@ -67,7 +65,7 @@ class AIUsageService:
         self,
         year: Optional[int] = None,
         month: Optional[int] = None,
-        user_id: Optional[int] = None,
+        user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Получение статистики использования токенов за месяц
@@ -89,11 +87,11 @@ class AIUsageService:
 
         # Базовый запрос
         query = self.db.query(
-            func.sum(AIUsage.total_tokens).label("total_tokens"),
-            func.sum(AIUsage.prompt_tokens).label("prompt_tokens"),
-            func.sum(AIUsage.completion_tokens).label("completion_tokens"),
-            func.count(AIUsage.id).label("total_requests"),
-            func.count(func.distinct(AIUsage.model_used)).label("unique_models"),
+            func.sum(AIUsage.total_tokens).label('total_tokens'),
+            func.sum(AIUsage.prompt_tokens).label('prompt_tokens'),
+            func.sum(AIUsage.completion_tokens).label('completion_tokens'),
+            func.count(AIUsage.id).label('total_requests'),
+            func.count(func.distinct(AIUsage.model_used)).label('unique_models')
         ).filter(AIUsage.month_year == month_str)
 
         if user_id:
@@ -104,8 +102,8 @@ class AIUsageService:
         # Получение статистики по моделям
         model_stats_query = self.db.query(
             AIUsage.model_used,
-            func.sum(AIUsage.total_tokens).label("tokens"),
-            func.count(AIUsage.id).label("requests"),
+            func.sum(AIUsage.total_tokens).label('tokens'),
+            func.count(AIUsage.id).label('requests')
         ).filter(AIUsage.month_year == month_str)
 
         if user_id:
@@ -114,7 +112,11 @@ class AIUsageService:
         model_stats = model_stats_query.group_by(AIUsage.model_used).all()
 
         return {
-            "period": {"year": year, "month": month, "month_year": month_str},
+            "period": {
+                "year": year,
+                "month": month,
+                "month_year": month_str
+            },
             "total_tokens": float(result.total_tokens or 0),
             "prompt_tokens": float(result.prompt_tokens or 0),
             "completion_tokens": float(result.completion_tokens or 0),
@@ -124,14 +126,17 @@ class AIUsageService:
                 {
                     "model": stat.model_used,
                     "tokens": float(stat.tokens),
-                    "requests": stat.requests,
+                    "requests": stat.requests
                 }
                 for stat in model_stats
-            ],
+            ]
         }
 
     def get_usage_history(
-        self, days: int = 30, user_id: Optional[int] = None, limit: int = 100
+        self,
+        days: int = 30,
+        user_id: Optional[int] = None,
+        limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
         Получение истории использования токенов
@@ -146,12 +151,9 @@ class AIUsageService:
         """
         since_date = datetime.utcnow() - timedelta(days=days)
 
-        query = (
-            self.db.query(AIUsage)
-            .filter(AIUsage.created_at >= since_date)
-            .order_by(AIUsage.created_at.desc())
-            .limit(limit)
-        )
+        query = self.db.query(AIUsage).filter(
+            AIUsage.created_at >= since_date
+        ).order_by(AIUsage.created_at.desc()).limit(limit)
 
         if user_id:
             query = query.filter(AIUsage.user_id == user_id)
@@ -165,7 +167,7 @@ class AIUsageService:
                 "endpoint": usage.endpoint,
                 "total_tokens": float(usage.total_tokens),
                 "created_at": usage.created_at.isoformat(),
-                "request_id": usage.request_id,
+                "request_id": usage.request_id
             }
             for usage in usages
         ]
