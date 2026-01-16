@@ -2,16 +2,18 @@
 API роутер для заказов
 """
 
+from __future__ import annotations
+
 from typing import List, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ...core.database import get_db
-from ...models.customer import Customer
-from ...models.order import Order, OrderStatus
-from ...services.production import ProductionService
-from ..schemas.order import (
+from ...models.order import OrderStatus
+from ...models.user import User
+from ...schemas.order import (
     OrderCreate,
     OrderListResponse,
     OrderResponse,
@@ -19,8 +21,18 @@ from ..schemas.order import (
     ProductionProgressResponse,
     StepUpdateRequest,
 )
+from ...services.order_service import OrderService
+from ...services.production import ProductionService
+from .auth import get_current_active_user
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+
+def get_order_service(db: Session = Depends(get_db)) -> OrderService:
+    """Зависимость для получения сервиса заказов"""
+    return OrderService(db)
 
 
 def get_production_service(db: Session = Depends(get_db)) -> ProductionService:
@@ -31,63 +43,18 @@ def get_production_service(db: Session = Depends(get_db)) -> ProductionService:
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
     order_data: OrderCreate,
-    db: Session = Depends(get_db),
-    production_service: ProductionService = Depends(get_production_service),
+    order_service: OrderService = Depends(get_order_service),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Создание заказа с автоматическим workflow производства
     """
-    # Проверяем существование клиента
-    customer = db.query(Customer).filter(Customer.id == order_data.customer_id).first()
-    if not customer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Клиент с ID {order_data.customer_id} не найден",
-        )
-
-    # Рассчитываем общую стоимость (простая логика)
-    total_amount = sum(
-        item.quantity * 500 for item in order_data.items
-    )  # 500 руб за единицу
-
-    # Создаем заказ
-    order = Order(
-        customer_id=order_data.customer_id,
-        status=OrderStatus.PENDING,
-        total_amount=total_amount,
-        items=[item.dict() for item in order_data.items],
-        requirements=order_data.requirements,
-        deadline=order_data.deadline,
-        notes=order_data.notes,
-        source=order_data.source,
-    )
-
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-
-    # Автоматическое создание производственного workflow
-    production_service.create_production_workflow(order.id)
-
-    # Обновляем заказ после создания workflow
-    db.refresh(order)
-
-    return OrderResponse(
-        id=order.id,
-        customer_id=order.customer_id,
-        status=order.status,
-        status_display=order.status_display,
-        total_amount=float(order.total_amount),
-        items=order.items,
-        requirements=order.requirements,
-        deadline=order.deadline,
-        notes=order.notes,
-        source=order.source,
-        progress_percentage=order.progress_percentage,
-        is_overdue=order.is_overdue,
-        created_at=order.created_at,
-        updated_at=order.updated_at,
-    )
+    try:
+        order = order_service.create_order(order_data, current_user)
+        return order_service.to_response(order)
+    except ValueError as e:
+        logger.warning("Failed to create order", error=str(e), user_id=current_user.id)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/", response_model=OrderListResponse)
@@ -98,41 +65,17 @@ async def list_orders(
     ),
     status: Optional[OrderStatus] = Query(None, description="Фильтр по статусу"),
     customer_id: Optional[int] = Query(None, description="Фильтр по клиенту"),
-    db: Session = Depends(get_db),
+    order_service: OrderService = Depends(get_order_service),
 ):
     """
     Получение списка заказов с пагинацией и фильтрами
     """
-    query = db.query(Order)
-
-    if status:
-        query = query.filter(Order.status == status)
-    if customer_id:
-        query = query.filter(Order.customer_id == customer_id)
-
-    total = query.count()
-    orders = query.offset((page - 1) * per_page).limit(per_page).all()
+    orders, total = order_service.get_orders(
+        page=page, per_page=per_page, status=status, customer_id=customer_id
+    )
 
     return OrderListResponse(
-        orders=[
-            OrderResponse(
-                id=order.id,
-                customer_id=order.customer_id,
-                status=order.status,
-                status_display=order.status_display,
-                total_amount=float(order.total_amount),
-                items=order.items,
-                requirements=order.requirements,
-                deadline=order.deadline,
-                notes=order.notes,
-                source=order.source,
-                progress_percentage=order.progress_percentage,
-                is_overdue=order.is_overdue,
-                created_at=order.created_at,
-                updated_at=order.updated_at,
-            )
-            for order in orders
-        ],
+        orders=[order_service.to_response(order) for order in orders],
         total=total,
         page=page,
         per_page=per_page,
@@ -140,76 +83,37 @@ async def list_orders(
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-async def get_order(order_id: int, db: Session = Depends(get_db)):
+async def get_order(
+    order_id: int,
+    order_service: OrderService = Depends(get_order_service),
+):
     """
     Получение информации о конкретном заказе
     """
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = order_service.get_order_by_id(order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Заказ с ID {order_id} не найден",
         )
 
-    return OrderResponse(
-        id=order.id,
-        customer_id=order.customer_id,
-        status=order.status,
-        status_display=order.status_display,
-        total_amount=float(order.total_amount),
-        items=order.items,
-        requirements=order.requirements,
-        deadline=order.deadline,
-        notes=order.notes,
-        source=order.source,
-        progress_percentage=order.progress_percentage,
-        is_overdue=order.is_overdue,
-        created_at=order.created_at,
-        updated_at=order.updated_at,
-    )
+    return order_service.to_response(order)
 
 
 @router.put("/{order_id}", response_model=OrderResponse)
 async def update_order(
-    order_id: int, order_data: OrderUpdate, db: Session = Depends(get_db)
+    order_id: int,
+    order_data: OrderUpdate,
+    order_service: OrderService = Depends(get_order_service),
 ):
     """
     Обновление информации о заказе
     """
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Заказ с ID {order_id} не найден",
-        )
-
-    # Обновляем поля
-    update_data = order_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        if field == "status" and value:
-            order.update_status(value)
-        else:
-            setattr(order, field, value)
-
-    db.commit()
-    db.refresh(order)
-
-    return OrderResponse(
-        id=order.id,
-        customer_id=order.customer_id,
-        status=order.status,
-        status_display=order.status_display,
-        total_amount=float(order.total_amount),
-        items=order.items,
-        requirements=order.requirements,
-        deadline=order.deadline,
-        notes=order.notes,
-        source=order.source,
-        progress_percentage=order.progress_percentage,
-        is_overdue=order.is_overdue,
-        created_at=order.created_at,
-        updated_at=order.updated_at,
-    )
+    try:
+        order = order_service.update_order(order_id, order_data)
+        return order_service.to_response(order)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get(
@@ -217,14 +121,14 @@ async def update_order(
 )
 async def get_production_progress(
     order_id: int,
-    db: Session = Depends(get_db),
     production_service: ProductionService = Depends(get_production_service),
+    order_service: OrderService = Depends(get_order_service),
 ):
     """
     Получение прогресса производства заказа
     """
     # Проверяем существование заказа
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = order_service.get_order_by_id(order_id)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -240,14 +144,22 @@ async def start_production_step(
     order_id: int,
     step_id: int,
     user_id: Optional[int] = None,
-    db: Session = Depends(get_db),
     production_service: ProductionService = Depends(get_production_service),
+    order_service: OrderService = Depends(get_order_service),
 ):
     """
     Начать выполнение этапа производства
     """
+    # Проверяем существование заказа
+    order = order_service.get_order_by_id(order_id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Заказ с ID {order_id} не найден",
+        )
+
     try:
-        step = production_service.start_step(step_id, user_id)
+        step = production_service.start_step(step_id, user_id)  # type: ignore
         return {"message": f"Этап '{step.name}' успешно запущен", "step_id": step.id}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -258,15 +170,23 @@ async def complete_production_step(
     order_id: int,
     step_id: int,
     step_data: StepUpdateRequest,
-    db: Session = Depends(get_db),
     production_service: ProductionService = Depends(get_production_service),
+    order_service: OrderService = Depends(get_order_service),
 ):
     """
     Завершить выполнение этапа производства
     """
+    # Проверяем существование заказа
+    order = order_service.get_order_by_id(order_id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Заказ с ID {order_id} не найден",
+        )
+
     try:
         step = production_service.complete_step(
-            step_id, step_data.actual_hours, step_data.notes
+            step_id, step_data.actual_hours, step_data.notes  # type: ignore
         )
         return {"message": f"Этап '{step.name}' успешно завершен", "step_id": step.id}
     except ValueError as e:
@@ -275,7 +195,6 @@ async def complete_production_step(
 
 @router.get("/production/overdue")
 async def get_overdue_production_steps(
-    db: Session = Depends(get_db),
     production_service: ProductionService = Depends(get_production_service),
 ):
     """
@@ -286,24 +205,14 @@ async def get_overdue_production_steps(
 
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_order(order_id: int, db: Session = Depends(get_db)):
+async def delete_order(
+    order_id: int,
+    order_service: OrderService = Depends(get_order_service),
+):
     """
     Удаление заказа (только для заказов в статусе PENDING)
     """
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Заказ с ID {order_id} не найден",
-        )
-
-    if order.status != OrderStatus.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Можно удалять только заказы в статусе 'Ожидает обработки'",
-        )
-
-    db.delete(order)
-    db.commit()
-
-    return {"message": f"Заказ {order_id} успешно удален"}
+    try:
+        order_service.delete_order(order_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

@@ -19,7 +19,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from ..utils.time_utils import get_moscow_time_utc
 from .base import BaseModel
+from .production_step import StepStatus
 
 
 class OrderStatus(str, enum.Enum):
@@ -74,7 +76,7 @@ class Order(BaseModel):
             return False
         if not self.deadline:
             return False
-        return datetime.utcnow() > self.deadline
+        return get_moscow_time_utc() > self.deadline
 
     @property
     def progress_percentage(self) -> float:
@@ -90,8 +92,10 @@ class Order(BaseModel):
             return 0.0
 
         total_steps = len(steps)
-        completed_steps = len([s for s in steps if s.status.name == "COMPLETED"])
-        in_progress_steps = len([s for s in steps if s.status.name == "IN_PROGRESS"])
+        completed_steps = len([s for s in steps if s.status == StepStatus.COMPLETED])
+        in_progress_steps = len(
+            [s for s in steps if s.status == StepStatus.IN_PROGRESS]
+        )
 
         if total_steps == 0:
             return 0.0
@@ -116,7 +120,7 @@ class Order(BaseModel):
         """Обновление статуса с проверкой валидности"""
         if self.can_transition_to(new_status):
             self.status = new_status
-            self.updated_at = datetime.utcnow()
+            self.updated_at = get_moscow_time_utc()
         else:
             raise ValueError(
                 f"Невозможно изменить статус с {self.status} на {new_status}"

@@ -53,13 +53,17 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 
 def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
     """Get current admin user"""
-    if getattr(current_user, "role", None) != "admin":
+    user_role = getattr(current_user, "role", None)
+    if user_role not in ["admin", "su", "superuser"]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return current_user
 
 
 def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
     """Get current superuser"""
-    if not getattr(current_user, "is_superuser", False):
+    if (
+        not getattr(current_user, "is_superuser", False)
+        or getattr(current_user, "role", None) != "superuser"
+    ):
         raise HTTPException(status_code=403, detail="Superuser access required")
     return current_user

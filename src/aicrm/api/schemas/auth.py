@@ -21,6 +21,7 @@ class UserCreate(UserBase):
     """Схема создания пользователя"""
 
     password: str
+    is_superuser: bool = False
 
 
 class UserUpdate(BaseModel):

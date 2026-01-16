@@ -147,7 +147,7 @@ class AvitoRateLimiter:
 
         try:
             # Удаляем все ключи для данного пользователя и типа операции
-            current_minute = int(time.time() // 60)
+            int(time.time() // 60)
             pattern = f"{self.key_prefix}:{user_id}:{operation_type}:*"
 
             # Получаем все ключи по паттерну
@@ -177,3 +177,105 @@ async def get_avito_rate_limiter() -> AvitoRateLimiter:
         _rate_limiter_instance = AvitoRateLimiter()
         await _rate_limiter_instance.__aenter__()
     return _rate_limiter_instance
+
+
+# Общий rate limiter для WebSocket и других нужд
+class GeneralRateLimiter:
+    """Общий rate limiter для различных операций"""
+
+    def __init__(self):
+        self.redis_url = settings.redis_url
+        self.redis_client: Optional[redis.Redis] = None
+
+    async def __aenter__(self):
+        if not self.redis_client:
+            self.redis_client = redis.from_url(self.redis_url)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.redis_client:
+            await self.redis_client.close()
+
+    async def check_rate_limit(self, key: str, limit: int, window_seconds: int) -> bool:
+        """
+        Проверка rate limit
+
+        Args:
+            key: Уникальный ключ для лимита
+            limit: Максимальное количество запросов
+            window_seconds: Временное окно в секундах
+
+        Returns:
+            bool: True если разрешено, False если лимит превышен
+        """
+        if not self.redis_client:
+            await self.__aenter__()
+
+        try:
+            # Используем Redis для подсчета
+            current_count = await self.redis_client.get(key)
+            current_count = int(current_count) if current_count else 0
+
+            if current_count >= limit:
+                logger.warning(f"Rate limit exceeded для ключа: {key}")
+                return False
+
+            # Увеличиваем счетчик
+            await self.redis_client.incr(key)
+            # Устанавливаем TTL
+            await self.redis_client.expire(key, window_seconds)
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Ошибка проверки rate limit: {e}")
+            # В случае ошибки разрешаем запрос
+            return True
+
+
+# Глобальный общий rate limiter
+_general_rate_limiter: Optional[GeneralRateLimiter] = None
+
+
+async def get_general_rate_limiter() -> GeneralRateLimiter:
+    """Получение общего rate limiter"""
+    global _general_rate_limiter
+    if not _general_rate_limiter:
+        _general_rate_limiter = GeneralRateLimiter()
+        await _general_rate_limiter.__aenter__()
+    return _general_rate_limiter
+
+
+# Алиас для совместимости с WebSocket
+rate_limiter = None  # Будет инициализирован асинхронно
+
+
+async def init_rate_limiter():
+    """Инициализация rate limiter"""
+    global rate_limiter
+    if not rate_limiter:
+        rate_limiter = await get_general_rate_limiter()
+
+
+# Синхронный алиас для совместимости (но это не идеально для async)
+class SyncRateLimiter:
+    """Синхронный rate limiter для совместимости"""
+
+    def __init__(self):
+        self._limiter = None
+
+    async def _ensure_limiter(self):
+        if not self._limiter:
+            self._limiter = await get_general_rate_limiter()
+        return self._limiter
+
+    async def check_rate_limit(self, key: str, limit: int, window_seconds: int) -> bool:
+        limiter = await self._ensure_limiter()
+        return await limiter.check_rate_limit(key, limit, window_seconds)
+
+
+# Глобальный синхронный rate limiter
+_sync_rate_limiter = SyncRateLimiter()
+
+# Для совместимости с существующим кодом
+rate_limiter = _sync_rate_limiter

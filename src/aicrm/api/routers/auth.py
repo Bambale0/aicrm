@@ -33,16 +33,13 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
-):
+async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     """Вход в систему"""
-    user = auth_service.authenticate_user(db, form_data.username, form_data.password)
+    user = auth_service.authenticate_user(db, login_data.email, login_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token = auth_service.create_access_token(data={"sub": user.email})
@@ -77,8 +74,10 @@ async def get_current_user(
     return user
 
 
-async def get_current_active_user(current_user: UserSchema = Depends(get_current_user)):
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
     """Получение активного пользователя"""
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+    if current_user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
+        )
     return current_user

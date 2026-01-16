@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: Optional[str] = None
     smtp_password: Optional[str] = None
+    from_email: Optional[str] = None
 
     # Twilio
     twilio_account_sid: Optional[str] = None
@@ -49,14 +50,16 @@ class Settings(BaseSettings):
 
     # App
     debug: bool = False
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
+    cors_origins: list[str] = ["http://localhost:3000", "https://dev.chillcreative.ru"]
     log_level: str = "INFO"
 
-    model_config = ConfigDict(
-        env_file=".env",
-        case_sensitive=False,
-        extra="ignore",  # Allow extra fields from environment
-    )
+    # System monitoring
+    base_url: str = "http://localhost:8000"
+
+    class Config:
+        env_file = [".env", "src/.env"]
+        case_sensitive = False
+        extra = "ignore"  # Allow extra fields from environment
 
 
 settings = Settings()

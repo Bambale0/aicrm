@@ -81,8 +81,15 @@ class TokenData(BaseModel):
 class LoginRequest(BaseModel):
     """Запрос на вход"""
 
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    username: Optional[str] = None  # Для совместимости с фронтендом
     password: str
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Если передан username вместо email, используем его как email
+        if self.username and not self.email:
+            self.email = self.username
 
 
 class LoginResponse(BaseModel):

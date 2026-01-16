@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ...models.order import OrderStatus
+from ..models.order import OrderStatus
 
 
 class OrderItem(BaseModel):

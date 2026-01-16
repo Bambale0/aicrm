@@ -58,6 +58,10 @@ def get_db() -> Session:
         db.close()
 
 
+# Алиас для совместимости
+get_master_db = get_db
+
+
 async def get_async_db() -> AsyncSession:
     """Получение асинхронной сессии базы данных"""
     db = AsyncSessionLocal()

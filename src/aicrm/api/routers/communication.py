@@ -252,14 +252,27 @@ async def get_communication_stats(
         query = query.filter(Communication.channel == channel)
     if customer_id:
         query = query.filter(Communication.customer_id == customer_id)
+
+    # Безопасный парсинг дат с обработкой ошибок
     if date_from:
-        query = query.filter(
-            Communication.created_at >= datetime.fromisoformat(date_from)
-        )
+        try:
+            date_from_parsed = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
+            query = query.filter(Communication.created_at >= date_from_parsed)
+        except (ValueError, AttributeError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date_from format. Expected ISO format, got: {date_from}",
+            )
+
     if date_to:
-        query = query.filter(
-            Communication.created_at <= datetime.fromisoformat(date_to)
-        )
+        try:
+            date_to_parsed = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
+            query = query.filter(Communication.created_at <= date_to_parsed)
+        except (ValueError, AttributeError) as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date_to format. Expected ISO format, got: {date_to}",
+            )
 
     result = query.first()
 
@@ -278,10 +291,15 @@ async def get_communication_stats(
         .all()
     )
 
+    # Безопасное извлечение данных из результата
+    total_count = getattr(result, "total_count", 0) or 0
+    unique_customers = getattr(result, "unique_customers", 0) or 0
+    avg_message_length = getattr(result, "avg_message_length", 0) or 0
+
     return {
-        "total_communications": result.total_count or 0,
-        "unique_customers": result.unique_customers or 0,
-        "average_message_length": float(result.avg_message_length or 0),
+        "total_communications": total_count,
+        "unique_customers": unique_customers,
+        "average_message_length": float(avg_message_length),
         "channels_breakdown": {stat.channel: stat.count for stat in channel_stats},
         "sentiment_breakdown": {stat.sentiment: stat.count for stat in sentiment_stats},
     }

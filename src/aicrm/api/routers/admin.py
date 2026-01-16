@@ -12,9 +12,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from ...core.dependencies import get_current_admin_user, get_current_superuser, get_db
+from ...core.dependencies import (
+    get_current_active_user,
+    get_current_admin_user,
+    get_current_superuser,
+    get_db,
+)
 from ...models.user import User
 from ...services.auth import AuthService
+from ...utils.time_utils import get_moscow_time_utc
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -94,7 +100,7 @@ class LogEntry(BaseModel):
 
 @router.get("/stats", response_model=SystemStats)
 async def get_system_stats(
-    db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_superuser)
 ):
     """
     Получить общую статистику системы
@@ -258,7 +264,7 @@ async def update_user(
         else:
             setattr(user, field, value)
 
-    user.updated_at = datetime.utcnow()
+    user.updated_at = get_moscow_time_utc()
     db.commit()
     db.refresh(user)
 
@@ -322,7 +328,7 @@ async def get_system_logs(
                     except:
                         logs.append(
                             LogEntry(
-                                timestamp=datetime.utcnow(),
+                                timestamp=get_moscow_time_utc(),
                                 level="UNKNOWN",
                                 message=line,
                             )
@@ -330,7 +336,9 @@ async def get_system_logs(
                 else:
                     logs.append(
                         LogEntry(
-                            timestamp=datetime.utcnow(), level="UNKNOWN", message=line
+                            timestamp=get_moscow_time_utc(),
+                            level="UNKNOWN",
+                            message=line,
                         )
                     )
 
@@ -342,7 +350,7 @@ async def get_system_logs(
 
 
 @router.get("/health/detailed")
-async def get_detailed_health(current_user: User = Depends(get_current_admin_user)):
+async def get_detailed_health(current_user: User = Depends(get_current_active_user)):
     """
     Получить детальную информацию о здоровье системы
     """
@@ -381,7 +389,7 @@ async def get_detailed_health(current_user: User = Depends(get_current_admin_use
 
         return {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": get_moscow_time_utc().isoformat(),
             "version": "0.1.0",
             "services": {
                 "redis": redis_status,
@@ -395,7 +403,7 @@ async def get_detailed_health(current_user: User = Depends(get_current_admin_use
     except ImportError:
         return {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": get_moscow_time_utc().isoformat(),
             "version": "0.1.0",
             "services": {"redis": "unknown"},
             "system": {"cpu_percent": 0, "memory_percent": 0},
@@ -412,7 +420,7 @@ async def get_superuser_system_health_check(
     Доступно только для Super User.
     """
     health_report = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": get_moscow_time_utc().isoformat(),
         "overall_status": "healthy",
         "checks": {},
         "warnings": [],
@@ -659,7 +667,7 @@ async def get_superuser_system_health_check(
     except Exception as e:
         logger.error(f"Superuser health check failed: {e}")
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": get_moscow_time_utc().isoformat(),
             "overall_status": "error",
             "error": str(e),
             "checks": {},
@@ -678,7 +686,7 @@ async def create_database_backup(current_user: User = Depends(get_current_admin_
         from datetime import datetime
 
         # Предполагаем PostgreSQL
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = get_moscow_time_utc().strftime("%Y%m%d_%H%M%S")
         backup_file = f"/tmp/aicrm_backup_{timestamp}.sql"
 
         # Команда для бэкапа (нужно настроить под вашу БД)

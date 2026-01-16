@@ -102,8 +102,9 @@ import sys
 sys.path.insert(0, 'src')
 try:
     from aicrm.core.database import SessionLocal
+    from sqlalchemy import text
     db = SessionLocal()
-    db.execute('SELECT 1')
+    db.execute(text('SELECT 1'))
     db.close()
     print('✅ Database connection OK')
 except Exception as e:
@@ -121,6 +122,18 @@ export REDIS_URL=${REDIS_URL:-redis://localhost:6379/0}
 cleanup() {
     print_status "Shutting down..."
 
+    # Kill FastAPI process
+    if [ ! -z "$FASTAPI_PID" ]; then
+        print_status "Stopping FastAPI application..."
+        kill $FASTAPI_PID 2>/dev/null || true
+    fi
+
+    # Kill Socket.IO process
+    if [ ! -z "$SOCKET_PID" ]; then
+        print_status "Stopping Socket.IO server..."
+        kill $SOCKET_PID 2>/dev/null || true
+    fi
+
     # Kill Redis server if started by this script
     if [ ! -z "$REDIS_PID" ]; then
         print_status "Stopping Redis server..."
@@ -135,18 +148,40 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 print_status "Starting AI CRM application..."
-print_status "Application will be available at: http://localhost:8000"
+print_status "FastAPI will be available at: http://localhost:8000"
+print_status "Socket.IO will be available at: http://localhost:8001"
 print_status "API documentation at: http://localhost:8000/docs"
 print_status "Press Ctrl+C to stop all services"
 
-# Start the application with reload for development
+# Set default ports
+FASTAPI_PORT=${FASTAPI_PORT:-8000}
+SOCKET_PORT=${SOCKET_PORT:-8001}
+
+# Start FastAPI application in background
+print_status "Starting FastAPI application on port ${FASTAPI_PORT}..."
 PYTHONPATH="$(pwd)/src:$PYTHONPATH" python3 -m uvicorn aicrm.main:app \
     --host 0.0.0.0 \
-    --port 8000 \
+    --port ${FASTAPI_PORT} \
     --reload \
     --log-level info \
     --access-log \
-    --env-file .env
+    --env-file .env &
+FASTAPI_PID=$!
 
-# This point should not be reached due to uvicorn running in foreground
+# Start Socket.IO server in background
+print_status "Starting Socket.IO server on port ${SOCKET_PORT}..."
+PYTHONPATH="$(pwd)/src:$PYTHONPATH" python3 -m uvicorn aicrm.socket_server:socket_app \
+    --host 0.0.0.0 \
+    --port ${SOCKET_PORT} \
+    --reload \
+    --log-level info &
+SOCKET_PID=$!
+
+print_status "FastAPI PID: ${FASTAPI_PID}"
+print_status "Socket.IO PID: ${SOCKET_PID}"
+
+# Wait for both processes
+wait ${FASTAPI_PID} ${SOCKET_PID}
+
+# This point should not be reached due to processes running in foreground
 cleanup

@@ -27,6 +27,7 @@ class Customer(BaseModel):
     orders = relationship("Order", back_populates="customer")
     communications = relationship("Communication", back_populates="customer")
     avito_chat_settings = relationship("AvitoChatSettings", back_populates="customer")
+    telegram_chats = relationship("TelegramChat", back_populates="customer")
 
     def update_stats(self):
         """Обновление статистики клиента"""

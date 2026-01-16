@@ -19,6 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
+from ..utils.time_utils import get_moscow_time_utc
 from .base import Base
 
 
@@ -108,8 +109,10 @@ class Process(Base):
     )
 
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=get_moscow_time_utc)
+    updated_at = Column(
+        DateTime, default=get_moscow_time_utc, onupdate=get_moscow_time_utc
+    )
 
 
 class Stage(Base):
@@ -137,7 +140,7 @@ class Stage(Base):
     order_index = Column(Integer, default=0)
     color = Column(String(7))  # HEX цвет для визуализации
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_moscow_time_utc)
 
 
 class Trigger(Base):
@@ -163,7 +166,7 @@ class Trigger(Base):
     )
 
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_moscow_time_utc)
 
 
 class Robot(Base):
@@ -191,7 +194,7 @@ class Robot(Base):
     )
 
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_moscow_time_utc)
 
 
 class RobotActionConfig(Base):
@@ -216,4 +219,4 @@ class RobotActionConfig(Base):
     conditions = Column(JSON)
     delay_seconds = Column(Integer, default=0)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_moscow_time_utc)
