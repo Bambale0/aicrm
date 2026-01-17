@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     twilio_auth_token: Optional[str] = None
     twilio_phone_number: Optional[str] = None
 
+    # SMS
+    sms_provider: Optional[str] = None
+    sms_api_key: Optional[str] = None
+    sms_login: Optional[str] = None
+    sms_password: Optional[str] = None
+    sms_sender: Optional[str] = "AICRM"
+
     # Avito
     avito_client_id: Optional[str] = None
     avito_client_secret: Optional[str] = None

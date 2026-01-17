@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .api.routers import (
     admin,
     ai,
+    ai_orchestrator,
     ai_prompt,
     ai_settings,
     auth,
@@ -29,6 +30,7 @@ from .api.routers import (
     system_settings,
     task,
     telegram,
+    token_accounting,
     user,
     user_settings,
     websocket,
@@ -243,9 +245,14 @@ fastapi_app = FastAPI(
             "name": "websockets",
             "description": "WebSocket эндпоинты для real-time коммуникаций",
         },
-    ],
-    servers=[
-        {"url": "https://dev.chillcreative.ru", "description": "Production server"},
+        {
+            "name": "Token Accounting",
+            "description": "Управление квотами и учетом токенов AI",
+        },
+        {
+            "name": "AI Orchestrator",
+            "description": "Управление AI workflows: создание, выполнение, тестирование",
+        },
     ],
     docs_url="/docs",  # Включаем публичную документацию
     redoc_url="/redoc",  # Включаем публичную документацию
@@ -268,6 +275,7 @@ fastapi_app.include_router(auth.router)
 fastapi_app.include_router(admin.router)
 fastapi_app.include_router(order.router, prefix="/orders", tags=["Orders"])
 fastapi_app.include_router(ai.router, prefix="/ai", tags=["AI"])
+fastapi_app.include_router(ai_orchestrator.router, tags=["AI Orchestrator"])
 fastapi_app.include_router(ai_prompt.router)
 fastapi_app.include_router(ai_settings.router)
 fastapi_app.include_router(avito.router)
@@ -283,6 +291,7 @@ fastapi_app.include_router(plugin.router)
 fastapi_app.include_router(system.router)
 fastapi_app.include_router(system_settings.router)
 fastapi_app.include_router(telegram.router)
+fastapi_app.include_router(token_accounting.router)
 fastapi_app.include_router(user.router)
 fastapi_app.include_router(user_settings.router)
 fastapi_app.include_router(websocket.router, tags=["websockets"])

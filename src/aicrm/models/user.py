@@ -28,6 +28,7 @@ class User(BaseModel):
         "Task", foreign_keys="[Task.assigned_to]", back_populates="assigned_to_user"
     )
     production_steps = relationship("ProductionStep", back_populates="assigned_to_user")
+    settings = relationship("UserSettings", back_populates="user", uselist=False)
 
     @staticmethod
     def get_password_hash(password: str) -> str:

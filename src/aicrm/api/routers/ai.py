@@ -12,6 +12,7 @@ from ...core.database import get_db
 from ...services.ai.client import UnifiedAIClient
 from ...services.ai.intent_service import AIIntentService, IntentType
 from ...services.ai_usage_service import AIUsageService
+from ...services.token_accounting_service import TokenAccountingService
 from ..schemas.ai import (
     AIAnalysisRequest,
     AIAnalysisResponse,
@@ -122,15 +123,46 @@ async def analyze_intent(
         )  # Примерный расчет для генерации ответа
         total_tokens = intent_tokens + response_tokens
 
+        # Учет токенов через TokenAccountingService
+        token_service = TokenAccountingService(db)
+
+        # Определяем entity_type и entity_id для учета
+        # Для пользователей используем 'user', для компаний - 'company'
+        # Пока используем user, можно расширить для компаний
+        entity_type = "user"
+        entity_id = current_user.id
+
+        result = await token_service.check_quota_and_record_transaction(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            ai_provider="openrouter",  # или определить динамически
+            ai_model=model_used,
+            prompt_tokens=int(intent_tokens),
+            completion_tokens=int(response_tokens),
+            estimated_cost=0.001 * total_tokens,  # примерная стоимость
+            request_payload={
+                "message": request.message[:500],
+                "context": request.context,
+            },
+            response_metadata={"intent": intent, "response_length": len(response)},
+        )
+
+        if not result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Превышен лимит токенов: {result['error']}",
+            )
+
+        # Также логируем в старом формате для совместимости
         await AIUsageService(db).log_usage(
             model_used=model_used,
             endpoint="analyze-intent",
             total_tokens=total_tokens,
             prompt_tokens=intent_tokens,
             completion_tokens=response_tokens,
-            user_id=current_user.id,  # Получение ID пользователя из JWT токена
-            ip_address=http_request.client.host,  # Получение IP адреса клиента
-            user_agent=http_request.headers.get("user-agent"),  # Получение User-Agent
+            user_id=current_user.id,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
         )
 
         return AIAnalysisResponse(
@@ -169,7 +201,10 @@ async def analyze_intent(
     response_description="Сгенерированный ответ с информацией о намерении и модели",
 )
 async def generate_response(
-    request: AIAnalysisRequest, ai_service: AIIntentService = Depends(get_ai_service)
+    request: AIAnalysisRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    ai_service: AIIntentService = Depends(get_ai_service),
 ) -> Dict[str, Any]:
     """
     Генерирует ответ на сообщение клиента.
@@ -253,19 +288,52 @@ async def chat_with_ai(
 
         # Логируем использование токенов
         model_used = request.model or ai_client.provider.value
-        tokens_used = len(response.split()) * 1.3  # Примерный расчет токенов
+        prompt_tokens = sum(
+            len(msg.get("content", "").split()) * 1.2 for msg in request.messages
+        )  # Примерный расчет
+        completion_tokens = len(response.split()) * 1.3  # Примерный расчет для ответа
+        total_tokens = prompt_tokens + completion_tokens
 
+        # Учет токенов через TokenAccountingService
+        token_service = TokenAccountingService(db)
+        entity_type = "user"
+        entity_id = current_user.id
+
+        token_result = await token_service.check_quota_and_record_transaction(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            ai_provider="openrouter",
+            ai_model=model_used,
+            prompt_tokens=int(prompt_tokens),
+            completion_tokens=int(completion_tokens),
+            estimated_cost=0.001 * total_tokens,
+            request_payload={
+                "messages_count": len(request.messages),
+                "temperature": request.temperature,
+            },
+            response_metadata={"response_length": len(response)},
+        )
+
+        if not token_result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Превышен лимит токенов: {token_result['error']}",
+            )
+
+        # Также логируем в старом формате для совместимости
         await AIUsageService(db).log_usage(
             model_used=model_used,
             endpoint="chat",
-            total_tokens=tokens_used,
-            user_id=current_user.id,  # Получение ID пользователя из JWT токена
-            ip_address=http_request.client.host,  # Получение IP адреса клиента
-            user_agent=http_request.headers.get("user-agent"),  # Получение User-Agent
+            total_tokens=total_tokens,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            user_id=current_user.id,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
         )
 
         return AIChatResponse(
-            response=response, model_used=model_used, tokens_used=tokens_used
+            response=response, model_used=model_used, tokens_used=total_tokens
         )
 
     except Exception as e:
