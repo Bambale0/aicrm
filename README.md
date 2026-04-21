@@ -501,17 +501,6 @@ mypy src/
 pytest --cov=src/aicrm --cov-report=term-missing
 ```
 
-## 📄 Лицензия
-
-MIT License - см. файл [LICENSE](LICENSE) для подробностей.
-
-## 📞 Поддержка
-
-- **Документация**: [Wiki](https://github.com/your-org/aicrm/wiki)
-- **Issues**: [GitHub Issues](https://github.com/your-org/aicrm/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/aicrm/discussions)
-
----
 
 **AI CRM System** - ваш надежный партнер в автоматизации бизнеса печати! 🎨🤖
 
