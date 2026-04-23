@@ -31,10 +31,10 @@ class AIConfig(BaseSettings):
     OPENAI_BASE_URL: Optional[str] = None
 
     # Предпочтения моделей
-    DEFAULT_MODEL: str = "deepseek/deepseek-coder:33b-instruct"
+    DEFAULT_MODEL: str = "deepseek/deepseek-chat"
     FALLBACK_MODELS: list = [
-        "meta-llama/llama-3-70b-instruct",
-        "google/gemini-pro"
+        "moonshotai/kimi-k2",
+        "openai/gpt-5-nano"
     ]
 
     # Ограничения скорости
@@ -42,7 +42,8 @@ class AIConfig(BaseSettings):
     MAX_TOKENS: int = 4000
 
     model_config = {
-        "env_file": ".env",
+        "env_file": [".env", "../.env", "../../.env"],
+        "env_file_encoding": "utf-8",
         "extra": "ignore"  # Allow extra fields from environment
     }
 

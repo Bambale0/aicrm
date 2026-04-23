@@ -1,0 +1,21 @@
+[Unit]
+Description=AI CRM System FastAPI Application
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/saas/aicrm
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/root/saas/aicrm/src
+ExecStart=/usr/local/bin/uvicorn --app-dir /root/saas/aicrm src.aicrm.main:app --host 0.0.0.0 --port 8000 --reload
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aicrm
+
+[Install]
+WantedBy=multi-user.target

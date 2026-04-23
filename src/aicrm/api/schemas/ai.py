@@ -32,6 +32,12 @@ class AIAnalysisRequest(BaseModel):
         }
     )
 
+    model: Optional[str] = Field(
+        None,
+        description="Модель AI для использования",
+        example="deepseek/deepseek-chat-v3.1"
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -161,10 +167,10 @@ class AIChatResponse(BaseModel):
         example="deepseek/deepseek-coder:33b-instruct"
     )
 
-    tokens_used: Optional[int] = Field(
+    tokens_used: Optional[float] = Field(
         None,
         description="Количество использованных токенов",
-        example=247
+        example=247.5
     )
 
     class Config:
@@ -229,5 +235,71 @@ class AIStatusResponse(BaseModel):
                 "status": "active",
                 "default_model": "deepseek/deepseek-coder:33b-instruct",
                 "available_models": ["deepseek/deepseek-coder:33b-instruct", "meta-llama/llama-3-70b-instruct"]
+            }
+        }
+
+
+class AIMonthlyUsageResponse(BaseModel):
+    """
+    Ответ со статистикой использования токенов за месяц.
+    """
+
+    period: Dict[str, Any] = Field(..., description="Период статистики")
+    total_tokens: float = Field(..., description="Общее количество токенов", example=15420.5)
+    prompt_tokens: float = Field(..., description="Токены в запросах", example=8920.2)
+    completion_tokens: float = Field(..., description="Токены в ответах", example=6500.3)
+    total_requests: int = Field(..., description="Общее количество запросов", example=245)
+    unique_models: int = Field(..., description="Количество уникальных моделей", example=3)
+    model_breakdown: List[Dict[str, Any]] = Field(..., description="Статистика по моделям")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "period": {
+                    "year": 2025,
+                    "month": 11,
+                    "month_year": "2025-11"
+                },
+                "total_tokens": 15420.5,
+                "prompt_tokens": 8920.2,
+                "completion_tokens": 6500.3,
+                "total_requests": 245,
+                "unique_models": 3,
+                "model_breakdown": [
+                    {
+                        "model": "deepseek/deepseek-chat-v3.1",
+                        "tokens": 12000.5,
+                        "requests": 180
+                    },
+                    {
+                        "model": "meta-llama/llama-3-70b-instruct",
+                        "tokens": 3420.0,
+                        "requests": 65
+                    }
+                ]
+            }
+        }
+
+
+class AIUsageHistoryResponse(BaseModel):
+    """
+    Ответ с историей использования токенов.
+    """
+
+    history: List[Dict[str, Any]] = Field(..., description="Список записей использования")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "history": [
+                    {
+                        "id": 1,
+                        "model_used": "deepseek/deepseek-chat-v3.1",
+                        "endpoint": "chat",
+                        "total_tokens": 245.7,
+                        "created_at": "2025-11-13T10:30:00",
+                        "request_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                ]
             }
         }

@@ -8,6 +8,12 @@ from .order import Order
 from .production_step import ProductionStep
 from .communication import Communication
 from .task import Task
+from .avito_chat import AvitoChatSettings
+from .ai_usage import AIUsage
+from .automation import (
+    Process, Stage, Trigger, Robot, RobotActionConfig,
+    EntityType, TriggerEvent, RobotAction
+)
 
 __all__ = [
     "Base",
@@ -17,5 +23,16 @@ __all__ = [
     "Order",
     "ProductionStep",
     "Communication",
-    "Task"
+    "Task",
+    "AvitoChatSettings",
+    "AIUsage",
+    # Automation models
+    "Process",
+    "Stage",
+    "Trigger",
+    "Robot",
+    "RobotActionConfig",
+    "EntityType",
+    "TriggerEvent",
+    "RobotAction"
 ]

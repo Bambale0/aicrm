@@ -1,0 +1,61 @@
+# Core Framework & API
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Database & ORM
+sqlalchemy
+alembic
+aiosqlite
+psycopg2-binary
+asyncpg
+
+# Authentication & Security
+python-jose[cryptography]
+bcrypt
+python-multipart
+slowapi
+
+# AI & ML интеграции
+openai
+anthropic
+httpx
+tenacity
+transformers
+torch
+
+# External API интеграции
+redis
+python-telegram-bot
+twilio
+celery
+
+# Email & Communications
+aiosmtplib
+email-validator
+jinja2
+
+# Background Tasks & Scheduling
+apscheduler
+
+# Monitoring & Observability
+structlog
+prometheus-client
+psutil
+opentelemetry-distro
+opentelemetry-instrumentation-fastapi
+
+# Utilities
+aiofiles
+python-dateutil
+python-ulid
+websockets
+python-dotenv
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+factory-boy
+testcontainers
