@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     twilio_auth_token: Optional[str] = None
     twilio_phone_number: Optional[str] = None
 
+    # Avito
+    avito_client_id: Optional[str] = None
+    avito_client_secret: Optional[str] = None
+    avito_user_id: Optional[int] = None
+
     # App
     debug: bool = False
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]

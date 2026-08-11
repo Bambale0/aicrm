@@ -2,36 +2,45 @@
 Сервис управления клиентами
 """
 from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from ..models.customer import Customer
 from ..models.order import Order
+from .automation.automation_service import AutomationService
 
 
 class CustomerService:
     """Сервис для работы с клиентами"""
 
     @staticmethod
-    async def create_customer(db: AsyncSession, customer_data: dict) -> Customer:
+    def create_customer(db: Session, customer_data: dict) -> Customer:
         """Создание нового клиента"""
         customer = Customer(**customer_data)
         db.add(customer)
-        await db.commit()
-        await db.refresh(customer)
+        db.commit()
+        db.refresh(customer)
         return customer
 
     @staticmethod
-    async def get_customer(db: AsyncSession, customer_id: int) -> Optional[Customer]:
-        """Получение клиента по ID"""
-        result = await db.execute(
-            db.query(Customer).filter(Customer.id == customer_id)
-        )
-        return result.scalars().first()
+    async def create_customer_with_automation(db: Session, customer_data: dict) -> Customer:
+        """Создание нового клиента с запуском автоматизации"""
+        customer = CustomerService.create_customer(db, customer_data)
+
+        # Запускаем автоматизацию
+        automation_service = AutomationService(db)
+        await automation_service.on_customer_created(customer.id)
+
+        return customer
 
     @staticmethod
-    async def get_customers(
-        db: AsyncSession,
+    def get_customer(db: Session, customer_id: int) -> Optional[Customer]:
+        """Получение клиента по ID"""
+        return db.query(Customer).filter(Customer.id == customer_id).first()
+
+    @staticmethod
+    def get_customers(
+        db: Session,
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None
@@ -46,17 +55,16 @@ class CustomerService:
                 (Customer.phone.ilike(f"%{search}%"))
             )
 
-        result = await db.execute(query.offset(skip).limit(limit))
-        return result.scalars().all()
+        return query.offset(skip).limit(limit).all()
 
     @staticmethod
-    async def update_customer(
-        db: AsyncSession,
+    def update_customer(
+        db: Session,
         customer_id: int,
         update_data: dict
     ) -> Optional[Customer]:
         """Обновление данных клиента"""
-        customer = await CustomerService.get_customer(db, customer_id)
+        customer = CustomerService.get_customer(db, customer_id)
         if not customer:
             return None
 
@@ -64,42 +72,39 @@ class CustomerService:
             if value is not None:
                 setattr(customer, key, value)
 
-        await db.commit()
-        await db.refresh(customer)
+        db.commit()
+        db.refresh(customer)
         return customer
 
     @staticmethod
-    async def delete_customer(db: AsyncSession, customer_id: int) -> bool:
+    def delete_customer(db: Session, customer_id: int) -> bool:
         """Удаление клиента"""
-        customer = await CustomerService.get_customer(db, customer_id)
+        customer = CustomerService.get_customer(db, customer_id)
         if not customer:
             return False
 
-        await db.delete(customer)
-        await db.commit()
+        db.delete(customer)
+        db.commit()
         return True
 
     @staticmethod
-    async def get_customer_stats(db: AsyncSession, customer_id: int) -> Optional[dict]:
+    def get_customer_stats(db: Session, customer_id: int) -> Optional[dict]:
         """Получение статистики клиента"""
-        customer = await CustomerService.get_customer(db, customer_id)
+        customer = CustomerService.get_customer(db, customer_id)
         if not customer:
             return None
 
         # Обновляем статистику клиента
         customer.update_stats()
-        await db.commit()
+        db.commit()
 
         # Получаем дополнительную статистику
-        result = await db.execute(
-            db.query(
-                func.count(Order.id).label("total_orders"),
-                func.sum(Order.total_amount).label("total_spent"),
-                func.max(Order.created_at).label("last_order_date"),
-                func.avg(Order.total_amount).label("average_order_value")
-            ).filter(Order.customer_id == customer_id)
-        )
-        stats = result.first()
+        stats = db.query(
+            func.count(Order.id).label("total_orders"),
+            func.sum(Order.total_amount).label("total_spent"),
+            func.max(Order.created_at).label("last_order_date"),
+            func.avg(Order.total_amount).label("average_order_value")
+        ).filter(Order.customer_id == customer_id).first()
 
         return {
             "total_orders": customer.total_orders,
@@ -110,20 +115,17 @@ class CustomerService:
         }
 
     @staticmethod
-    async def search_customers(
-        db: AsyncSession,
+    def search_customers(
+        db: Session,
         query: str,
         limit: int = 50
     ) -> List[Customer]:
         """Поиск клиентов"""
-        result = await db.execute(
-            db.query(Customer).filter(
-                (Customer.name.ilike(f"%{query}%")) |
-                (Customer.email.ilike(f"%{query}%")) |
-                (Customer.phone.ilike(f"%{query}%"))
-            ).limit(limit)
-        )
-        return result.scalars().all()
+        return db.query(Customer).filter(
+            (Customer.name.ilike(f"%{query}%")) |
+            (Customer.email.ilike(f"%{query}%")) |
+            (Customer.phone.ilike(f"%{query}%"))
+        ).limit(limit).all()
 
 
 customer_service = CustomerService()

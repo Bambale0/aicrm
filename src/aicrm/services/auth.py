@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from jose import JWTError, jwt
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from ..core.config import settings
 from ..models.user import User
@@ -28,12 +28,9 @@ class AuthService:
         return encoded_jwt
 
     @staticmethod
-    async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
+    def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         """Аутентификация пользователя"""
-        user = await db.execute(
-            db.query(User).filter(User.email == email)
-        )
-        user = user.scalars().first()
+        user = db.query(User).filter(User.email == email).first()
 
         if not user:
             return None
@@ -42,7 +39,7 @@ class AuthService:
         return user
 
     @staticmethod
-    async def get_current_user(db: AsyncSession, token: str) -> Optional[User]:
+    def get_current_user(db: Session, token: str) -> Optional[User]:
         """Получение текущего пользователя по токену"""
         try:
             payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
@@ -52,22 +49,19 @@ class AuthService:
         except JWTError:
             return None
 
-        user = await db.execute(
-            db.query(User).filter(User.email == email)
-        )
-        user = user.scalars().first()
+        user = db.query(User).filter(User.email == email).first()
         return user
 
     @staticmethod
-    async def create_user(db: AsyncSession, user_data: dict) -> User:
+    def create_user(db: Session, user_data: dict) -> User:
         """Создание нового пользователя"""
         hashed_password = User.get_password_hash(user_data.pop("password"))
         user_data["hashed_password"] = hashed_password
 
         user = User(**user_data)
         db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        db.commit()
+        db.refresh(user)
         return user
 
 

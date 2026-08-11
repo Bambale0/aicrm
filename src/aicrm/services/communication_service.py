@@ -3,8 +3,8 @@
 """
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
-from models.communication import Communication
-from services.ai.intent_service import AIIntentService, IntentType
+from ..models.communication import Communication
+from .ai.intent_service import AIIntentService, IntentType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class CommunicationService:
             "telegram": None,  # TelegramHandler(),
             "email": None,     # EmailHandler(),
             "website": None,   # WebsiteHandler(),
-            "avito": None      # AvitoHandler()
+            "avito": None      # AvitoHandler() - будет инициализирован при первом использовании
         }
 
     async def handle_incoming_message(
@@ -87,6 +87,8 @@ class CommunicationService:
             return message_data.get('body', '') or message_data.get('subject', '')
         elif channel == "website":
             return message_data.get('message', '') or message_data.get('question', '')
+        elif channel == "avito":
+            return message_data.get('text', '') or message_data.get('message', {}).get('text', '')
         else:
             return str(message_data)
 
@@ -96,8 +98,8 @@ class CommunicationService:
             return {}
 
         # Получение данных клиента, истории заказов, предпочтений
-        from models.customer import Customer
-        from models.order import Order
+        from ..models.customer import Customer
+        from ..models.order import Order
 
         customer = self.db.query(Customer).filter(Customer.id == customer_id).first()
         if not customer:

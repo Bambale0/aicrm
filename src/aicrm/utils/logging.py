@@ -66,5 +66,15 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     return structlog.get_logger(name)
 
 
+def get_messenger_logger() -> structlog.stdlib.BoundLogger:
+    """
+    Получение логгера специально для операций мессенджера
+    """
+    return structlog.get_logger("messenger").bind(
+        component="messenger",
+        service="avito"
+    )
+
+
 # Глобальная настройка логирования при импорте
 setup_logging()

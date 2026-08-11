@@ -1,0 +1,27 @@
+{
+  "name": "@aicrm/backend",
+  "version": "1.0.0",
+  "description": "AI CRM Backend API",
+  "private": true,
+  "scripts": {
+    "dev": "cd .. && PYTHONPATH=backend/src uvicorn aicrm.main:app --reload --host 0.0.0.0 --port 8000",
+    "start": "cd .. && PYTHONPATH=backend/src uvicorn aicrm.main:app --host 0.0.0.0 --port 8000",
+    "build": "echo 'Python build complete'",
+    "test": "pytest src/aicrm/tests/ -v --cov=src/aicrm --cov-report=html --cov-report=term",
+    "test:unit": "pytest src/aicrm/tests/ -k 'not integration' -v",
+    "test:integration": "pytest src/aicrm/tests/ -k 'integration' -v",
+    "lint": "ruff check src/aicrm",
+    "lint:fix": "black src/ && isort src/",
+    "typecheck": "mypy src/aicrm --ignore-missing-imports",
+    "db:migrate": "python -c \"import sys; sys.path.insert(0, 'src'); from aicrm.core.database import create_tables; create_tables()\"",
+    "db:seed": "python -c \"import sys; sys.path.insert(0, 'src'); import create_admin_user; create_admin_user.main()\"",
+    "clean": "rm -rf __pycache__ *.pyc *.pyo .pytest_cache htmlcov .coverage",
+    "docker:build": "docker build -t aicrm-backend .",
+    "docker:push": "docker push aicrm-backend"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.11.0"
+  }
+}

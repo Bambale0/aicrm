@@ -1,16 +1,19 @@
 """
 AI роутер для FastAPI - OpenAPI 3.0.0 compliant
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 
 from ...core.database import get_db
-from ...services.ai.intent_service import AIIntentService
+from ...services.ai.intent_service import AIIntentService, IntentType
 from ...services.ai.client import UnifiedAIClient
+from ...services.ai_usage_service import AIUsageService
+from ...api.routers.auth import get_current_user
+from ..schemas.auth import User
 from ..schemas.ai import (
     AIAnalysisRequest, AIAnalysisResponse, AIChatRequest, AIChatResponse,
-    AIModelsResponse, AIStatusResponse
+    AIModelsResponse, AIStatusResponse, AIMonthlyUsageResponse, AIUsageHistoryResponse
 )
 
 router = APIRouter(
@@ -73,6 +76,8 @@ def get_ai_client() -> UnifiedAIClient:
 )
 async def analyze_intent(
     request: AIAnalysisRequest,
+    http_request: Request,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     ai_service: AIIntentService = Depends(get_ai_service)
 ) -> AIAnalysisResponse:
@@ -91,12 +96,33 @@ async def analyze_intent(
         HTTPException: При ошибке анализа или внешнего сервиса
     """
     try:
-        result = await ai_service.process_customer_message(
-            message=request.message,
-            customer_context=request.context
+        # Передаем модель в intent_service
+        intent = await ai_service.analyze_intent(request.message, request.context, request.model)
+        response = await ai_service.generate_response(intent, request.message, request.context, request.model)
+
+        # Логируем использование токенов (примерный расчет)
+        model_used = request.model or "deepseek/deepseek-chat-v3.1"
+        intent_tokens = len(request.message.split()) * 1.2  # Примерный расчет для анализа намерения
+        response_tokens = len(response.split()) * 1.3  # Примерный расчет для генерации ответа
+        total_tokens = intent_tokens + response_tokens
+
+        await AIUsageService(db).log_usage(
+            model_used=model_used,
+            endpoint="analyze-intent",
+            total_tokens=total_tokens,
+            prompt_tokens=intent_tokens,
+            completion_tokens=response_tokens,
+            user_id=current_user.id,  # Получение ID пользователя из JWT токена
+            ip_address=http_request.client.host,  # Получение IP адреса клиента
+            user_agent=http_request.headers.get("user-agent")  # Получение User-Agent
         )
 
-        return AIAnalysisResponse(**result)
+        return AIAnalysisResponse(
+            intent=intent,
+            response=response,
+            needs_human_intervention=intent in [IntentType.COMPLAINT, IntentType.SUPPORT],
+            suggested_actions=ai_service._get_suggested_actions(intent)
+        )
 
     except Exception as e:
         raise HTTPException(
@@ -184,7 +210,10 @@ async def generate_response(
 )
 async def chat_with_ai(
     request: AIChatRequest,
-    ai_client: UnifiedAIClient = Depends(get_ai_client)
+    http_request: Request,
+    current_user: User = Depends(get_current_user),
+    ai_client: UnifiedAIClient = Depends(get_ai_client),
+    db: Session = Depends(get_db)
 ) -> AIChatResponse:
     """
     Выполняет чат с AI моделью.
@@ -204,10 +233,23 @@ async def chat_with_ai(
             max_tokens=request.max_tokens
         )
 
+        # Логируем использование токенов
+        model_used = request.model or ai_client.provider.value
+        tokens_used = len(response.split()) * 1.3  # Примерный расчет токенов
+
+        await AIUsageService(db).log_usage(
+            model_used=model_used,
+            endpoint="chat",
+            total_tokens=tokens_used,
+            user_id=current_user.id,  # Получение ID пользователя из JWT токена
+            ip_address=http_request.client.host,  # Получение IP адреса клиента
+            user_agent=http_request.headers.get("user-agent")  # Получение User-Agent
+        )
+
         return AIChatResponse(
             response=response,
-            model_used=request.model or ai_client.provider.value,
-            tokens_used=len(response.split()) * 1.3  # Примерный расчет токенов
+            model_used=model_used,
+            tokens_used=tokens_used
         )
 
     except Exception as e:
@@ -287,13 +329,15 @@ async def get_ai_status(
     """
     try:
         # Проверяем доступность клиента
+        from ...core.ai_config import ai_config
+
         provider = ai_client.provider.value
-        available_models = ["deepseek/deepseek-coder:33b-instruct", "meta-llama/llama-3-70b-instruct"]
+        available_models = ["deepseek/deepseek-chat-v3.1", "moonshotai/kimi-k2", "openai/gpt-5-nano"]
 
         return AIStatusResponse(
             provider=provider,
             status="active",
-            default_model="deepseek/deepseek-coder:33b-instruct",
+            default_model=ai_config.DEFAULT_MODEL,
             available_models=available_models
         )
 
@@ -301,4 +345,107 @@ async def get_ai_status(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"AI сервис недоступен: {str(e)}"
+        )
+
+
+@router.get(
+    "/usage/monthly",
+    response_model=AIMonthlyUsageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Статистика использования токенов за месяц",
+    description="""
+    Возвращает статистику использования AI токенов за указанный месяц.
+
+    **Параметры:**
+    - `year`: Год (текущий, если не указан)
+    - `month`: Месяц (текущий, если не указан)
+    - `user_id`: ID пользователя для фильтрации (опционально)
+
+    **Статистика включает:**
+    - Общее количество токенов
+    - Разбивка по типам токенов (запрос/ответ)
+    - Количество запросов
+    - Статистика по моделям
+    """,
+    response_description="Статистика использования токенов за месяц"
+)
+async def get_monthly_usage(
+    year: int = None,
+    month: int = None,
+    user_id: int = None,
+    db: Session = Depends(get_db)
+) -> AIMonthlyUsageResponse:
+    """
+    Получает статистику использования токенов за месяц.
+
+    Args:
+        year: Год
+        month: Месяц
+        user_id: ID пользователя для фильтрации
+        db: Сессия базы данных
+
+    Returns:
+        AIMonthlyUsageResponse: Статистика использования
+    """
+    try:
+        usage_service = AIUsageService(db)
+        stats = usage_service.get_monthly_usage(year=year, month=month, user_id=user_id)
+        return AIMonthlyUsageResponse(**stats)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось получить статистику использования: {str(e)}"
+        )
+
+
+@router.get(
+    "/usage/history",
+    response_model=AIUsageHistoryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="История использования токенов",
+    description="""
+    Возвращает историю использования AI токенов за последние дни.
+
+    **Параметры:**
+    - `days`: Количество дней для просмотра (по умолчанию 30)
+    - `user_id`: ID пользователя для фильтрации (опционально)
+    - `limit`: Максимальное количество записей (по умолчанию 100)
+
+    **Информация включает:**
+    - Модель AI
+    - Эндпоинт
+    - Количество токенов
+    - Время запроса
+    - ID запроса
+    """,
+    response_description="История использования токенов"
+)
+async def get_usage_history(
+    days: int = 30,
+    user_id: int = None,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+) -> AIUsageHistoryResponse:
+    """
+    Получает историю использования токенов.
+
+    Args:
+        days: Количество дней для просмотра
+        user_id: ID пользователя для фильтрации
+        limit: Максимальное количество записей
+        db: Сессия базы данных
+
+    Returns:
+        AIUsageHistoryResponse: История использования
+    """
+    try:
+        usage_service = AIUsageService(db)
+        history = usage_service.get_usage_history(days=days, user_id=user_id, limit=limit)
+        return AIUsageHistoryResponse(history=history)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Не удалось получить историю использования: {str(e)}"
         )

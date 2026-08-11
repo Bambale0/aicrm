@@ -25,20 +25,44 @@ class UnifiedAIClient:
     def _initialize_client(self) -> OpenAI:
         """Инициализация синхронного OpenAI клиента для выбранного провайдера"""
         config = self._get_provider_config()
-        return OpenAI(
-            api_key=config["api_key"],
-            base_url=config["base_url"],
-            timeout=httpx.Timeout(30.0)
-        )
+        if self.provider == AIProvider.OPENROUTER:
+            # OpenRouter требует специальной настройки
+            return OpenAI(
+                api_key=config["api_key"],
+                base_url=config["base_url"],
+                default_headers={
+                    "Authorization": f"Bearer {config['api_key']}",
+                    "Content-Type": "application/json"
+                },
+                timeout=httpx.Timeout(30.0)
+            )
+        else:
+            return OpenAI(
+                api_key=config["api_key"],
+                base_url=config["base_url"],
+                timeout=httpx.Timeout(30.0)
+            )
 
     def _initialize_async_client(self) -> AsyncOpenAI:
         """Инициализация асинхронного OpenAI клиента"""
         config = self._get_provider_config()
-        return AsyncOpenAI(
-            api_key=config["api_key"],
-            base_url=config["base_url"],
-            timeout=httpx.Timeout(30.0)
-        )
+        if self.provider == AIProvider.OPENROUTER:
+            # OpenRouter требует специальной настройки
+            return AsyncOpenAI(
+                api_key=config["api_key"],
+                base_url=config["base_url"],
+                default_headers={
+                    "Authorization": f"Bearer {config['api_key']}",
+                    "Content-Type": "application/json"
+                },
+                timeout=httpx.Timeout(30.0)
+            )
+        else:
+            return AsyncOpenAI(
+                api_key=config["api_key"],
+                base_url=config["base_url"],
+                timeout=httpx.Timeout(30.0)
+            )
 
     def _get_provider_config(self) -> Dict[str, str]:
         """Получение конфигурации для текущего провайдера"""
@@ -93,17 +117,53 @@ class UnifiedAIClient:
         max_tokens: Optional[int]
     ) -> str:
         """Завершение через OpenAI-совместимый API (работает с OpenRouter)"""
+        if self.provider == AIProvider.OPENROUTER:
+            # Для OpenRouter используем прямой HTTP запрос
+            return await self._openrouter_completion(messages, model, temperature, max_tokens)
+        else:
+            # Для других провайдеров используем OpenAI клиент
+            model = model or ai_config.DEFAULT_MODEL
+
+            response = await self.async_client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens or ai_config.MAX_TOKENS,
+                stream=False
+            )
+
+            return response.choices[0].message.content
+
+    async def _openrouter_completion(
+        self,
+        messages: List[Dict[str, str]],
+        model: Optional[str],
+        temperature: float,
+        max_tokens: Optional[int]
+    ) -> str:
+        """Прямой запрос к OpenRouter API"""
         model = model or ai_config.DEFAULT_MODEL
 
-        response = await self.async_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens or ai_config.MAX_TOKENS,
-            stream=False
-        )
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{ai_config.OPENROUTER_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {ai_config.OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens or ai_config.MAX_TOKENS
+                }
+            )
 
-        return response.choices[0].message.content
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+            else:
+                raise Exception(f"Ошибка OpenRouter API: {response.status_code} - {response.text}")
 
     async def _huggingface_completion(
         self,
@@ -148,3 +208,161 @@ class UnifiedAIClient:
                 formatted.append(f"Assistant: {msg['content']}")
 
         return "\n".join(formatted) + "\nAssistant:"
+
+    # Методы для работы с автоматизацией
+
+    async def generate_automation_chain(self, prompt: str) -> Dict[str, Any]:
+        """
+        Генерация цепочки автоматизации через ИИ
+
+        Args:
+            prompt: Промпт с описанием бизнес-процесса
+
+        Returns:
+            Dict с результатом генерации
+        """
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "Ты - эксперт по бизнес-автоматизации. Создавай полные цепочки автоматизации на основе описаний процессов. Отвечай только в формате JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+
+            response_text = await self.chat_completion(
+                messages=messages,
+                temperature=0.3,  # Низкая температура для более детерминированного ответа
+                max_tokens=4000
+            )
+
+            # Парсим JSON ответ
+            import json
+            try:
+                generated_chain = json.loads(response_text)
+                return {
+                    "success": True,
+                    "generated_chain": generated_chain
+                }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse AI response as JSON: {response_text}")
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON response: {str(e)}"
+                }
+
+        except Exception as e:
+            logger.error(f"Error generating automation chain: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def optimize_automation_chain(self, prompt: str) -> Dict[str, Any]:
+        """
+        Оптимизация цепочки автоматизации через ИИ
+
+        Args:
+            prompt: Промпт с текущими данными и целью оптимизации
+
+        Returns:
+            Dict с оптимизациями
+        """
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "Ты - эксперт по оптимизации бизнес-процессов. Анализируй текущие цепочки автоматизации и предлагай конкретные улучшения. Отвечай только в формате JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+
+            response_text = await self.chat_completion(
+                messages=messages,
+                temperature=0.2,  # Очень низкая температура для точных рекомендаций
+                max_tokens=3000
+            )
+
+            # Парсим JSON ответ
+            import json
+            try:
+                optimization_result = json.loads(response_text)
+                return {
+                    "success": True,
+                    "optimizations": optimization_result.get("optimizations", []),
+                    "performance_improvements": optimization_result.get("performance_improvements", {})
+                }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse optimization response as JSON: {response_text}")
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON response: {str(e)}"
+                }
+
+        except Exception as e:
+            logger.error(f"Error optimizing automation chain: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def analyze_automation(self, prompt: str) -> Dict[str, Any]:
+        """
+        Анализ автоматизации и предложения улучшений через ИИ
+
+        Args:
+            prompt: Промпт с статистикой для анализа
+
+        Returns:
+            Dict с анализом и предложениями
+        """
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "Ты - эксперт по анализу бизнес-автоматизации. Анализируй статистику и предлагай улучшения. Отвечай только в формате JSON с ключами: bottlenecks, suggestions."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+
+            response_text = await self.chat_completion(
+                messages=messages,
+                temperature=0.4,  # Средняя температура для креативных идей
+                max_tokens=3500
+            )
+
+            # Парсим JSON ответ
+            import json
+            try:
+                analysis_result = json.loads(response_text)
+                return {
+                    "success": True,
+                    "bottlenecks": analysis_result.get("bottlenecks", []),
+                    "suggestions": analysis_result.get("suggestions", [])
+                }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse analysis response as JSON: {response_text}")
+                return {
+                    "success": False,
+                    "error": f"Invalid JSON response: {str(e)}"
+                }
+
+        except Exception as e:
+            logger.error(f"Error analyzing automation: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+
+# Алиас для обратной совместимости
+AIClient = UnifiedAIClient

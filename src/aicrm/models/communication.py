@@ -12,12 +12,13 @@ class Communication(BaseModel):
 
     __tablename__ = "communications"
 
-    channel = Column(String, nullable=False)  # telegram, avito, email, phone, website
-    direction = Column(String, nullable=False)  # inbound, outbound
+    channel = Column(String, nullable=False, index=True)  # telegram, avito, email, phone, website
+    direction = Column(String, nullable=False, index=True)  # inbound, outbound
     message_content = Column(Text, nullable=False)
     message_type = Column(String, default="text")  # text, image, file, voice
-    customer_id = Column(Integer, ForeignKey("customers.id"))
-    user_id = Column(Integer, ForeignKey("users.id"))  # Кто обработал/отправил
+    customer_id = Column(Integer, ForeignKey("customers.id"), index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), index=True)  # Связанный заказ (опционально)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)  # Кто обработал/отправил
     ai_response_id = Column(String)  # ID ответа от AI
     extra_data = Column(JSON)  # Дополнительные данные (файлы, изображения и т.д.)
     sentiment = Column(String)  # positive, neutral, negative (определяется AI)
