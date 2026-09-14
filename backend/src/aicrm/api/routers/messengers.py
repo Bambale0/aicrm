@@ -39,32 +39,53 @@ router = APIRouter(tags=["messengers"])
 logger = get_logger(__name__)
 
 PROVIDERS: Dict[str, Dict[str, Any]] = {
-    "telegram": {
-        "name": "Telegram",
-        "credential_fields": [{"name": "bot_token", "type": "secret", "required": True}],
-        "capabilities": ["text", "photo", "video", "voice", "files", "webhook"],
-        "verification": "adapter",
-    },
     "max": {
         "name": "MAX",
-        "credential_fields": [{"name": "access_token", "type": "secret", "required": True}],
-        "capabilities": ["text", "media", "webhook"],
+        "primary": True,
+        "credential_fields": [
+            {
+                "name": "access_token",
+                "label": "Access token",
+                "type": "secret",
+                "required": True,
+            }
+        ],
+        "capabilities": ["text", "media", "webhook", "channels"],
+        "verification": "adapter",
+    },
+    "telegram": {
+        "name": "Telegram",
+        "primary": False,
+        "credential_fields": [
+            {
+                "name": "bot_token",
+                "label": "Bot token",
+                "type": "secret",
+                "required": True,
+            }
+        ],
+        "capabilities": ["text", "photo", "video", "voice", "files", "webhook"],
         "verification": "adapter",
     },
     "vk": {
         "name": "VK",
+        "primary": False,
         "credential_fields": [
-            {"name": "access_token", "type": "secret", "required": True},
-            {"name": "group_id", "type": "text", "required": True},
+            {
+                "name": "access_token",
+                "label": "Access token",
+                "type": "secret",
+                "required": True,
+            },
+            {
+                "name": "group_id",
+                "label": "Group ID",
+                "type": "text",
+                "required": True,
+            },
         ],
         "capabilities": ["text", "media", "webhook"],
         "verification": "adapter_required",
-    },
-    "custom": {
-        "name": "Custom Webhook",
-        "credential_fields": [{"name": "signing_secret", "type": "secret", "required": False}],
-        "capabilities": ["text", "media", "webhook"],
-        "verification": "local",
     },
 }
 
@@ -507,13 +528,6 @@ async def verify_integration(
                 "detail": item.last_error,
             }
 
-    if item.provider == "custom":
-        item.status = "verified"
-        item.last_health_at = datetime.utcnow()
-        item.last_error = None
-        db.commit()
-        return {"verified": True, "provider": item.provider, "detail": "Local custom webhook connector is ready"}
-
     raise HTTPException(
         status_code=501,
         detail=f"Verification adapter for {item.provider} is not implemented yet",
@@ -589,8 +603,6 @@ async def register_webhook(
             db.commit()
             raise HTTPException(status_code=502, detail=item.last_error) from exc
 
-    elif item.provider == "custom":
-        credentials["webhook_secret"] = payload.secret_token or secrets.token_urlsafe(24)
     else:
         raise HTTPException(
             status_code=501,
