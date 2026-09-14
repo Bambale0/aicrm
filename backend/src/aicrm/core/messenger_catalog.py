@@ -32,6 +32,7 @@ RESIDENT_INTAKE_DEFAULTS = {
         "phone": "Укажите номер телефона для связи.",
         "problem": "Коротко опишите, что случилось.",
         "submitted": "Спасибо. Обращение передано диспетчеру. После принятия заявки я сообщу её номер.",
+        "known_profile": "Ваши данные уже сохранены:\n{full_name}\n{address}\n{phone}\n\n{problem_prompt}\nЕсли данные изменились, отправьте /profile.",
         "invalid_full_name": "Не смог распознать ФИО. Напишите его текстом, например: Иванов Иван Иванович.",
         "invalid_address": "Укажите адрес текстом чуть подробнее.",
         "invalid_phone": "Не смог распознать номер. Укажите телефон в формате +7XXXXXXXXXX.",
@@ -60,6 +61,7 @@ RESIDENT_INTAKE_PROMPT_FIELDS = [
     {"key": "phone", "label": "Запрос телефона"},
     {"key": "problem", "label": "Запрос описания проблемы"},
     {"key": "submitted", "label": "Опрос завершён"},
+    {"key": "known_profile", "label": "Повторный житель: сохранённые данные"},
     {"key": "invalid_full_name", "label": "Ошибка ФИО"},
     {"key": "invalid_address", "label": "Ошибка адреса"},
     {"key": "invalid_phone", "label": "Ошибка телефона"},
@@ -95,5 +97,9 @@ def resident_intake_catalog() -> dict:
         "template_variables": [
             {"value": "{number}", "label": "Номер заявки"},
             {"value": "{title}", "label": "Заголовок заявки"},
+            {"value": "{full_name}", "label": "ФИО жителя"},
+            {"value": "{address}", "label": "Адрес жителя"},
+            {"value": "{phone}", "label": "Телефон жителя"},
+            {"value": "{problem_prompt}", "label": "Текст вопроса «Что случилось»"},
         ],
     }
