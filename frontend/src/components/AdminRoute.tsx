@@ -8,7 +8,7 @@ interface AdminRouteProps {
 }
 
 export default function AdminRoute({ children }: AdminRouteProps) {
-  const { isAdmin, isLoading } = useAuth();
+  const { isAdmin, isLoading, sessionExpired } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -20,7 +20,16 @@ export default function AdminRoute({ children }: AdminRouteProps) {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return (
+      <Navigate
+        to="/login"
+        state={{
+          from: location,
+          reason: sessionExpired ? 'expired' : 'required',
+        }}
+        replace
+      />
+    );
   }
 
   return <>{children}</>;
