@@ -11,6 +11,7 @@ from ...services.ai_connection import (
     AIConnectionError,
     fetch_models,
     get_ai_settings,
+    get_ai_usage_and_balance,
     test_ai_connection,
     update_ai_settings,
 )
@@ -54,6 +55,14 @@ async def save_ai_settings(
         "api_key_configured": bool(item.encrypted_api_key),
         "selected_model": item.selected_model,
     }
+
+
+@router.get("/usage")
+async def read_ai_usage(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    return await get_ai_usage_and_balance(db)
 
 
 @router.get("/models")
