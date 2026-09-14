@@ -9,13 +9,22 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from aicrm.api.routers import housing as housing_router_module
 from aicrm.api.routers import messengers as messenger_router_module
 from aicrm.core.dependencies import get_current_active_user, get_current_admin_user, get_db
 from aicrm.models import housing as _housing_models  # noqa: F401
 from aicrm.models.base import Base
-from aicrm.models.messenger import MessengerChannel, MessengerIntegration
+from aicrm.models.housing import Resident, ServiceRequest
+from aicrm.models.housing import RequestEvent
+from aicrm.models.messenger import (
+    MessengerChannel,
+    MessengerIntegration,
+    MessengerIntakeSession,
+    OperatorAlert,
+)
 from aicrm.models.user import User
-from aicrm.utils.crypto import decrypt_data
+from aicrm.services import request_notifications as request_notifications_module
+from aicrm.utils.crypto import decrypt_data, encrypt_data
 
 
 @pytest.fixture()
@@ -62,6 +71,7 @@ def app_and_session(monkeypatch):
 
     app = FastAPI()
     app.include_router(messenger_router_module.router)
+    app.include_router(housing_router_module.router)
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_current_admin_user] = override_admin
     app.dependency_overrides[get_current_active_user] = override_admin
@@ -346,3 +356,321 @@ def test_disabled_monitor_channel_blocks_group_ai_triage(app_and_session, monkey
     assert enabled.json()["source_mode"] == "group_monitor"
     assert len(triaged) == 1
     assert triaged[0][1] == "group_monitor"
+
+
+def test_private_max_questionnaire_creates_resident_and_new_request(
+    app_and_session,
+    monkeypatch,
+):
+    app, Session, _ = app_and_session
+    client = TestClient(app)
+    integration = _create_max(client)
+
+    replies: list[str] = []
+    triaged: list[tuple[int, str]] = []
+
+    async def capture_reply(conversation_id: int, text: str, **kwargs):
+        replies.append(text)
+
+    async def capture_triage(message_id: int, source_mode: str):
+        triaged.append((message_id, source_mode))
+
+    monkeypatch.setattr(
+        messenger_router_module,
+        "send_conversation_text_background",
+        capture_reply,
+    )
+    monkeypatch.setattr(
+        messenger_router_module,
+        "process_message_background",
+        capture_triage,
+    )
+
+    db = Session()
+    try:
+        item = db.get(MessengerIntegration, integration["id"])
+        credentials = json.loads(decrypt_data(item.credentials_encrypted))
+        credentials["webhook_secret"] = "private-intake-secret"
+        from aicrm.utils.crypto import encrypt_data
+
+        item.credentials_encrypted = encrypt_data(json.dumps(credentials))
+        item.is_active = True
+        item.status = "active"
+        db.commit()
+    finally:
+        db.close()
+
+    chat_id = 777001
+    user_id = 991122
+
+    def send(mid: str, text: str):
+        response = client.post(
+            f"/webhooks/messengers/max/{integration['id']}",
+            headers={"X-Max-Bot-Api-Secret": "private-intake-secret"},
+            json={
+                "update_type": "message_created",
+                "message": {
+                    "recipient": {
+                        "chat_id": chat_id,
+                        "chat_type": "dialog",
+                    },
+                    "sender": {"user_id": user_id},
+                    "body": {"mid": mid, "text": text},
+                    "timestamp": 123456789,
+                },
+            },
+        )
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    assert send("m1", "Здравствуйте")["intake"]["state"] == "full_name"
+    assert "ФИО" in replies[-1]
+
+    assert send("m2", "Иванов Иван Иванович")["intake"]["state"] == "address"
+    assert "адрес" in replies[-1].lower()
+
+    assert send("m3", "Санкт-Петербург, Невский проспект, 10")["intake"]["state"] == "phone"
+    assert "телефон" in replies[-1].lower()
+
+    assert send("m4", "+7 (999) 123-45-67")["intake"]["state"] == "problem"
+    assert "случилось" in replies[-1].lower()
+
+    completed = send("m5", "Течёт труба в ванной")
+    assert completed["intake"]["state"] == "submitted"
+    assert completed["intake"]["request_id"] is not None
+    assert "передано диспетчеру" in replies[-1].lower()
+
+    # The deterministic questionnaire owns private intake, so AI triage is not
+    # invoked for these five messages.
+    assert triaged == []
+
+    db = Session()
+    try:
+        resident = db.query(Resident).one()
+        assert resident.full_name == "Иванов Иван Иванович"
+        assert resident.phone == "+79991234567"
+        assert resident.preferred_channel == "max"
+        assert resident.external_id == f"max:{integration['id']}:{user_id}"
+
+        request_item = db.query(ServiceRequest).one()
+        assert request_item.status == "new"
+        assert request_item.resident_id == resident.id
+        assert request_item.description == "Течёт труба в ванной"
+        assert request_item.extra_data["address"] == "Санкт-Петербург, Невский проспект, 10"
+        assert request_item.extra_data["phone"] == "+79991234567"
+
+        session = db.query(MessengerIntakeSession).one()
+        assert session.state == "submitted"
+        assert session.request_id == request_item.id
+        assert session.resident_id == resident.id
+
+        alert = db.query(OperatorAlert).one()
+        assert alert.request_id == request_item.id
+        assert alert.status == "new"
+    finally:
+        db.close()
+
+
+def test_request_status_transition_schedules_resident_notification(
+    app_and_session,
+    monkeypatch,
+):
+    app, Session, admin_id = app_and_session
+    client = TestClient(app)
+
+    db = Session()
+    try:
+        request_item = ServiceRequest(
+            number="REQ-TEST-1",
+            source_channel="max",
+            source_conversation_id="123",
+            category="general",
+            priority="normal",
+            status="new",
+            title="Тестовая заявка",
+            description="Описание",
+            created_by=admin_id,
+        )
+        db.add(request_item)
+        db.commit()
+        db.refresh(request_item)
+        request_id = request_item.id
+    finally:
+        db.close()
+
+    scheduled: list[tuple[int, str]] = []
+
+    async def capture_notification(request_id: int, status: str):
+        scheduled.append((request_id, status))
+
+    monkeypatch.setattr(
+        housing_router_module,
+        "notify_resident_request_status_background",
+        capture_notification,
+    )
+
+    accepted = client.patch(
+        f"/housing/requests/{request_id}",
+        json={"status": "accepted"},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["status"] == "accepted"
+    assert scheduled == [(request_id, "accepted")]
+
+    in_progress = client.patch(
+        f"/housing/requests/{request_id}",
+        json={"status": "in_progress"},
+    )
+    assert in_progress.status_code == 200, in_progress.text
+    assert in_progress.json()["status"] == "in_progress"
+    assert scheduled[-1] == (request_id, "in_progress")
+
+    done = client.patch(
+        f"/housing/requests/{request_id}",
+        json={"status": "done"},
+    )
+    assert done.status_code == 200, done.text
+    assert done.json()["status"] == "done"
+    assert scheduled[-1] == (request_id, "done")
+
+
+def test_request_status_catalog_prevents_invalid_jump(app_and_session):
+    app, Session, admin_id = app_and_session
+    client = TestClient(app)
+
+    catalog = client.get("/housing/request-statuses/catalog")
+    assert catalog.status_code == 200
+    assert any(
+        item["to"] == "accepted" and item["label"] == "Принять"
+        for item in catalog.json()["transitions"]["new"]
+    )
+
+    db = Session()
+    try:
+        request_item = ServiceRequest(
+            number="REQ-TEST-2",
+            source_channel="operator",
+            category="general",
+            priority="normal",
+            status="new",
+            title="Тест",
+            description="Тест",
+            created_by=admin_id,
+        )
+        db.add(request_item)
+        db.commit()
+        db.refresh(request_item)
+        request_id = request_item.id
+    finally:
+        db.close()
+
+    invalid = client.patch(
+        f"/housing/requests/{request_id}",
+        json={"status": "done"},
+    )
+    assert invalid.status_code == 409
+
+
+def test_intake_copy_catalog_and_defaults_are_admin_managed(app_and_session):
+    app, _, _ = app_and_session
+    client = TestClient(app)
+    integration = _create_max(client)
+
+    catalog = client.get("/messengers/intake/catalog")
+    assert catalog.status_code == 200
+    data = catalog.json()
+    assert {item["key"] for item in data["notification_fields"]} == {
+        "accepted",
+        "in_progress",
+        "cancelled",
+        "done",
+    }
+
+    stored = client.get("/messengers").json()
+    item = next(row for row in stored if row["id"] == integration["id"])
+    assert item["settings"]["resident_intake"]["enabled"] is True
+    assert "accepted" in item["settings"]["resident_intake"]["notifications"]
+
+
+@pytest.mark.asyncio
+async def test_accepted_request_notification_uses_conversation_and_persists_event(
+    app_and_session,
+    monkeypatch,
+):
+    _, Session, admin_id = app_and_session
+    db = Session()
+    try:
+        integration = MessengerIntegration(
+            provider="max",
+            name="MAX",
+            status="active",
+            credentials_encrypted=encrypt_data(json.dumps({"access_token": "secret"})),
+            settings={},
+            is_active=True,
+            created_by=admin_id,
+        )
+        db.add(integration)
+        db.flush()
+
+        from aicrm.models.messenger import MessengerConversation
+
+        conversation = MessengerConversation(
+            integration_id=integration.id,
+            external_chat_id="123456",
+            status="open",
+            requires_attention=False,
+        )
+        db.add(conversation)
+        db.flush()
+
+        request_item = ServiceRequest(
+            number="REQ-NOTIFY-1",
+            source_channel="max",
+            source_conversation_id=str(conversation.id),
+            category="general",
+            priority="normal",
+            status="accepted",
+            title="Течёт труба",
+            description="Течёт труба",
+            created_by=admin_id,
+        )
+        db.add(request_item)
+        db.commit()
+        db.refresh(request_item)
+
+        delivered: list[tuple[int, str]] = []
+
+        async def fake_delivery(db_arg, *, conversation_id: int, text: str):
+            delivered.append((conversation_id, text))
+            class Dummy:
+                id = 1
+            return Dummy()
+
+        monkeypatch.setattr(
+            request_notifications_module,
+            "send_conversation_text",
+            fake_delivery,
+        )
+
+        sent = await request_notifications_module.notify_resident_request_status(
+            db,
+            request_id=request_item.id,
+            status="accepted",
+        )
+        assert sent is True
+        assert delivered
+        assert delivered[0][0] == conversation.id
+        assert "REQ-NOTIFY-1" in delivered[0][1]
+        assert "принята" in delivered[0][1].lower()
+
+        event = (
+            db.query(RequestEvent)
+            .filter(
+                RequestEvent.request_id == request_item.id,
+                RequestEvent.event_type == "resident_notified",
+            )
+            .one()
+        )
+        assert event.payload["status"] == "accepted"
+    finally:
+        db.close()

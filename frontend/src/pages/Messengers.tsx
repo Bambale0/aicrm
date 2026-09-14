@@ -67,6 +67,19 @@ interface MessengerChannel {
   is_active: boolean;
 }
 
+interface IntakeField {
+  key: string;
+  label: string;
+  default: string;
+}
+
+interface IntakeCatalog {
+  enabled_default: boolean;
+  prompt_fields: IntakeField[];
+  notification_fields: IntakeField[];
+  template_variables: Array<{ value: string; label: string }>;
+}
+
 const statusClass = (status: string) => {
   if (['active', 'verified'].includes(status)) {
     return 'bg-emerald-50 text-emerald-700';
@@ -84,6 +97,12 @@ export default function Messengers() {
   const [items, setItems] = useState<Integration[]>([]);
   const [channels, setChannels] = useState<MessengerChannel[]>([]);
   const [purposes, setPurposes] = useState<ChannelPurpose[]>([]);
+  const [intakeCatalog, setIntakeCatalog] = useState<IntakeCatalog>({
+    enabled_default: true,
+    prompt_fields: [],
+    notification_fields: [],
+    template_variables: [],
+  });
 
   const [integrationModalOpen, setIntegrationModalOpen] = useState(false);
   const [editingIntegration, setEditingIntegration] = useState<Integration | null>(null);
@@ -93,6 +112,9 @@ export default function Messengers() {
   const [aiMonitoring, setAiMonitoring] = useState(true);
   const [privateAck, setPrivateAck] = useState(true);
   const [aiContextMessages, setAiContextMessages] = useState(20);
+  const [residentIntakeEnabled, setResidentIntakeEnabled] = useState(true);
+  const [residentIntakePrompts, setResidentIntakePrompts] = useState<Record<string, string>>({});
+  const [residentNotifications, setResidentNotifications] = useState<Record<string, string>>({});
 
   const [channelModalOpen, setChannelModalOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<MessengerChannel | null>(null);
@@ -118,17 +140,24 @@ export default function Messengers() {
 
   const load = async () => {
     if (!isAdmin) return;
-    const [providersResponse, integrationsResponse, channelsResponse, purposesResponse] =
-      await Promise.all([
-        api.get('/messengers/providers'),
-        api.get('/messengers'),
-        api.get('/messenger-channels'),
-        api.get('/messenger-channels/catalog'),
-      ]);
+    const [
+      providersResponse,
+      integrationsResponse,
+      channelsResponse,
+      purposesResponse,
+      intakeCatalogResponse,
+    ] = await Promise.all([
+      api.get('/messengers/providers'),
+      api.get('/messengers'),
+      api.get('/messenger-channels'),
+      api.get('/messenger-channels/catalog'),
+      api.get('/messengers/intake/catalog'),
+    ]);
     setProviders(providersResponse.data);
     setItems(integrationsResponse.data);
     setChannels(channelsResponse.data);
     setPurposes(purposesResponse.data);
+    setIntakeCatalog(intakeCatalogResponse.data);
 
     if (!channelPurpose && purposesResponse.data?.length) {
       setChannelPurpose(purposesResponse.data[0].value);
@@ -142,7 +171,17 @@ export default function Messengers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
+  const intakeDefaults = (catalog: IntakeCatalog) => ({
+    prompts: Object.fromEntries(
+      (catalog.prompt_fields || []).map((field) => [field.key, field.default]),
+    ),
+    notifications: Object.fromEntries(
+      (catalog.notification_fields || []).map((field) => [field.key, field.default]),
+    ),
+  });
+
   const resetIntegrationForm = () => {
+    const defaults = intakeDefaults(intakeCatalog);
     setEditingIntegration(null);
     setProviderKey('max');
     setName('MAX УК');
@@ -150,6 +189,9 @@ export default function Messengers() {
     setAiMonitoring(true);
     setPrivateAck(true);
     setAiContextMessages(20);
+    setResidentIntakeEnabled(intakeCatalog.enabled_default);
+    setResidentIntakePrompts(defaults.prompts);
+    setResidentNotifications(defaults.notifications);
   };
 
   const openCreateIntegration = () => {
@@ -158,6 +200,8 @@ export default function Messengers() {
   };
 
   const openEditIntegration = (item: Integration) => {
+    const defaults = intakeDefaults(intakeCatalog);
+    const storedIntake = item.settings?.resident_intake || {};
     setEditingIntegration(item);
     setProviderKey(item.provider);
     setName(item.name);
@@ -165,6 +209,17 @@ export default function Messengers() {
     setAiMonitoring(item.settings?.ai_monitoring_enabled !== false);
     setPrivateAck(item.settings?.send_private_ack !== false);
     setAiContextMessages(Number(item.settings?.ai_context_messages || 20));
+    setResidentIntakeEnabled(
+      storedIntake.enabled ?? intakeCatalog.enabled_default,
+    );
+    setResidentIntakePrompts({
+      ...defaults.prompts,
+      ...(storedIntake.prompts || {}),
+    });
+    setResidentNotifications({
+      ...defaults.notifications,
+      ...(storedIntake.notifications || {}),
+    });
     setIntegrationModalOpen(true);
   };
 
@@ -198,6 +253,11 @@ export default function Messengers() {
               ai_monitoring_enabled: aiMonitoring,
               send_private_ack: privateAck,
               ai_context_messages: Math.max(1, Math.min(aiContextMessages, 50)),
+              resident_intake: {
+                enabled: residentIntakeEnabled,
+                prompts: residentIntakePrompts,
+                notifications: residentNotifications,
+              },
             }
           : {};
 
@@ -806,6 +866,67 @@ export default function Messengers() {
                     value={aiContextMessages}
                     onChange={(event) => setAiContextMessages(Number(event.target.value || 1))}
                   />
+                </div>
+
+                <div className="border-t border-slate-200 pt-4">
+                  <div className="font-medium text-slate-800">Короткий опрос жителя</div>
+                  <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={residentIntakeEnabled}
+                      onChange={(event) => setResidentIntakeEnabled(event.target.checked)}
+                    />
+                    ФИО → Адрес → Телефон → Что случилось
+                  </label>
+
+                  <div className="mt-3 space-y-3">
+                    {intakeCatalog.prompt_fields.map((field) => (
+                      <div key={field.key}>
+                        <label className="mb-1 block text-xs font-medium text-slate-500">
+                          {field.label}
+                        </label>
+                        <textarea
+                          className="input-field min-h-[72px]"
+                          value={residentIntakePrompts[field.key] || ''}
+                          onChange={(event) =>
+                            setResidentIntakePrompts({
+                              ...residentIntakePrompts,
+                              [field.key]: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-4">
+                  <div className="font-medium text-slate-800">Уведомления по заявке</div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Доступные переменные:{' '}
+                    {intakeCatalog.template_variables
+                      .map((item) => item.value)
+                      .join(', ')}
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {intakeCatalog.notification_fields.map((field) => (
+                      <div key={field.key}>
+                        <label className="mb-1 block text-xs font-medium text-slate-500">
+                          {field.label}
+                        </label>
+                        <textarea
+                          className="input-field min-h-[72px]"
+                          value={residentNotifications[field.key] || ''}
+                          onChange={(event) =>
+                            setResidentNotifications({
+                              ...residentNotifications,
+                              [field.key]: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

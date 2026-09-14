@@ -20,9 +20,11 @@ from .housing import (
 )
 from .messenger import (
     OperatorAlert,
+    MessengerChannel,
     MessengerConversation,
     MessengerInboundEvent,
     MessengerIntegration,
+    MessengerIntakeSession,
     MessengerMessage,
 )
 from .user import User
@@ -41,7 +43,9 @@ __all__ = [
     "RequestEvent",
     "OperatorAlert",
     "MessengerIntegration",
+    "MessengerChannel",
     "MessengerConversation",
+    "MessengerIntakeSession",
     "MessengerMessage",
     "MessengerInboundEvent",
     "AutomationProcess",

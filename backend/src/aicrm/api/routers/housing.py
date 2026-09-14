@@ -3,12 +3,17 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...core.dependencies import get_current_active_user, get_db
+from ...core.housing_catalog import (
+    can_transition_request,
+    is_request_status,
+    request_status_catalog,
+)
 from ...models.housing import (
     Building,
     ContractorCompany,
@@ -20,6 +25,9 @@ from ...models.housing import (
 )
 from ...models.user import User
 from ...services.automation_engine import AutomationValidationError, dispatch_event
+from ...services.request_notifications import (
+    notify_resident_request_status_background,
+)
 from ...utils.logging import get_logger
 
 router = APIRouter(prefix="/housing", tags=["housing"])
@@ -68,6 +76,7 @@ class ResidentIn(BaseModel):
 
 class ResidentOut(ORMModel, ResidentIn):
     id: int
+    address: Optional[str] = None
 
 
 class ContractorIn(BaseModel):
@@ -231,6 +240,13 @@ def _request_dict(item: ServiceRequest) -> Dict[str, Any]:
     }
 
 
+@router.get("/request-statuses/catalog")
+async def get_request_status_catalog(
+    _: User = Depends(get_current_active_user),
+):
+    return request_status_catalog()
+
+
 @router.get("/dashboard")
 async def dashboard(
     db: Session = Depends(get_db),
@@ -239,7 +255,7 @@ async def dashboard(
     total = db.query(func.count(ServiceRequest.id)).scalar() or 0
     in_progress = (
         db.query(func.count(ServiceRequest.id))
-        .filter(ServiceRequest.status.in_(["assigned", "in_progress"]))
+        .filter(ServiceRequest.status.in_(["accepted", "assigned", "in_progress"]))
         .scalar()
         or 0
     )
@@ -327,7 +343,36 @@ async def list_residents(
             | (Resident.phone.ilike(like))
             | (Resident.email.ilike(like))
         )
-    return query.order_by(Resident.full_name.asc()).limit(500).all()
+
+    residents = query.order_by(Resident.full_name.asc()).limit(500).all()
+    result: List[Dict[str, Any]] = []
+    for resident in residents:
+        latest_request = (
+            db.query(ServiceRequest)
+            .filter(ServiceRequest.resident_id == resident.id)
+            .order_by(ServiceRequest.created_at.desc())
+            .first()
+        )
+        building = (
+            db.get(Building, latest_request.building_id)
+            if latest_request and latest_request.building_id
+            else None
+        )
+        result.append(
+            {
+                "id": resident.id,
+                "full_name": resident.full_name,
+                "phone": resident.phone,
+                "email": resident.email,
+                "premise_id": resident.premise_id,
+                "preferred_channel": resident.preferred_channel,
+                "external_id": resident.external_id,
+                "notes": resident.notes,
+                "is_active": resident.is_active,
+                "address": building.address if building else None,
+            }
+        )
+    return result
 
 
 @router.post("/residents", response_model=ResidentOut)
@@ -588,6 +633,7 @@ async def create_request(
 async def update_request(
     request_id: int,
     payload: RequestPatch,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -595,17 +641,34 @@ async def update_request(
     if not item:
         raise HTTPException(status_code=404, detail="Request not found")
 
+    values = payload.model_dump(exclude_unset=True)
+    requested_status = values.get("status")
+    if requested_status is not None:
+        requested_status = str(requested_status)
+        if not is_request_status(requested_status):
+            raise HTTPException(status_code=422, detail="Unsupported request status")
+        if not can_transition_request(item.status, requested_status):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Transition {item.status} -> {requested_status} is not allowed",
+            )
+
     changes: Dict[str, Any] = {}
     old_status = item.status
     old_priority = item.priority
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    for field, value in values.items():
         previous = getattr(item, field)
         if previous != value:
-            changes[field] = {"from": str(previous) if previous is not None else None, "to": str(value) if value is not None else None}
+            changes[field] = {
+                "from": str(previous) if previous is not None else None,
+                "to": str(value) if value is not None else None,
+            }
             setattr(item, field, value)
 
     if item.status in {"done", "closed"} and not item.resolved_at:
         item.resolved_at = datetime.utcnow()
+    elif item.status not in {"done", "closed"} and "status" in changes:
+        item.resolved_at = None
 
     if changes:
         db.add(
@@ -618,6 +681,59 @@ async def update_request(
         )
     db.commit()
     db.refresh(item)
+    transitioned_status = item.status
+
+    automation_events = [("request_updated", {})] if changes else []
+    if old_status != transitioned_status:
+        automation_events.append(
+            (
+                "request_status_changed",
+                {"old_status": old_status, "status": transitioned_status},
+            )
+        )
+    if old_priority != item.priority:
+        automation_events.append(
+            (
+                "request_priority_changed",
+                {"old_priority": old_priority, "priority": item.priority},
+            )
+        )
+
+    for automation_event, event_data in automation_events:
+        try:
+            dispatch_event(
+                db,
+                entity_type="request",
+                event_type=automation_event,
+                entity_id=item.id,
+                event_data=event_data,
+            )
+            db.refresh(item)
+        except AutomationValidationError:
+            continue
+        except Exception as exc:
+            logger.error(
+                "housing_request_automation_failed",
+                request_id=item.id,
+                event_type=automation_event,
+                error_type=type(exc).__name__,
+            )
+
+    if old_status != transitioned_status:
+        background_tasks.add_task(
+            notify_resident_request_status_background,
+            item.id,
+            transitioned_status,
+        )
+        logger.info(
+            "housing_request_status_changed",
+            request_id=item.id,
+            request_number=item.number,
+            old_status=old_status,
+            status=transitioned_status,
+            actor_user_id=current_user.id,
+        )
+
     return _request_dict(item)
 
 
@@ -634,6 +750,8 @@ async def assign_request(
     item = db.get(ServiceRequest, request_id)
     if not item:
         raise HTTPException(status_code=404, detail="Request not found")
+    old_status = item.status
+    old_priority = item.priority
     if assigned_user_id and not db.get(User, assigned_user_id):
         raise HTTPException(status_code=404, detail="User not found")
     if contractor_id and not db.get(ContractorCompany, contractor_id):
