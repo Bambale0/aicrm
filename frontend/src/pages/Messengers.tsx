@@ -117,11 +117,6 @@ export default function Messengers() {
     [providers, providerKey],
   );
 
-  const integrationById = useMemo(
-    () => new Map(items.map((item) => [item.id, item])),
-    [items],
-  );
-
   const purposeByValue = useMemo(
     () => new Map(purposes.map((item) => [item.value, item])),
     [purposes],
