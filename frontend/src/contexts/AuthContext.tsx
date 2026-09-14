@@ -19,6 +19,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
 }
 
 const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
@@ -34,14 +35,9 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(AUTH_REQUIRED);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!AUTH_REQUIRED) {
-      setIsLoading(false);
-      return;
-    }
-
     const checkAuth = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
       if (!token) {
@@ -80,16 +76,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    if (AUTH_REQUIRED) {
+    const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    if (token) {
       try {
         await api.post('/auth/logout');
       } catch {
         // Local logout must still succeed when the server session is already gone.
       }
-      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
     }
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
     setUser(null);
   };
+
+  const isAdmin =
+    Boolean(user?.is_superuser) ||
+    ['admin', 'superuser'].includes(String(user?.role || '').toLowerCase());
 
   return (
     <AuthContext.Provider
@@ -100,6 +101,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         logout,
         isLoading,
         isAuthenticated: !AUTH_REQUIRED || Boolean(user),
+        isAdmin,
       }}
     >
       {children}

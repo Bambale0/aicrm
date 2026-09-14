@@ -28,8 +28,46 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
-def get_token_from_header(token: str = Depends(oauth2_scheme)) -> str:
+def get_token_from_header(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[str]:
     return token
+
+
+def _credentials_exception() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _authenticate_token(
+    token: Optional[str],
+    db: Session,
+) -> User:
+    credentials_exception = _credentials_exception()
+    if not token:
+        raise credentials_exception
+
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        email = payload.get("sub")
+        if not email:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+async def get_authenticated_user(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    """Always require a real JWT, regardless of global open/demo mode."""
+    return _authenticate_token(token, db)
 
 
 async def get_current_user(
@@ -53,26 +91,7 @@ async def get_current_user(
             )
         return user
 
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    if not token:
-        raise credentials_exception
-
-    try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        email = payload.get("sub")
-        if not email:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    user = db.query(User).filter(User.email == email).first()
-    if user is None:
-        raise credentials_exception
-    return user
+    return _authenticate_token(token, db)
 
 
 async def get_current_active_user(user: User = Depends(get_current_user)) -> User:
@@ -81,7 +100,17 @@ async def get_current_active_user(user: User = Depends(get_current_user)) -> Use
     return user
 
 
-async def get_current_admin_user(user: User = Depends(get_current_active_user)) -> User:
+async def get_authenticated_active_user(
+    user: User = Depends(get_authenticated_user),
+) -> User:
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return user
+
+
+async def get_current_admin_user(
+    user: User = Depends(get_authenticated_active_user),
+) -> User:
     if not (bool(user.is_superuser) or str(user.role).lower() in {"admin", "superuser"}):
         raise HTTPException(status_code=403, detail="Administrator privileges required")
     return user

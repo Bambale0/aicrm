@@ -67,8 +67,6 @@ interface MessengerChannel {
   is_active: boolean;
 }
 
-const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
-
 const statusClass = (status: string) => {
   if (['active', 'verified'].includes(status)) {
     return 'bg-emerald-50 text-emerald-700';
@@ -80,11 +78,7 @@ const statusClass = (status: string) => {
 };
 
 export default function Messengers() {
-  const { user } = useAuth();
-  const isAdmin =
-    !AUTH_REQUIRED ||
-    Boolean(user?.is_superuser) ||
-    ['admin', 'superuser'].includes(String(user?.role || '').toLowerCase());
+  const { isAdmin } = useAuth();
 
   const [providers, setProviders] = useState<Provider[]>([]);
   const [items, setItems] = useState<Integration[]>([]);

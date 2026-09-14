@@ -5,6 +5,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import Sidebar from './components/Sidebar';
 
 const Login = lazy(() => import('./pages/Login'));
@@ -18,8 +19,6 @@ const Communications = lazy(() => import('./pages/Communications'));
 const Users = lazy(() => import('./pages/Users'));
 const AutomationBoard = lazy(() => import('./pages/AutomationBoard'));
 const AIConnection = lazy(() => import('./pages/AIConnection'));
-
-const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
 
 const PageLoader = () => (
   <div className="flex min-h-[320px] items-center justify-center">
@@ -35,7 +34,7 @@ export default function App() {
     <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/login" element={AUTH_REQUIRED ? <Login /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/login" element={<Login />} />
           <Route
             path="/*"
             element={
@@ -83,11 +82,11 @@ export default function App() {
                             <Route path="/residents" element={<Residents />} />
                             <Route path="/buildings" element={<Buildings />} />
                             <Route path="/contractors" element={<Contractors />} />
-                            <Route path="/messengers" element={<Messengers />} />
+                            <Route path="/messengers" element={<AdminRoute><Messengers /></AdminRoute>} />
                             <Route path="/communications" element={<Communications />} />
-                            <Route path="/users" element={<Users />} />
+                            <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
                             <Route path="/automation/board" element={<AutomationBoard />} />
-                            <Route path="/ai" element={<AIConnection />} />
+                            <Route path="/ai" element={<AdminRoute><AIConnection /></AdminRoute>} />
                             <Route path="*" element={<Navigate to="/dashboard" replace />} />
                           </Routes>
                         </div>

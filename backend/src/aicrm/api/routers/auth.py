@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from ...core.dependencies import get_db, get_current_user as current_user_dependency
+from ...core.dependencies import get_db, get_authenticated_active_user
 from ...services.auth import auth_service
 from ..schemas.auth import (
     User as UserSchema,
@@ -153,8 +153,8 @@ async def logout_all(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 @router.get("/me", response_model=UserSchema)
-async def read_current_user(current_user: User = Depends(current_user_dependency)):
-    """Получение текущего пользователя через единый auth dependency."""
+async def read_current_user(current_user: User = Depends(get_authenticated_active_user)):
+    """Return the user represented by the supplied JWT even when CRM open-mode is enabled."""
     return current_user
 
 

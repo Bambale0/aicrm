@@ -29,12 +29,7 @@ const navigation = [
 
 export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
-  const { user } = useAuth();
-  const authRequired = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
-  const isAdmin =
-    !authRequired ||
-    Boolean(user?.is_superuser) ||
-    ['admin', 'superuser'].includes(String(user?.role || '').toLowerCase());
+  const { isAdmin } = useAuth();
   const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
