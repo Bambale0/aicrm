@@ -2,6 +2,8 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
@@ -9,6 +11,10 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+
+  if (!AUTH_REQUIRED) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (

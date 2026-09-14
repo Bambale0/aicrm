@@ -1,411 +1,301 @@
+import React, { useEffect, useState } from 'react';
 import {
-  ArrowDownIcon,
   ArrowPathIcon,
-  ChatBubbleLeftRightIcon,
   CheckCircleIcon,
-  CpuChipIcon,
+  ClockIcon,
   ExclamationTriangleIcon,
-  LightBulbIcon,
-  ServerIcon,
+  PlusIcon,
+  UserGroupIcon,
   WrenchScrewdriverIcon,
-  XCircleIcon
 } from '@heroicons/react/24/outline';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Button from '../components/ui/Button';
-import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { AIStatus, AIUsageStats, apiService, SystemSettings } from '../services/api';
+import api from '../services/api';
 
-interface DashboardStats {
-  totalRobots: number;
-  activeAutomations: number;
-  processedMessages: number;
-  avgResponseTime: number;
+interface DashboardData {
+  requests: { total: number; in_progress: number; done: number; overdue: number };
+  residents: number;
+  contractors: number;
+  recent_requests: Array<any>;
 }
 
-function Dashboard() {
-  const navigate = useNavigate();
-  const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
-  const [aiUsage, setAiUsage] = useState<AIUsageStats | null>(null);
-  const [systemHealth, setSystemHealth] = useState<SystemSettings | null>(null);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+const emptyData: DashboardData = {
+  requests: { total: 0, in_progress: 0, done: 0, overdue: 0 },
+  residents: 0,
+  contractors: 0,
+  recent_requests: [],
+};
+
+const priorityLabel: Record<string, string> = {
+  emergency: 'Аварийная',
+  urgent: 'Срочная',
+  high: 'Высокая',
+  normal: 'Обычная',
+  planned: 'Плановая',
+};
+
+const statusLabel: Record<string, string> = {
+  new: 'Новая',
+  assigned: 'Назначена',
+  in_progress: 'В работе',
+  waiting: 'Ожидание',
+  done: 'Выполнена',
+  closed: 'Закрыта',
+  cancelled: 'Отменена',
+};
+
+export default function Dashboard() {
+  const [data, setData] = useState<DashboardData>(emptyData);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [aiStatusError, setAiStatusError] = useState(false);
-  const [systemHealthError, setSystemHealthError] = useState(false);
+  const [error, setError] = useState('');
+  const [intake, setIntake] = useState({
+    applicant_name: '',
+    phone: '',
+    address: '',
+    apartment: '',
+    problem: '',
+    notify_resident: true,
+  });
+  const [intakeSaving, setIntakeSaving] = useState(false);
+  const [intakeNotice, setIntakeNotice] = useState('');
 
-  const loadDashboardData = async () => {
+  const load = async () => {
+    setLoading(true);
+    setError('');
+
     try {
-      setRefreshing(true);
-
-      // Load data individually to handle errors gracefully for each service
-      try {
-        const aiStatusData = await apiService.getAIStatus();
-        setAiStatus(aiStatusData);
-        setAiStatusError(false);
-      } catch (error) {
-        console.warn('AI status not available:', error);
-        setAiStatusError(true);
-        setAiStatus({ provider: 'unavailable', status: 'inactive', available_models: [], default_model: '' });
-      }
-
-      try {
-        const aiUsageData = await apiService.getAIUsage();
-        setAiUsage(aiUsageData);
-      } catch (error) {
-        console.warn('AI usage data not available:', error);
-        setAiUsage({
-          period: { year: 0, month: 0, month_year: '0000-00' },
-          total_tokens: 0,
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_requests: 0,
-          unique_models: 0,
-          model_breakdown: []
-        });
-      }
-
-      try {
-        const systemData = await apiService.getSystemHealth();
-        setSystemHealth(systemData);
-        setSystemHealthError(false);
-      } catch (error) {
-        console.warn('System health data not available:', error);
-        setSystemHealthError(true);
-        setSystemHealth({ status: 'unknown', service: 'unavailable' });
-      }
-
-      // Load automation statistics - using mock data for now
-      try {
-        // TODO: Connect to real dashboard API endpoint
-        setDashboardStats({
-          totalRobots: 5,
-          activeAutomations: 12,
-          processedMessages: 147,
-          avgResponseTime: 2.3
-        });
-      } catch (error) {
-        console.warn('Dashboard stats not available:', error);
-        setDashboardStats(null);
-      }
-
+      const response = await api.get('/housing/dashboard');
+      setData(response.data);
+    } catch {
+      setError('Не удалось загрузить сводку. Проверьте соединение с сервером.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
-
-  // Pull-to-refresh functionality
-  const { isRefreshing: pullRefreshing, pullDistance, canRefresh } = usePullToRefresh({
-    onRefresh: loadDashboardData,
-    threshold: 80,
-    disabled: loading
-  });
 
   useEffect(() => {
-    loadDashboardData();
+    load();
   }, []);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'connected':
-      case 'running':
-        return <CheckCircleIcon className="w-5 h-5 text-green-500" />;
-      case 'inactive':
-      case 'disconnected':
-      case 'stopped':
-        return <XCircleIcon className="w-5 h-5 text-red-500" />;
-      default:
-        return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />;
+  const submitIntake = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIntakeSaving(true);
+    setIntakeNotice('');
+    try {
+      const response = await api.post('/housing/requests/intake', {
+        ...intake,
+        apartment: intake.apartment || null,
+      });
+      setIntakeNotice('Заявка ' + response.data.number + ' создана');
+      setIntake({
+        applicant_name: '',
+        phone: '',
+        address: '',
+        apartment: '',
+        problem: '',
+        notify_resident: true,
+      });
+      await load();
+    } catch (requestError: any) {
+      setIntakeNotice(requestError?.response?.data?.detail || 'Не удалось создать заявку');
+    } finally {
+      setIntakeSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-van-gogh-ultramarine"></div>
-      </div>
-    );
-  }
+  const active = data.recent_requests.filter((item) => ['new', 'assigned', 'in_progress', 'waiting'].includes(item.status));
+  const completed = data.recent_requests.filter((item) => ['done', 'closed'].includes(item.status));
+  const overdue = data.recent_requests.filter((item) => item.overdue);
 
   return (
-    <div className="space-y-4 sm:space-y-6 relative">
-      {/* Pull-to-refresh indicator */}
-      {pullDistance > 0 && (
-        <div
-          className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-cyan-600 text-white py-2 px-4 text-center transform transition-transform duration-200"
-          style={{
-            transform: `translateY(${Math.min(pullDistance - 80, 0)}px)`,
-            opacity: canRefresh ? 1 : 0.7
-          }}
-        >
-          <div className="flex items-center justify-center space-x-2">
-            {canRefresh ? (
-              <>
-                <ArrowDownIcon className="w-5 h-5 animate-bounce" />
-                <span className="font-medium">Отпустите для обновления</span>
-              </>
-            ) : (
-              <>
-                <ArrowDownIcon className="w-5 h-5" />
-                <span>Потяните для обновления</span>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-van-gogh-starry-night-blue">
-            🧠 AI CRM Dashboard
-          </h1>
-          <p className="text-van-gogh-chrome-green mt-2 text-sm sm:text-base">
-            Интеллектуальная автоматизация бизнеса
-          </p>
+          <h1 className="page-title">Обзор заявок</h1>
+          <p className="page-subtitle">Состояние обращений жителей, исполнителей и подрядчиков</p>
         </div>
-        <div className="flex space-x-2">
-          <Button
-            onClick={() => navigate('/ai/templates')}
-            variant="secondary"
-            size="sm"
-          >
-            <LightBulbIcon className="w-4 h-4 mr-2" />
-            AI Templates
-          </Button>
-          <Button
-            onClick={loadDashboardData}
-            loading={refreshing || pullRefreshing}
-            variant="secondary"
-            size="sm"
-          >
-            <ArrowPathIcon className="w-4 h-4 mr-2" />
-            Обновить
-          </Button>
-        </div>
+        <button onClick={load} className="btn-secondary" disabled={loading}>
+          <ArrowPathIcon className={'mr-2 h-4 w-4 ' + (loading ? 'animate-spin' : '')} />
+          Обновить
+        </button>
       </div>
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* AI Status */}
-        <div className="card bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-van-gogh-chrome-green">🤖 ИИ Система</p>
-              <p className="text-2xl font-bold text-van-gogh-starry-night-blue">
-                {aiStatusError ? 'Недоступна' : (aiStatus?.status === 'active' ? 'Активна' : 'Неактивна')}
-              </p>
-            </div>
-            <CpuChipIcon className="w-8 h-8 text-van-gogh-ultramarine" />
+      {error && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</div>}
+
+      <form onSubmit={submitIntake} className="card">
+        <div className="mb-5 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Прием заявки от жителя</h2>
+            <p className="mt-1 text-sm text-slate-500">Минимум полей. Категория, приоритет и SLA определяются автоматически.</p>
           </div>
-          <div className="mt-4 flex items-center">
-            {getStatusIcon(aiStatus?.status || 'inactive')}
-            <span className="ml-2 text-sm text-van-gogh-chrome-green">
-              {aiStatusError ? 'Сервис недоступен' : `${aiStatus?.available_models && Array.isArray(aiStatus.available_models) ? aiStatus.available_models.length : 0} моделей доступно`}
-            </span>
+          <span className="text-xs font-medium text-slate-400">Быстро · понятно · без лишних полей</span>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-4">
+          <div className="lg:col-span-2">
+            <label className="mb-2 block text-sm font-medium text-slate-700">Заявитель</label>
+            <input
+              className="input-field"
+              placeholder="ФИО"
+              value={intake.applicant_name}
+              onChange={(event) => setIntake({ ...intake, applicant_name: event.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Телефон</label>
+            <input
+              className="input-field"
+              placeholder="+7 900 000-00-00"
+              value={intake.phone}
+              onChange={(event) => setIntake({ ...intake, phone: event.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Квартира</label>
+            <input
+              className="input-field"
+              placeholder="Например, 45"
+              value={intake.apartment}
+              onChange={(event) => setIntake({ ...intake, apartment: event.target.value })}
+            />
+          </div>
+          <div className="lg:col-span-4">
+            <label className="mb-2 block text-sm font-medium text-slate-700">Адрес дома</label>
+            <input
+              className="input-field"
+              placeholder="Улица, дом"
+              value={intake.address}
+              onChange={(event) => setIntake({ ...intake, address: event.target.value })}
+              required
+            />
+          </div>
+          <div className="lg:col-span-4">
+            <label className="mb-2 block text-sm font-medium text-slate-700">Проблема</label>
+            <textarea
+              className="input-field min-h-24 resize-y"
+              placeholder="Опишите обращение жителя"
+              value={intake.problem}
+              onChange={(event) => setIntake({ ...intake, problem: event.target.value })}
+              required
+            />
           </div>
         </div>
 
-        {/* Automation Stats */}
-        <div className="card bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-van-gogh-chrome-green">⚙️ Автоматизация</p>
-              <p className="text-2xl font-bold text-van-gogh-starry-night-blue">
-                {dashboardStats?.activeAutomations || 0}
-              </p>
-              <p className="text-xs text-van-gogh-chrome-green mt-1">
-                {(dashboardStats?.totalRobots || 0)} роботов
-              </p>
-            </div>
-            <WrenchScrewdriverIcon className="w-8 h-8 text-green-600" />
-          </div>
-          <div className="mt-4 flex items-center">
-            <CheckCircleIcon className="w-5 h-5 text-green-500" />
-            <span className="ml-2 text-sm text-van-gogh-chrome-green">
-              AI-powered процессы
-            </span>
-          </div>
-        </div>
+        <div className="mt-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={intake.notify_resident}
+              onChange={(event) => setIntake({ ...intake, notify_resident: event.target.checked })}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            Уведомлять заявителя о статусе
+          </label>
 
-        {/* Message Processing */}
-        <div className="card bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-van-gogh-chrome-green">💬 Сообщения</p>
-              <p className="text-2xl font-bold text-van-gogh-starry-night-blue">
-                {dashboardStats?.processedMessages?.toLocaleString() || '0'}
-              </p>
-              <p className="text-xs text-van-gogh-chrome-green mt-1">
-                обработано сегодня
-              </p>
-            </div>
-            <ChatBubbleLeftRightIcon className="w-8 h-8 text-purple-600" />
-          </div>
-          <div className="mt-4 flex items-center">
-            <CheckCircleIcon className="w-5 h-5 text-green-500" />
-            <span className="ml-2 text-sm text-van-gogh-chrome-green">
-              Автоматическая маршрутизация
-            </span>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {intakeNotice && <span className="text-sm font-medium text-blue-700">{intakeNotice}</span>}
+            <button type="submit" disabled={intakeSaving} className="btn-primary">
+              <PlusIcon className="mr-2 h-4 w-4" />
+              {intakeSaving ? 'Создаем…' : 'Создать заявку'}
+            </button>
           </div>
         </div>
+      </form>
 
-        {/* System Health */}
-        <div className="card bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-van-gogh-chrome-green">🖥️ Система</p>
-              <p className="text-2xl font-bold text-van-gogh-starry-night-blue">
-                {systemHealthError ? 'Неизвестно' : (systemHealth?.status === 'healthy' ? 'Здорова' : 'Проблемы')}
-              </p>
-              <p className="text-xs text-van-gogh-chrome-green mt-1">
-                {dashboardStats?.avgResponseTime ? `${dashboardStats.avgResponseTime}ms` : 'N/A'} среднее время
-              </p>
-            </div>
-            <ServerIcon className="w-8 h-8 text-orange-600" />
-          </div>
-          <div className="mt-4 space-y-1">
-            <div className="flex items-center">
-              {getStatusIcon(systemHealthError ? 'unknown' : (systemHealth?.status === 'healthy' ? 'connected' : 'disconnected'))}
-              <span className="ml-2 text-xs text-van-gogh-chrome-green">
-                {systemHealthError ? 'БД недоступна' : 'База данных'}
-              </span>
-            </div>
-          </div>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <SummaryCard label="Всего заявок" value={data.requests.total} icon={ClockIcon} tone="blue" />
+        <SummaryCard label="В работе" value={data.requests.in_progress} icon={WrenchScrewdriverIcon} tone="indigo" />
+        <SummaryCard label="Выполнено" value={data.requests.done} icon={CheckCircleIcon} tone="emerald" />
+        <SummaryCard label="Просрочено" value={data.requests.overdue} icon={ExclamationTriangleIcon} tone="red" />
+        <SummaryCard label="Жителей" value={data.residents} icon={UserGroupIcon} tone="sky" />
+        <SummaryCard label="Подрядчиков" value={data.contractors} icon={WrenchScrewdriverIcon} tone="violet" />
       </div>
 
-      {/* AI Usage Stats */}
-      {aiUsage && (
-        <div className="card">
-          <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue mb-4">
-            📊 Статистика использования ИИ
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg">
-              <p className="text-sm text-van-gogh-chrome-green">Всего токенов</p>
-              <p className="text-2xl font-bold text-van-gogh-ultramarine">
-                {(aiUsage.total_tokens || 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg">
-              <p className="text-sm text-van-gogh-chrome-green">AI Запросов</p>
-              <p className="text-2xl font-bold text-van-gogh-chrome-green">
-                {(aiUsage.total_requests || 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg">
-              <p className="text-sm text-van-gogh-chrome-green">Эффективность</p>
-              <p className="text-2xl font-bold text-van-gogh-vermilion">
-                {aiUsage.total_requests > 0 ? Math.round(aiUsage.total_tokens / aiUsage.total_requests) : 0} ток/запрос
-              </p>
-            </div>
-          </div>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <RequestColumn title="В работе" items={active.filter((item) => !item.overdue)} empty="Активных заявок пока нет" />
+        <RequestColumn title="Выполнено" items={completed} empty="Выполненных заявок пока нет" />
+        <RequestColumn title="Просроченные" items={overdue} empty="Просроченных заявок нет" danger />
+      </div>
 
-          {/* System Status */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-lg text-center">
-              <div className="text-3xl mb-2">🚀</div>
-              <p className="text-sm font-medium text-emerald-800">Система готова</p>
-              <p className="text-xs text-emerald-600">Все сервисы активны</p>
-            </div>
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg text-center">
-              <div className="text-3xl mb-2">🧠</div>
-              <p className="text-sm font-medium text-blue-800">ИИ активен</p>
-              <p className="text-xs text-blue-600">Модели загружены</p>
-            </div>
-            <div className="bg-gradient-to-br from-violet-50 to-purple-50 p-4 rounded-lg text-center">
-              <div className="text-3xl mb-2">⚙️</div>
-              <p className="text-sm font-medium text-violet-800">Автоматизация</p>
-              <p className="text-xs text-violet-600">Процессы запущены</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent Activity */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue mb-4">
-          📈 Последние активности
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center p-3 bg-van-gogh-wheat-field/20 rounded-lg">
-            <CheckCircleIcon className="w-5 h-5 text-green-500 mr-3" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-van-gogh-starry-night-blue">
-                AI обработал новое сообщение клиента
-              </p>
-              <p className="text-xs text-van-gogh-chrome-green">2 минуты назад</p>
-            </div>
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Автоматическое распределение</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Категория + приоритет + дом + смена + загрузка исполнителя + SLA → назначение или очередь диспетчера
+            </p>
           </div>
-          <div className="flex items-center p-3 bg-van-gogh-wheat-field/20 rounded-lg">
-            <CheckCircleIcon className="w-5 h-5 text-blue-500 mr-3" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-van-gogh-starry-night-blue">
-                Автоматизация создала задачу менеджеру
-              </p>
-              <p className="text-xs text-van-gogh-chrome-green">5 минут назад</p>
-            </div>
-          </div>
-          <div className="flex items-center p-3 bg-van-gogh-wheat-field/20 rounded-lg">
-            <CheckCircleIcon className="w-5 h-5 text-purple-500 mr-3" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-van-gogh-starry-night-blue">
-                Отправлено персонализированное email уведомление
-              </p>
-              <p className="text-xs text-van-gogh-chrome-green">12 минут назад</p>
-            </div>
-          </div>
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">AI assisted</span>
         </div>
-      </div>
 
-      {/* Quick Actions */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-van-gogh-starry-night-blue mb-4">
-          ⚡ Быстрые действия
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button
-            onClick={() => navigate('/settings/ai')}
-            variant="secondary"
-            fullWidth
-            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-          >
-            <CpuChipIcon className="w-5 h-5 mr-2" />
-            Настроить ИИ
-          </Button>
-          <Button
-            onClick={() => navigate('/ai/templates')}
-            variant="secondary"
-            fullWidth
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-          >
-            <LightBulbIcon className="w-5 h-5 mr-2" />
-            AI Шаблоны
-          </Button>
-          <Button
-            onClick={() => navigate('/settings/automation')}
-            variant="secondary"
-            fullWidth
-            className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-          >
-            <WrenchScrewdriverIcon className="w-5 h-5 mr-2" />
-            Роботы
-          </Button>
-          <Button
-            onClick={() => navigate('/monitoring')}
-            variant="secondary"
-            fullWidth
-            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
-          >
-            <ServerIcon className="w-5 h-5 mr-2" />
-            Мониторинг
-          </Button>
+        <div className="mt-5 grid gap-3 md:grid-cols-5">
+          {[
+            ['Электрика', 'Электрик'],
+            ['Сантехника', 'Слесарь'],
+            ['Общие вопросы', 'Диспетчер'],
+            ['Претензии', 'Директор'],
+            ['Пожелания', 'Мастер участка'],
+          ].map(([category, assignee]) => (
+            <div key={category} className="card-soft">
+              <div className="text-sm font-semibold text-slate-800">{category}</div>
+              <div className="mt-1 text-xs text-slate-500">Автоназначение</div>
+              <div className="mt-3 text-sm font-medium text-blue-700">{assignee}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-export default Dashboard;
+function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: any; tone: string }) {
+  const tones: Record<string, string> = {
+    blue: 'bg-blue-50 text-blue-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    red: 'bg-red-50 text-red-600',
+    sky: 'bg-sky-50 text-sky-600',
+    violet: 'bg-violet-50 text-violet-600',
+  };
+
+  return (
+    <div className="card p-4">
+      <div className={'mb-3 flex h-10 w-10 items-center justify-center rounded-xl ' + tones[tone]}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="text-2xl font-bold text-slate-900">{value}</div>
+      <div className="mt-1 text-sm text-slate-500">{label}</div>
+    </div>
+  );
+}
+
+function RequestColumn({ title, items, empty, danger = false }: { title: string; items: any[]; empty: string; danger?: boolean }) {
+  return (
+    <section className={'rounded-2xl border p-4 ' + (danger ? 'border-red-100 bg-red-50/40' : 'border-slate-200 bg-white')}>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-semibold text-slate-900">{title}</h2>
+        <span className={'rounded-full px-2.5 py-1 text-xs font-semibold ' + (danger ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>
+          {items.length}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {items.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-white/70 p-6 text-center text-sm text-slate-400">{empty}</div>
+        ) : (
+          items.slice(0, 6).map((item) => (
+            <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-xs font-semibold text-blue-700">{priorityLabel[item.priority] || item.priority}</span>
+                <span className="text-xs text-slate-400">{item.number}</span>
+              </div>
+              <div className="mt-2 text-sm font-semibold text-slate-900">{item.title}</div>
+              <div className="mt-1 line-clamp-2 text-xs text-slate-500">{item.description}</div>
+              <div className="mt-3 text-xs font-medium text-slate-600">{statusLabel[item.status] || item.status}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}

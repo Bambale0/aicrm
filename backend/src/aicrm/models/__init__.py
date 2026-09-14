@@ -1,61 +1,50 @@
-"""
-Модели базы данных
-"""
-from .base import Base, BaseModel
-from .user import User
-from .customer import Customer
-from .order import Order
-from .production_step import ProductionStep
-from .communication import Communication
-from .task import Task
-from .avito_chat import AvitoChatSettings, AvitoGlobalSettings
-from .telegram_chat import TelegramChat
-from .telegram_settings import TelegramSettings
-from .ai_usage import AIUsage
-from .ai_prompt import AIPrompt
-from .ai_settings import AISettings
-from .category import Category
-from .service import Service
-from .product import Product
+"""Active database models for ЖКХ CRM."""
+
+from .ai_connection import AIConnectionSettings
 from .automation import (
-    Process, Stage, Trigger, Robot, RobotActionConfig,
-    EntityType, TriggerEvent, RobotAction
+    AutomationExecution,
+    AutomationInstance,
+    AutomationProcess,
+    AutomationRule,
+    AutomationStage,
 )
-from .automation_log import AutomationLog
-from .email_template import EmailTemplate
-from .plugin import (
-    Plugin, PluginAction, PluginHook, PluginPermission,
-    PluginRegistry, PluginTemplate
+from .base import Base, BaseModel
+from .housing import (
+    Building,
+    ContractorCompany,
+    Incident,
+    Premise,
+    RequestEvent,
+    Resident,
+    ServiceRequest,
 )
+from .messenger import (
+    MessengerConversation,
+    MessengerInboundEvent,
+    MessengerIntegration,
+    MessengerMessage,
+)
+from .user import User
 
 __all__ = [
     "Base",
+    "AIConnectionSettings",
     "BaseModel",
     "User",
-    "Customer",
-    "Order",
-    "ProductionStep",
-    "Communication",
-    "Task",
-    "AvitoChatSettings",
-    "AvitoGlobalSettings",
-    "TelegramChat",
-    "TelegramSettings",
-    "AIUsage",
-    "AIPrompt",
-    "AISettings",
-    "Category",
-    "Service",
-    "Product",
-    "EmailTemplate",
-    # Automation models
-    "Process",
-    "Stage",
-    "Trigger",
-    "Robot",
-    "RobotActionConfig",
-    "EntityType",
-    "TriggerEvent",
-    "RobotAction",
-    "AutomationLog"
+    "Building",
+    "Premise",
+    "Resident",
+    "ContractorCompany",
+    "Incident",
+    "ServiceRequest",
+    "RequestEvent",
+    "MessengerIntegration",
+    "MessengerConversation",
+    "MessengerMessage",
+    "MessengerInboundEvent",
+    "AutomationProcess",
+    "AutomationRule",
+    "AutomationInstance",
+    "AutomationStage",
+    "AutomationExecution",
 ]

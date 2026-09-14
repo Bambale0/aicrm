@@ -90,18 +90,19 @@ class AuthService:
         """Аутентификация с созданием сессии"""
         user = await AuthService.authenticate_user_async(db, email, password)
         if not user:
-            logger.warning("Failed login attempt", email=email)
+            logger.warning("auth_login_failed")
             return None
 
         # Собираем данные для сессии
         user_data = {
             "id": user.id,
             "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
+            "full_name": user.full_name,
+            "company_name": user.company_name,
             "role": user.role,
-            "ip_address": request.client.host if request else None,
-            "user_agent": request.headers.get("user-agent") if request else None
+            "is_superuser": bool(user.is_superuser),
+            "ip_address": request.client.host if request and request.client else None,
+            "user_agent": request.headers.get("user-agent") if request else None,
         }
 
         # Создаем сессию в Redis
@@ -111,7 +112,7 @@ class AuthService:
         # Создаем JWT токен
         access_token = AuthService.create_access_token(data={"sub": user.email, "session_id": session_id})
 
-        logger.info("User logged in successfully", user_id=user.id, email=email, session_id=session_id)
+        logger.info("auth_login_succeeded", user_id=user.id, session_id=session_id)
 
         return {
             "access_token": access_token,
@@ -145,7 +146,7 @@ class AuthService:
             success = await session_service.delete_session(session_id)
 
         if success:
-            logger.info("User logged out", session_id=session_id)
+            logger.info("auth_logout_succeeded", session_id=session_id)
 
         return success
 

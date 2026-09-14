@@ -2,7 +2,6 @@
 Модель пользователя
 """
 from sqlalchemy import Column, String, Boolean, DateTime
-from sqlalchemy.orm import relationship
 from datetime import datetime
 from passlib.context import CryptContext
 
@@ -22,16 +21,12 @@ class User(BaseModel):
     company_name = Column(String)  # Название компании
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
-    role = Column(String, default="user")  # admin, manager, user
+    role = Column(String, default="employee")
 
     # Email verification
     email_verified = Column(Boolean, default=False)  # Подтвержден ли email
     email_verification_token = Column(String, nullable=True)  # Токен подтверждаения
     email_verification_expires = Column(DateTime, nullable=True)  # Срок действия токена
-
-    # Связи
-    tasks = relationship("Task", foreign_keys="[Task.assigned_to]", back_populates="assigned_to_user")
-    production_steps = relationship("ProductionStep", back_populates="assigned_to_user")
 
     @staticmethod
     def get_password_hash(password: str) -> str:

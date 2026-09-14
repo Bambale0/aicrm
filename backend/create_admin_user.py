@@ -15,55 +15,49 @@ from aicrm.models.user import User
 from sqlalchemy.orm import sessionmaker
 
 def create_admin_user():
-    """Создание администратора"""
-    # Force postgres consistency with app
-    import os
-    osiron['DATABASE_URL'] = 'postgresql+psycopg2://aicrm_user:aicrm_password@localhost:5432/aicrm'
+    """Создание администратора из переменных окружения."""
+    admin_email = os.environ.get("AICRM_ADMIN_EMAIL")
+    admin_password = os.environ.get("AICRM_ADMIN_PASSWORD")
+    admin_name = os.environ.get("AICRM_ADMIN_NAME")
 
-    # Создаем таблицы, если они не существуют
+    if not admin_email or not admin_password or not admin_name:
+        raise RuntimeError(
+            "Set AICRM_ADMIN_EMAIL, AICRM_ADMIN_PASSWORD and AICRM_ADMIN_NAME before running this script"
+        )
+
     engine = get_default_engine()
-    print(f"Using database: {engine.url}")
     Base.metadata.create_all(bind=engine)
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db: Session = SessionLocal()
 
     try:
-        # Проверяем, существует ли уже пользователь
-        existing_user = db.query(User).filter(User.email == "iloveigor@chillcreative.ru").first()
+        existing_user = db.query(User).filter(User.email == admin_email).first()
         if existing_user:
-            print("Пользователь уже существует!")
-            print(f"Email: {existing_user.email}")
-            print(f"Роль: {existing_user.role}")
-            print(f"Superuser: {existing_user.is_superuser}")
-            # Force recreate if we want to ensure it's in the same DB
+            existing_user.full_name = admin_name
+            existing_user.hashed_password = User.get_password_hash(admin_password)
+            existing_user.is_active = True
+            existing_user.is_superuser = True
+            existing_user.role = "admin"
+            db.commit()
+            print(f"Administrator updated: {admin_email}")
+            return
 
-        # Создаем нового пользователя
-        user_data = {
-            "email": "iloveigor@chillcreative.ru",
-            "password": "25896311Aaa",
-            "full_name": "Super Admin",
-            "is_active": True,
-            "is_superuser": True,
-            "role": "admin"
-        }
-
-        hashed_password = User.get_password_hash(user_data.pop("password"))
-        user_data["hashed_password"] = hashed_password
-
-        user = User(**user_data)
+        user = User(
+            email=admin_email,
+            hashed_password=User.get_password_hash(admin_password),
+            full_name=admin_name,
+            is_active=True,
+            is_superuser=True,
+            role="admin",
+            email_verified=True,
+        )
         db.add(user)
         db.commit()
-        db.refresh(user)
-
-        print("Администратор создан успешно!")
-        print(f"Email: {user.email}")
-        print(f"Роль: {user.role}")
-        print(f"Superuser: {user.is_superuser}")
-
-    except Exception as e:
-        print(f"Ошибка при создании пользователя: {e}")
+        print(f"Administrator created: {admin_email}")
+    except Exception:
         db.rollback()
+        raise
     finally:
         db.close()
 

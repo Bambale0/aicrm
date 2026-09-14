@@ -1,166 +1,95 @@
-import React, { useState, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React, { lazy, Suspense, useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-// Core components - load immediately
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import BackgroundStars from './components/BackgroundVideo';
-import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import Header from './components/Header';
+import ProtectedRoute from './components/ProtectedRoute';
+import Sidebar from './components/Sidebar';
 
-// Lazy load pages for better performance
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Customers = lazy(() => import('./pages/Customers'));
-const Orders = lazy(() => import('./pages/Orders'));
-const Tasks = lazy(() => import('./pages/Tasks'));
-const Email = lazy(() => import('./pages/Email'));
-const Telegram = lazy(() => import('./pages/Telegram'));
-const Avito = lazy(() => import('./pages/Avito'));
-const Users = lazy(() => import('./pages/Users'));
-const Stages = lazy(() => import('./pages/Stages'));
-const Triggers = lazy(() => import('./pages/Triggers'));
-const AutomationLogs = lazy(() => import('./pages/AutomationLogs'));
-const AIUsage = lazy(() => import('./pages/AIUsage'));
+const Requests = lazy(() => import('./pages/Requests'));
+const Residents = lazy(() => import('./pages/Residents'));
+const Buildings = lazy(() => import('./pages/Buildings'));
+const Contractors = lazy(() => import('./pages/Contractors'));
+const Messengers = lazy(() => import('./pages/Messengers'));
 const Communications = lazy(() => import('./pages/Communications'));
-const EmailManagement = lazy(() => import('./pages/EmailManagement'));
-const ProductionSteps = lazy(() => import('./pages/ProductionSteps'));
-const AISettings = lazy(() => import('./pages/AISettings'));
-const AIManagerSettings = lazy(() => import('./pages/AIManagerSettings'));
-const AvitoSettings = lazy(() => import('./pages/AvitoSettings'));
-const TelegramSettings = lazy(() => import('./pages/TelegramSettings'));
-const AutomationSettings = lazy(() => import('./pages/AutomationSettings'));
+const Users = lazy(() => import('./pages/Users'));
 const AutomationBoard = lazy(() => import('./pages/AutomationBoard'));
-const SystemSettings = lazy(() => import('./pages/SystemSettings'));
-const SystemMonitoring = lazy(() => import('./pages/SystemMonitoring'));
-const EmailSettings = lazy(() => import('./pages/EmailSettings'));
-const AITemplates = lazy(() => import('./pages/AITemplates'));
-const Campaigns = lazy(() => import('./pages/Campaigns'));
-const EmailTemplates = lazy(() => import('./pages/EmailTemplates'));
-const Organizations = lazy(() => import('./pages/Organizations'));
-const PluginManager = lazy(() => import('./pages/PluginManager'));
+const AIConnection = lazy(() => import('./pages/AIConnection'));
 
-// Loading component
+const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
+
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-[400px]">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+  <div className="flex min-h-[320px] items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
   </div>
 );
 
-function App() {
+export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Сайдбар свернут по умолчанию
-
-  // Create a client
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 1000 * 60 * 5, // 5 minutes
-        refetchOnWindowFocus: false,
-        retry: (failureCount, error: any) => {
-          if (error?.response?.status === 401 || error?.response?.status === 403) {
-            return false;
-          }
-          return failureCount < 3;
-        },
-      },
-    },
-  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ErrorBoundary>
-        <Suspense fallback={<PageLoader />}>
+    <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={AUTH_REQUIRED ? <Login /> : <Navigate to="/dashboard" replace />} />
           <Route
             path="/*"
             element={
               <ProtectedRoute>
-                <BackgroundStars />
-                <div className="min-h-screen bg-transparent relative z-10">
-                  {/* Мобильный overlay для sidebar */}
+                <div className="app-shell">
                   {sidebarOpen && (
-                    <div
-                      className="fixed inset-0 bg-black/70 backdrop-blur-md z-20 lg:hidden"
+                    <button
+                      className="fixed inset-0 z-30 bg-slate-900/30 backdrop-blur-sm lg:hidden"
                       onClick={() => setSidebarOpen(false)}
+                      aria-label="Закрыть меню"
                     />
                   )}
 
                   <div className="flex min-h-screen">
-                    {/* Desktop sidebar */}
-                    <div className={`hidden lg:flex lg:flex-col transition-all duration-300 ${
-                      sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'
-                    }`}>
-                      <Sidebar
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-                      />
+                    <div className={'hidden shrink-0 lg:block ' + (sidebarCollapsed ? 'w-20' : 'w-64')}>
+                      <div className="fixed inset-y-0 left-0">
+                        <Sidebar
+                          collapsed={sidebarCollapsed}
+                          onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
+                        />
+                      </div>
                     </div>
 
-                  {/* Mobile sidebar */}
-                  <div className={`fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-300 ease-in-out lg:hidden ${
-                    sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                  }`}>
-                    <div className="relative">
-                      {/* Mobile sidebar header with close button */}
-                      <div className="flex items-center justify-between p-4 border-b border-gray-700/30 lg:hidden">
-                        <h2 className="text-lg font-semibold text-van-gogh-starry-night-blue">Меню</h2>
+                    <div className={'fixed inset-y-0 left-0 z-40 w-64 transform bg-white transition-transform duration-200 lg:hidden ' + (sidebarOpen ? 'translate-x-0' : '-translate-x-full')}>
+                      <div className="absolute right-3 top-3 z-50">
                         <button
                           onClick={() => setSidebarOpen(false)}
-                          className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/20 transition-colors"
+                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
                           aria-label="Закрыть меню"
                         >
-                          <XMarkIcon className="w-6 h-6" />
+                          <XMarkIcon className="h-5 w-5" />
                         </button>
                       </div>
                       <Sidebar onClose={() => setSidebarOpen(false)} />
                     </div>
-                  </div>
 
-                    {/* Main content */}
-                    <div className="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-gray-900/80 via-gray-800/60 to-gray-900/80">
+                    <div className="flex min-w-0 flex-1 flex-col">
                       <Header onMenuClick={() => setSidebarOpen(true)} />
-                      <main className="flex-1 p-4 sm:p-6 lg:p-8">
-                        <div className="max-w-7xl mx-auto">
-                          <ErrorBoundary>
-                            <Suspense fallback={<PageLoader />}>
-                              <Routes>
-                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                                <Route path="/dashboard" element={<Dashboard />} />
-                                <Route path="/customers" element={<Customers />} />
-                                <Route path="/orders" element={<Orders />} />
-                                <Route path="/tasks" element={<Tasks />} />
-                                <Route path="/users" element={<Users />} />
-                                <Route path="/stages" element={<Stages />} />
-                                <Route path="/triggers" element={<Triggers />} />
-                                <Route path="/automation/logs" element={<AutomationLogs />} />
-                                <Route path="/ai/usage" element={<AIUsage />} />
-                                <Route path="/communications" element={<Communications />} />
-                                <Route path="/email/management" element={<EmailManagement />} />
-                                <Route path="/production/steps" element={<ProductionSteps />} />
-                                <Route path="/email" element={<Email />} />
-                                <Route path="/telegram" element={<Telegram />} />
-                                <Route path="/avito" element={<Avito />} />
-                                <Route path="/settings/ai" element={<AISettings />} />
-                                <Route path="/settings/ai/templates" element={<AITemplates />} />
-                                <Route path="/settings/ai-manager" element={<AIManagerSettings />} />
-                                <Route path="/settings/email" element={<EmailSettings />} />
-                                <Route path="/settings/avito" element={<AvitoSettings />} />
-                                <Route path="/settings/telegram" element={<TelegramSettings />} />
-                                <Route path="/settings/automation" element={<AutomationSettings />} />
-                                <Route path="/automation/board" element={<AutomationBoard />} />
-                                <Route path="/monitoring" element={<SystemMonitoring />} />
-                                <Route path="/settings/system" element={<SystemSettings />} />
-                                <Route path="/campaigns" element={<Campaigns />} />
-                                <Route path="/email-templates" element={<EmailTemplates />} />
-                                <Route path="/organizations" element={<Organizations />} />
-                                <Route path="/automation/plugins" element={<PluginManager />} />
-                              </Routes>
-                            </Suspense>
-                          </ErrorBoundary>
+                      <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+                        <div className="mx-auto max-w-[1600px]">
+                          <Routes>
+                            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/requests" element={<Requests />} />
+                            <Route path="/residents" element={<Residents />} />
+                            <Route path="/buildings" element={<Buildings />} />
+                            <Route path="/contractors" element={<Contractors />} />
+                            <Route path="/messengers" element={<Messengers />} />
+                            <Route path="/communications" element={<Communications />} />
+                            <Route path="/users" element={<Users />} />
+                            <Route path="/automation/board" element={<AutomationBoard />} />
+                            <Route path="/ai" element={<AIConnection />} />
+                            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                          </Routes>
                         </div>
                       </main>
                     </div>
@@ -172,8 +101,5 @@ function App() {
         </Routes>
       </Suspense>
     </ErrorBoundary>
-  </QueryClientProvider>
   );
 }
-
-export default App;

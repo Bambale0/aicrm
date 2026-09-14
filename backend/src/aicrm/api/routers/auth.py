@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from ...core.dependencies import get_db
+from ...core.dependencies import get_db, get_current_user as current_user_dependency
 from ...services.auth import auth_service
 from ..schemas.auth import (
     User as UserSchema,
@@ -31,6 +31,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 @router.post("/register", response_model=UserSchema)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """Регистрация нового пользователя с верификацией email"""
+    from ...core.config import settings
+    if not settings.public_registration_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Public registration is disabled"
+        )
     # Проверка существования пользователя
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
@@ -147,16 +153,9 @@ async def logout_all(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 @router.get("/me", response_model=UserSchema)
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Получение текущего пользователя"""
-    user = auth_service.get_current_user(db, token)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
+async def read_current_user(current_user: User = Depends(current_user_dependency)):
+    """Получение текущего пользователя через единый auth dependency."""
+    return current_user
 
 
 # Note: get_current_active_user and get_current_admin_user are now imported from core.dependencies

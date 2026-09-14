@@ -227,39 +227,6 @@ For non-trivial runtime changes, the change is not done until relevant logging/t
 
 ---
 
-## HappyFox brand and marketing identity
-
-`HappyFox` is the only public-facing product and brand name.
-
-Rules:
-
-- Use `HappyFox` consistently in advertising, marketing, landing pages, SEO metadata, Open Graph/Twitter metadata, public UI copy, product descriptions, campaigns, documentation, and other user-facing materials.
-- Treat `AlePolbot`, `@AlePolbot`, and URLs such as `t.me/AlePolbot...` only as technical Telegram usernames, deep links, or transport URLs. They are not the product name, brand name, campaign name, or marketing identity.
-- Do not expose `AlePolbot` as visible marketing copy when a human-readable label can be used. Prefer labels and calls to action such as `HappyFox`, `Открыть HappyFox`, `Попробовать`, or `Запустить в Telegram`, while keeping the underlying technical link unchanged.
-- If a platform itself must display the Telegram username, treat that as a technical platform constraint and do not repeat the username in surrounding marketing copy.
-- Keep public naming consistent across Yandex Direct, landing pages, Telegram, MAX, Mini App, SEO, social profiles, and advertising creatives.
-- When an external advertising or analytics platform asks for the business/product name, use `HappyFox`.
-
----
-
-## Mandatory release parity: MAX bot + Telegram bot + Mini App
-
-Every HappyFox update must keep all three product surfaces synchronized:
-
-1. MAX bot.
-2. Telegram bot.
-3. Mini App.
-
-Rules:
-
-- Any new or changed feature, menu item, model/provider option, pricing/payment behavior, text/copy, validation, error/fallback behavior, deep link, admin control, generation flow, or other user-facing behavior must be implemented or updated across all applicable surfaces in the same change/release.
-- Do **not** consider a product change complete if only one or two of the three surfaces were updated.
-- For backend/infrastructure-only changes that require no surface-specific code changes, still run regression/compatibility verification for MAX, Telegram, and Mini App before delivery.
-- If a platform limitation prevents identical behavior on one surface, preserve the same user outcome with an equivalent flow or explicit fallback, and document the limitation in the PR/final report.
-- Before merge/deploy, explicitly verify parity for MAX bot, Telegram bot, and Mini App. This is part of the Definition of Done.
-
----
-
 ## Safety and destructive commands
 
 Never run destructive or high-risk commands unless the user explicitly requested and confirmed the exact action.
@@ -411,3 +378,116 @@ Local skill discovery must include `/root/anthropic-skills` in addition to `/roo
 - Do not blindly run scripts or copy credentials, secrets, private URLs, or example tokens from any skill repository.
 - If guidance conflicts, follow the higher-priority and safer/project-specific rule and report the conflict when material.
 - Final delivery reports must mention relevant skills/guides used from `Bambale0/claw`, `wondelai/skills`, and `anthropics/skills`.
+
+---
+
+## AICRM / ЖКХ CRM — project-specific rules
+
+These rules are repository-specific and tighten the global baseline above.
+
+## No hardcode — mandatory
+Hardcoding environment-, deployment-, customer-, credential-, routing-, or integration-specific values is forbidden.
+
+Do not hardcode:
+- domains, public URLs, IP addresses, ports, webhook URLs;
+- API keys, bot tokens, secrets, passwords, chat/user/group IDs;
+- organization IDs, employee IDs, contractor IDs, building IDs;
+- client names, phone numbers, email addresses, bank details;
+- provider credentials or provider-specific account identifiers;
+- production feature flags or customer-specific behavior;
+- arbitrary business routing such as "category X always goes to employee 17".
+
+Use, in this order:
+1. persisted configuration in the database for business/admin-editable behavior;
+2. environment variables for deployment/runtime configuration and secrets;
+3. centrally defined typed domain catalogs/enums for immutable protocol/domain values only.
+
+Frontend must not duplicate backend business catalogs. Load supported entity types, trigger events, action types, statuses, priorities, and configurable fields from API endpoints.
+
+No "temporary" hardcoded production values. If a value is not configurable yet, add the configuration mechanism as part of the change.
+
+## Domain boundaries
+The active product domain is housing-management CRM:
+- service requests;
+- residents;
+- buildings and premises;
+- incidents;
+- employees and roles;
+- contractor companies;
+- dispatcher conversations/messages;
+- messenger integrations;
+- automation: processes, stages, triggers, robots, execution log.
+
+Marketing campaigns, printing-production flows, sales orders, Avito-specific CRM, legacy customer funnels, and unrelated demo/style modules do not belong in the active product.
+
+Do not reintroduce removed legacy modules without an explicit requirement.
+
+## Messenger architecture
+Business logic must not depend directly on Telegram/MAX/VK payload shapes.
+
+Every messenger adapter must normalize inbound events into the common conversation/message model and implement provider-specific verification, webhook registration, sending, attachment handling, and health checks behind the integration layer.
+
+Provider credentials are encrypted at rest and never returned by API responses.
+
+## Automation architecture
+Automation is universal and data-driven:
+- Process describes what is being automated: a CRM entity or a custom workflow.
+- Stage is an optional human-readable state of a custom workflow.
+- Rule is always presented as WHEN event → IF conditions → THEN ordered actions.
+- Instance is one concrete run of a custom workflow with arbitrary persisted variables.
+- Execution records every action outcome with correlation ID and duration.
+
+The backend owns catalogs for process types, events, operators, fields and actions. Frontend must render the builder from those catalogs and must not duplicate business catalogs.
+
+Custom workflows must support arbitrary variables and custom events so new operational processes can be configured without source-code changes. Customer-specific routing belongs in persisted rules, never in Python/TypeScript conditionals.
+
+Automation actions must validate process type and configuration before execution. Failures must be recorded without silently corrupting the underlying entity or workflow.
+
+## Observability-first
+Logs and telemetry are part of every non-trivial feature.
+
+Important flows must have stable searchable event names and enough fields to reconstruct one action end-to-end. For requests, messengers, webhooks, and automation include relevant IDs, stage/action/event, outcome, and duration.
+
+Never log secrets, authorization headers, provider tokens, passwords, or unnecessary personal data.
+
+After deploy, verify logs from the real runtime; do not rely only on compile/build success.
+
+## Data and API rules
+- Prefer typed schemas and explicit validation.
+- Do not invent API fields; verify against code/schema/provider docs.
+- Preserve idempotency for incoming webhooks/events.
+- Treat overdue as a derived state when possible rather than a duplicate status.
+- Keep immutable audit/event history for meaningful request state changes.
+- External side effects must have explicit timeout/error handling.
+
+## Repository hygiene
+Keep only production-relevant code, tests, migrations, configuration, and documentation.
+
+Do not keep:
+- *.bak, *.tmp, editor swap files;
+- exported style packs, unused media, screenshots, generated reports;
+- obsolete one-off migration scripts after their migration is represented properly;
+- unreachable frontend pages/components;
+- dead backend routers/services/models;
+- duplicate implementations of the same integration;
+- stale documentation for removed features.
+
+Generated runtime artifacts, local secrets, caches, build output, logs, and database dumps must be ignored by git.
+
+## Security
+Never commit .env files, tokens, secrets, private keys, passwords, production dumps, or customer personal data.
+
+Validate webhook authenticity when a provider supports it. Store credentials encrypted. Keep least-privilege access by role.
+
+## Testing / Definition of Done
+For changed backend code, run Python compile plus focused tests.
+For changed frontend code, run TypeScript/build checks.
+For deployment changes, rebuild containers and run smoke tests against the deployed domain.
+
+A runtime change is done only when:
+- containers are healthy;
+- health/readiness endpoints pass;
+- changed API routes return expected results;
+- critical CRUD/automation flows pass a smoke scenario;
+- logs show the expected structured events;
+- repository status contains no accidental backup/temp files.

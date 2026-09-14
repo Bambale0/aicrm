@@ -9,8 +9,14 @@ from ...core.dependencies import get_db
 from ...services.user import user_service
 from ..schemas.auth import User as UserSchema, UserCreate, UserUpdate
 from ...core.dependencies import get_current_admin_user
+from ...core.user_catalog import USER_ROLES
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/roles/catalog")
+async def get_user_roles():
+    return USER_ROLES
 
 
 @router.get("/", response_model=List[UserSchema])

@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [app_network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks: [app_network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    command:
+      - /bin/sh
+      - -c
+      - >
+        python -c "from aicrm.core.database import create_tables; create_tables()" &&
+        exec uvicorn aicrm.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "${BACKEND_BIND_ADDRESS}:${BACKEND_BIND_PORT}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [app_network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        REACT_APP_ENABLE_REGISTRATION: ${PUBLIC_REGISTRATION_ENABLED}
+        REACT_APP_AUTH_REQUIRED: ${AUTH_REQUIRED}
+        REACT_APP_API_URL: ${FRONTEND_API_URL}
+    ports:
+      - "${FRONTEND_BIND_ADDRESS}:${FRONTEND_BIND_PORT}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [app_network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+volumes:
+  postgres_data:
+    name: ${POSTGRES_VOLUME_NAME}
+  redis_data:
+    name: ${REDIS_VOLUME_NAME}
+
+networks:
+  app_network:
+    driver: bridge

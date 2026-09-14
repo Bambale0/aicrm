@@ -1,62 +1,49 @@
 import React from 'react';
-import { BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, Bars3Icon } from '@heroicons/react/24/outline';
+import {
+  ArrowRightOnRectangleIcon,
+  Bars3Icon,
+  BellIcon,
+  BuildingOffice2Icon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 
-interface HeaderProps {
-  onMenuClick?: () => void;
-}
+const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
+
+interface HeaderProps { onMenuClick?: () => void; }
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
-  };
-
   return (
-    <header className="navbar">
-      <div className="px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {/* Mobile menu button */}
-            <button
-              onClick={onMenuClick}
-              className="lg:hidden p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/20 transition-all duration-300"
-            >
-              <Bars3Icon className="w-6 h-6" />
-            </button>
-
-            <img
-              src="/лого.png"
-              alt="AI CRM Logo"
-              className="w-10 h-10 sm:w-12 sm:h-12 drop-shadow-lg"
-            />
-            <div className="hidden sm:block">
-              <h2 className="text-lg sm:text-xl font-semibold text-gradient">Панель управления</h2>
-              <p className="text-xs sm:text-sm text-gray-400">Управление настройками AI CRM системы</p>
-            </div>
+    <header className="navbar sticky top-0 z-20">
+      <div className="flex min-h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <button onClick={onMenuClick} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden" aria-label="Открыть меню">
+            <Bars3Icon className="h-6 w-6" />
+          </button>
+          <div className="hidden h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white sm:flex">
+            <BuildingOffice2Icon className="h-5 w-5" />
           </div>
-
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            <button className="p-2 text-gray-400 hover:text-van-gogh-ultramarine rounded-lg hover:bg-van-gogh-ultramarine/20 transition-all duration-300">
-              <BellIcon className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center space-x-2">
-              <UserCircleIcon className="w-8 h-8 text-gray-400" />
-              <span className="text-sm font-medium text-van-gogh-chrome-green">
-                {user?.username || user?.email || 'Пользователь'}
-              </span>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-van-gogh-vermilion rounded-lg hover:bg-van-gogh-vermilion/20 transition-all duration-300"
-              title="Выйти"
-            >
-              <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            </button>
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold text-slate-900 sm:text-base">CRM управляющей компании ЖКХ</h2>
+            <p className="hidden text-xs text-slate-500 sm:block">Заявки, жители, исполнители и подрядчики</p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100" aria-label="Уведомления">
+            <BellIcon className="h-5 w-5" />
+          </button>
+          <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:flex">
+            <UserCircleIcon className="h-6 w-6 text-slate-400" />
+            <span className="max-w-44 truncate text-sm font-medium text-slate-700">{user?.full_name || user?.email || 'Сотрудник'}</span>
+          </div>
+          {AUTH_REQUIRED && (
+            <button onClick={logout} className="rounded-xl p-2.5 text-slate-500 hover:bg-red-50 hover:text-red-600" title="Выйти" aria-label="Выйти">
+              <ArrowRightOnRectangleIcon className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </div>
     </header>
