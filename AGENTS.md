@@ -337,7 +337,7 @@ If tests were not run, explain why.
 - No known secrets or credentials were introduced.
 - Error handling and logging are appropriate.
 - Public behavior is documented when changed.
-- MAX bot, Telegram bot, and Mini App parity was verified for every update, or a platform-specific limitation/fallback was documented.
+- MAX primary-channel behavior was verified for affected changes; optional Telegram/VK adapters were checked only when touched.
 - Final response follows the standard delivery format.
 ---
 
@@ -384,6 +384,39 @@ Local skill discovery must include `/root/anthropic-skills` in addition to `/roo
 ## AICRM / ЖКХ CRM — project-specific rules
 
 These rules are repository-specific and tighten the global baseline above.
+
+## Channel scope — mandatory
+
+The active messaging scope is fixed unless the user explicitly changes it:
+
+- **MAX is the primary production channel.**
+- **Telegram is an optional additional adapter.**
+- **VK is an optional additional adapter.**
+- **Avito is outside the active product scope.**
+- There is no requirement for a Telegram Mini App in this product.
+
+Core CRM, dispatcher, AI, automation and analytics must work with MAX alone. Telegram/VK may reuse the same normalized conversation/message domain but must never become separate sources of truth.
+
+## Web CRM control plane — mandatory
+
+All mutable application/integration entities and operator-managed configuration must be managed by an administrator through the web CRM.
+
+This includes, when applicable:
+
+- messenger integrations/accounts;
+- bot/access tokens and provider credentials;
+- webhook registration and webhook secrets;
+- external chat/channel/group IDs;
+- channel purpose, enable/disable state and routing;
+- AI API credentials and model selection;
+- automation/business routing rules;
+- feature modes, thresholds and notification destinations.
+
+Operational secrets must be encrypted at rest and never returned to the browser after save. The web CRM may provide create/replace/rotate/test operations and masked/configured status only.
+
+The one exception is the infrastructure root secret used to encrypt/decrypt application secrets (currently `SECRET_KEY`). It must remain in the deployment secret store/environment and must not be stored in the same application database it protects.
+
+A new mutable entity is not complete until it has persistence, validated API, authorization, web-admin CRUD/control, logging and focused tests.
 
 ## No hardcode — mandatory
 Hardcoding environment-, deployment-, customer-, credential-, routing-, or integration-specific values is forbidden.

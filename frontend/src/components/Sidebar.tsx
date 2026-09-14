@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import {
   BuildingOffice2Icon, ChatBubbleLeftRightIcon, ClipboardDocumentListIcon,
@@ -19,15 +20,22 @@ const navigation = [
   { name: 'Диспетчерская', href: '/communications', icon: ChatBubbleLeftRightIcon },
   { name: 'Жители', href: '/residents', icon: UsersIcon },
   { name: 'Дома и помещения', href: '/buildings', icon: BuildingOffice2Icon },
-  { name: 'Сотрудники', href: '/users', icon: UserGroupIcon },
+  { name: 'Сотрудники', href: '/users', icon: UserGroupIcon, adminOnly: true },
   { name: 'Подрядчики', href: '/contractors', icon: WrenchScrewdriverIcon },
-  { name: 'Каналы связи', href: '/messengers', icon: LinkIcon },
+  { name: 'Каналы связи', href: '/messengers', icon: LinkIcon, adminOnly: true },
   { name: 'Автоматизация', href: '/automation/board', icon: RectangleStackIcon },
-  { name: 'ИИ API', href: '/ai', icon: CpuChipIcon },
+  { name: 'ИИ API', href: '/ai', icon: CpuChipIcon, adminOnly: true },
 ];
 
 export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
+  const authRequired = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
+  const isAdmin =
+    !authRequired ||
+    Boolean(user?.is_superuser) ||
+    ['admin', 'superuser'].includes(String(user?.role || '').toLowerCase());
+  const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <aside className={(collapsed ? 'w-20' : 'w-64') + ' flex h-full min-h-screen flex-col border-r border-slate-200 bg-white transition-all duration-200'} aria-label="Основная навигация">
@@ -52,7 +60,7 @@ export default function Sidebar({ onClose, collapsed = false, onToggleCollapse }
           </button>
         )}
         <ul className="space-y-1">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const active = location.pathname === item.href || (item.href !== '/dashboard' && location.pathname.startsWith(item.href + '/'));
             return (
               <li key={item.href}>

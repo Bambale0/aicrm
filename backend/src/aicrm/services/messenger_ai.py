@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from ..core.config import settings
 from ..core.database import SessionLocal
 from ..models.messenger import (
+    MessengerChannel,
     MessengerConversation,
     MessengerIntegration,
     MessengerMessage,
@@ -299,8 +300,17 @@ async def analyze_message(
     )
 
     if integration.provider == "max":
-        operator_chat_id = str(integration_settings.get("operator_chat_id") or "").strip()
-        if operator_chat_id and alert_result and not alert_result.get("deduplicated"):
+        operator_channels = (
+            db.query(MessengerChannel)
+            .filter(
+                MessengerChannel.integration_id == integration.id,
+                MessengerChannel.purpose == "operator_alert",
+                MessengerChannel.is_active.is_(True),
+            )
+            .order_by(MessengerChannel.id.asc())
+            .all()
+        )
+        if operator_channels and alert_result and not alert_result.get("deduplicated"):
             request_number = request_result.get("request_number") if request_result else None
             alert_text = (
                 "🚨 " + result["title"] + "\n\n"
@@ -309,19 +319,21 @@ async def analyze_message(
                 + "\nПриоритет: " + result["priority"]
                 + "\nУверенность ИИ: " + str(round(result["confidence"] * 100)) + "%"
             )
-            try:
-                await _notify_via_max(
-                    integration,
-                    chat_id=operator_chat_id,
-                    text=alert_text,
-                )
-            except MaxAPIError as exc:
-                logger.warning(
-                    "messenger_operator_max_alert_failed",
-                    integration_id=integration.id,
-                    conversation_id=conversation.id,
-                    error=str(exc),
-                )
+            for operator_channel in operator_channels:
+                try:
+                    await _notify_via_max(
+                        integration,
+                        chat_id=str(operator_channel.external_chat_id),
+                        text=alert_text,
+                    )
+                except MaxAPIError as exc:
+                    logger.warning(
+                        "messenger_operator_max_alert_failed",
+                        integration_id=integration.id,
+                        channel_id=operator_channel.id,
+                        conversation_id=conversation.id,
+                        error=str(exc),
+                    )
 
         if (
             source_mode == "private_intake"
