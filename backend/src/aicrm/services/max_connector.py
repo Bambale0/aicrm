@@ -1,8 +1,9 @@
-"""MAX messenger HTTP adapter."""
+"""MAX messenger HTTP adapter with bounded calls and structured telemetry."""
 from __future__ import annotations
 
 import ssl
-from typing import Any, Dict, Iterable
+import time
+from typing import Any, Dict, Iterable, Optional
 
 import httpx
 
@@ -31,19 +32,79 @@ def _ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context(cafile=settings.max_ca_bundle)
 
 
-async def verify_bot(access_token: str) -> Dict[str, Any]:
+async def _request_json(
+    access_token: str,
+    *,
+    operation: str,
+    method: str,
+    path: str,
+    timeout_seconds: float,
+    params: Optional[Dict[str, Any]] = None,
+    json_body: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    started = time.perf_counter()
+    status_code: Optional[int] = None
     try:
-        async with httpx.AsyncClient(timeout=15.0, verify=_ssl_context()) as client:
-            response = await client.get(
-                _base_url() + "/me",
+        async with httpx.AsyncClient(
+            timeout=timeout_seconds,
+            verify=_ssl_context(),
+        ) as client:
+            response = await client.request(
+                method,
+                _base_url() + path,
                 headers=_headers(access_token),
+                params=params,
+                json=json_body,
             )
+            status_code = response.status_code
             response.raise_for_status()
-            return response.json()
+            data = response.json()
     except httpx.HTTPStatusError as exc:
-        raise MaxAPIError("MAX returned HTTP " + str(exc.response.status_code)) from exc
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        logger.warning(
+            "max_api_call_failed",
+            operation=operation,
+            method=method,
+            status_code=exc.response.status_code,
+            duration_ms=duration_ms,
+            error_type="http_status",
+        )
+        raise MaxAPIError(
+            f"MAX {operation} returned HTTP {exc.response.status_code}"
+        ) from exc
     except (httpx.HTTPError, ValueError) as exc:
-        raise MaxAPIError("MAX verification request failed") from exc
+        duration_ms = int((time.perf_counter() - started) * 1000)
+        logger.warning(
+            "max_api_call_failed",
+            operation=operation,
+            method=method,
+            status_code=status_code,
+            duration_ms=duration_ms,
+            error_type=type(exc).__name__,
+        )
+        raise MaxAPIError(f"MAX {operation} request failed") from exc
+
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    logger.info(
+        "max_api_call_completed",
+        operation=operation,
+        method=method,
+        status_code=status_code,
+        duration_ms=duration_ms,
+    )
+    if isinstance(data, dict):
+        return data
+    return {"result": data}
+
+
+async def verify_bot(access_token: str) -> Dict[str, Any]:
+    return await _request_json(
+        access_token,
+        operation="verify_bot",
+        method="GET",
+        path="/me",
+        timeout_seconds=15.0,
+    )
 
 
 async def register_webhook(
@@ -55,32 +116,29 @@ async def register_webhook(
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "url": webhook_url,
-        "update_types": list(update_types or [
-            "message_created",
-            "message_edited",
-            "bot_added",
-            "bot_started",
-            "bot_removed",
-        ]),
+        "update_types": list(
+            update_types
+            or [
+                "message_created",
+                "message_edited",
+                "bot_added",
+                "bot_started",
+                "bot_removed",
+            ]
+        ),
     }
     if secret:
         payload["secret"] = secret
 
-    try:
-        async with httpx.AsyncClient(timeout=20.0, verify=_ssl_context()) as client:
-            response = await client.post(
-                _base_url() + "/subscriptions",
-                headers=_headers(access_token),
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPStatusError as exc:
-        raise MaxAPIError("MAX webhook registration returned HTTP " + str(exc.response.status_code)) from exc
-    except (httpx.HTTPError, ValueError) as exc:
-        raise MaxAPIError("MAX webhook registration failed") from exc
-
-    if isinstance(data, dict) and data.get("success") is False:
+    data = await _request_json(
+        access_token,
+        operation="register_webhook",
+        method="POST",
+        path="/subscriptions",
+        timeout_seconds=20.0,
+        json_body=payload,
+    )
+    if data.get("success") is False:
         raise MaxAPIError(str(data.get("message") or "MAX rejected webhook subscription"))
     return data
 
@@ -97,23 +155,15 @@ async def send_message(
     except (TypeError, ValueError) as exc:
         raise MaxAPIError("Invalid MAX chat_id") from exc
 
-    try:
-        async with httpx.AsyncClient(timeout=20.0, verify=_ssl_context()) as client:
-            response = await client.post(
-                _base_url() + "/messages",
-                params={"chat_id": numeric_chat_id},
-                headers=_headers(access_token),
-                json={
-                    "text": text[:4000],
-                    "notify": notify,
-                },
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as exc:
-        raise MaxAPIError("MAX sendMessage returned HTTP " + str(exc.response.status_code)) from exc
-    except (httpx.HTTPError, ValueError) as exc:
-        raise MaxAPIError("MAX message delivery failed") from exc
+    return await _request_json(
+        access_token,
+        operation="send_message",
+        method="POST",
+        path="/messages",
+        timeout_seconds=20.0,
+        params={"chat_id": numeric_chat_id},
+        json_body={"text": text[:4000], "notify": notify},
+    )
 
 
 async def get_recent_messages(
@@ -127,25 +177,20 @@ async def get_recent_messages(
     except (TypeError, ValueError) as exc:
         raise MaxAPIError("Invalid MAX chat_id") from exc
 
-    try:
-        async with httpx.AsyncClient(timeout=20.0, verify=_ssl_context()) as client:
-            response = await client.get(
-                _base_url() + "/messages",
-                params={
-                    "chat_id": numeric_chat_id,
-                    "count": max(1, min(int(count), 100)),
-                },
-                headers=_headers(access_token),
-            )
-            response.raise_for_status()
-            data = response.json()
-    except httpx.HTTPStatusError as exc:
-        raise MaxAPIError("MAX messages request returned HTTP " + str(exc.response.status_code)) from exc
-    except (httpx.HTTPError, ValueError) as exc:
-        raise MaxAPIError("MAX messages request failed") from exc
-
-    messages = data.get("messages") if isinstance(data, dict) else None
+    data = await _request_json(
+        access_token,
+        operation="get_recent_messages",
+        method="GET",
+        path="/messages",
+        timeout_seconds=20.0,
+        params={
+            "chat_id": numeric_chat_id,
+            "count": max(1, min(int(count), 100)),
+        },
+    )
+    messages = data.get("messages")
     return messages if isinstance(messages, list) else []
+
 
 async def get_chat(
     access_token: str,
@@ -157,20 +202,13 @@ async def get_chat(
     except (TypeError, ValueError) as exc:
         raise MaxAPIError("Invalid MAX chat_id") from exc
 
-    try:
-        async with httpx.AsyncClient(timeout=15.0, verify=_ssl_context()) as client:
-            response = await client.get(
-                _base_url() + f"/chats/{numeric_chat_id}",
-                headers=_headers(access_token),
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as exc:
-        raise MaxAPIError(
-            "MAX chat request returned HTTP " + str(exc.response.status_code)
-        ) from exc
-    except (httpx.HTTPError, ValueError) as exc:
-        raise MaxAPIError("MAX chat request failed") from exc
+    return await _request_json(
+        access_token,
+        operation="get_chat",
+        method="GET",
+        path=f"/chats/{numeric_chat_id}",
+        timeout_seconds=15.0,
+    )
 
 
 async def get_bot_chat_membership(
@@ -183,17 +221,10 @@ async def get_bot_chat_membership(
     except (TypeError, ValueError) as exc:
         raise MaxAPIError("Invalid MAX chat_id") from exc
 
-    try:
-        async with httpx.AsyncClient(timeout=15.0, verify=_ssl_context()) as client:
-            response = await client.get(
-                _base_url() + f"/chats/{numeric_chat_id}/members/me",
-                headers=_headers(access_token),
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as exc:
-        raise MaxAPIError(
-            "MAX chat membership returned HTTP " + str(exc.response.status_code)
-        ) from exc
-    except (httpx.HTTPError, ValueError) as exc:
-        raise MaxAPIError("MAX chat membership request failed") from exc
+    return await _request_json(
+        access_token,
+        operation="get_bot_chat_membership",
+        method="GET",
+        path=f"/chats/{numeric_chat_id}/members/me",
+        timeout_seconds=15.0,
+    )
