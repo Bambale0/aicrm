@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BuildingOffice2Icon, LockClosedIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const REGISTRATION_ENABLED = process.env.REACT_APP_ENABLE_REGISTRATION === 'true';
@@ -15,6 +15,8 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = (location.state as any)?.from?.pathname || '/dashboard';
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -24,7 +26,7 @@ const Login: React.FC = () => {
     try {
       if (isLogin) {
         await login(email, password);
-        navigate('/dashboard');
+        navigate(returnTo, { replace: true });
       } else {
         if (!REGISTRATION_ENABLED) {
           setError('Регистрация временно отключена');
