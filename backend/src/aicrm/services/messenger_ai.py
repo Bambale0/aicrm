@@ -300,7 +300,7 @@ async def analyze_message(
     )
 
     if integration.provider == "max":
-        operator_channel = (
+        operator_channels = (
             db.query(MessengerChannel)
             .filter(
                 MessengerChannel.integration_id == integration.id,
@@ -308,14 +308,9 @@ async def analyze_message(
                 MessengerChannel.is_active.is_(True),
             )
             .order_by(MessengerChannel.id.asc())
-            .first()
+            .all()
         )
-        operator_chat_id = (
-            str(operator_channel.external_chat_id).strip()
-            if operator_channel is not None
-            else ""
-        )
-        if operator_chat_id and alert_result and not alert_result.get("deduplicated"):
+        if operator_channels and alert_result and not alert_result.get("deduplicated"):
             request_number = request_result.get("request_number") if request_result else None
             alert_text = (
                 "🚨 " + result["title"] + "\n\n"
@@ -324,19 +319,21 @@ async def analyze_message(
                 + "\nПриоритет: " + result["priority"]
                 + "\nУверенность ИИ: " + str(round(result["confidence"] * 100)) + "%"
             )
-            try:
-                await _notify_via_max(
-                    integration,
-                    chat_id=operator_chat_id,
-                    text=alert_text,
-                )
-            except MaxAPIError as exc:
-                logger.warning(
-                    "messenger_operator_max_alert_failed",
-                    integration_id=integration.id,
-                    conversation_id=conversation.id,
-                    error=str(exc),
-                )
+            for operator_channel in operator_channels:
+                try:
+                    await _notify_via_max(
+                        integration,
+                        chat_id=str(operator_channel.external_chat_id),
+                        text=alert_text,
+                    )
+                except MaxAPIError as exc:
+                    logger.warning(
+                        "messenger_operator_max_alert_failed",
+                        integration_id=integration.id,
+                        channel_id=operator_channel.id,
+                        conversation_id=conversation.id,
+                        error=str(exc),
+                    )
 
         if (
             source_mode == "private_intake"
