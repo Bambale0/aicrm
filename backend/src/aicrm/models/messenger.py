@@ -1,5 +1,5 @@
 """Generic messenger connector persistence."""
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 
 from .base import BaseModel
 
@@ -17,6 +17,38 @@ class MessengerIntegration(BaseModel):
     last_health_at = Column(DateTime, nullable=True)
     last_error = Column(Text, nullable=True)
     is_active = Column(Boolean, default=False, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+
+
+
+class MessengerChannel(BaseModel):
+    """Admin-managed external chat/channel bound to a messenger integration."""
+
+    __tablename__ = "messenger_channels"
+    __table_args__ = (
+        UniqueConstraint(
+            "integration_id",
+            "external_chat_id",
+            "purpose",
+            name="uq_messenger_channel_integration_chat_purpose",
+        ),
+    )
+
+    integration_id = Column(
+        Integer,
+        ForeignKey("messenger_integrations.id"),
+        nullable=False,
+        index=True,
+    )
+    external_chat_id = Column(String(255), nullable=False, index=True)
+    name = Column(String(255), nullable=True)
+    purpose = Column(String(50), nullable=False, index=True)
+    channel_type = Column(String(50), nullable=True)
+    status = Column(String(50), default="configured", nullable=False, index=True)
+    provider_data = Column(JSON, nullable=True)
+    last_health_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
 
 
