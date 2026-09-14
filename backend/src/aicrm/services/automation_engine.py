@@ -19,7 +19,7 @@ from ..models.automation import (
     AutomationStage,
 )
 from ..models.housing import ContractorCompany, Incident, RequestEvent, ServiceRequest
-from ..models.messenger import MessengerConversation, MessengerIntegration
+from ..models.messenger import MessengerConversation, MessengerIntegration, OperatorAlert
 from ..models.user import User
 from ..utils.logging import get_logger
 
@@ -467,6 +467,188 @@ def execute_action(
         conversation = db.get(MessengerConversation, entity_id)
         if not conversation:
             raise AutomationValidationError("Conversation not found")
+
+        if action_type == "create_request_from_conversation":
+            event = context.get("event") or {}
+            issue_key = str(event.get("issue_key") or "").strip().lower()
+            source_message_id = event.get("source_message_id")
+
+            recent = (
+                db.query(ServiceRequest)
+                .filter(
+                    ServiceRequest.source_conversation_id == str(conversation.id),
+                    ServiceRequest.status.notin_(["closed", "cancelled"]),
+                )
+                .order_by(ServiceRequest.created_at.desc())
+                .limit(20)
+                .all()
+            )
+            existing = None
+            for candidate in recent:
+                extra = candidate.extra_data or {}
+                if source_message_id and extra.get("source_message_id") == source_message_id:
+                    existing = candidate
+                    break
+                if issue_key and extra.get("issue_key") == issue_key:
+                    existing = candidate
+                    break
+
+            if existing:
+                context["event"]["request_id"] = existing.id
+                db.add(
+                    RequestEvent(
+                        request_id=existing.id,
+                        event_type="messenger_context_updated",
+                        payload={
+                            "conversation_id": conversation.id,
+                            "source_message_id": source_message_id,
+                            "summary": event.get("summary"),
+                        },
+                    )
+                )
+                return {
+                    "request_id": existing.id,
+                    "request_number": existing.number,
+                    "deduplicated": True,
+                }
+
+            title = str(event.get("title") or "Обращение из мессенджера").strip()[:500]
+            description = str(event.get("summary") or title).strip()
+            category = str(event.get("category") or "general").strip()[:100]
+            priority = str(event.get("priority") or "normal").strip()[:50]
+            integration = db.get(MessengerIntegration, conversation.integration_id)
+
+            request_item = ServiceRequest(
+                number=f"REQ-{uuid4().hex[:12].upper()}",
+                resident_id=conversation.resident_id,
+                source_channel=integration.provider if integration else "messenger",
+                source_conversation_id=str(conversation.id),
+                category=category,
+                priority=priority,
+                status="new",
+                title=title,
+                description=description,
+                extra_data={
+                    "source_message_id": source_message_id,
+                    "issue_key": issue_key or None,
+                    "ai_confidence": event.get("confidence"),
+                    "ai_classification": event.get("classification"),
+                    "source_mode": event.get("source_mode"),
+                    "missing_info": event.get("missing_info") or [],
+                },
+            )
+            db.add(request_item)
+            db.flush()
+            db.add(
+                RequestEvent(
+                    request_id=request_item.id,
+                    event_type="created_from_ai_messenger",
+                    payload={
+                        "conversation_id": conversation.id,
+                        "source_message_id": source_message_id,
+                        "provider": integration.provider if integration else None,
+                    },
+                )
+            )
+            context["event"]["request_id"] = request_item.id
+            return {
+                "request_id": request_item.id,
+                "request_number": request_item.number,
+                "deduplicated": False,
+                "_events": [{
+                    "entity_type": "request",
+                    "event_type": "request_created",
+                    "entity_id": request_item.id,
+                    "event_data": {
+                        "source_channel": request_item.source_channel,
+                        "category": request_item.category,
+                        "priority": request_item.priority,
+                    },
+                }],
+            }
+
+        if action_type == "notify_operator":
+            event = context.get("event") or {}
+            request_id = event.get("request_id")
+            title = str(event.get("title") or "Новая проблема из мессенджера").strip()[:500]
+            summary = str(event.get("summary") or title).strip()
+            priority = str(event.get("priority") or "normal")
+            severity = "critical" if priority == "emergency" else "high" if priority in {"urgent", "high"} else "normal"
+
+            recent_alerts = (
+                db.query(OperatorAlert)
+                .filter(
+                    OperatorAlert.conversation_id == conversation.id,
+                    OperatorAlert.status == "new",
+                )
+                .order_by(OperatorAlert.created_at.desc())
+                .limit(20)
+                .all()
+            )
+            existing_alert = next(
+                (
+                    alert
+                    for alert in recent_alerts
+                    if (
+                        request_id
+                        and alert.request_id == int(request_id)
+                    )
+                    or (
+                        not request_id
+                        and alert.summary == summary
+                    )
+                ),
+                None,
+            )
+
+            if existing_alert:
+                context["event"]["alert_id"] = existing_alert.id
+                return {
+                    "alert_id": existing_alert.id,
+                    "deduplicated": True,
+                }
+
+            previous_attention = conversation.requires_attention
+            conversation.requires_attention = True
+            conversation.summary = summary
+            alert = OperatorAlert(
+                conversation_id=conversation.id,
+                request_id=int(request_id) if request_id else None,
+                kind=str(event.get("classification") or "problem")[:50],
+                severity=severity,
+                title=title,
+                summary=summary,
+                status="new",
+                payload={
+                    "confidence": event.get("confidence"),
+                    "category": event.get("category"),
+                    "priority": priority,
+                    "source_mode": event.get("source_mode"),
+                    "missing_info": event.get("missing_info") or [],
+                    "source_message_id": event.get("source_message_id"),
+                },
+            )
+            db.add(alert)
+            db.flush()
+            context["event"]["alert_id"] = alert.id
+
+            result = {
+                "alert_id": alert.id,
+                "request_id": alert.request_id,
+                "severity": severity,
+                "deduplicated": False,
+            }
+            if not previous_attention:
+                result["_events"] = [{
+                    "entity_type": "conversation",
+                    "event_type": "conversation_requires_attention",
+                    "entity_id": conversation.id,
+                    "event_data": {
+                        "alert_id": alert.id,
+                        "request_id": alert.request_id,
+                    },
+                }]
+            return result
 
         if action_type == "mark_conversation_attention":
             previous = conversation.requires_attention

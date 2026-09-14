@@ -441,6 +441,8 @@ The backend owns catalogs for process types, events, operators, fields and actio
 
 Custom workflows must support arbitrary variables and custom events so new operational processes can be configured without source-code changes. Customer-specific routing belongs in persisted rules, never in Python/TypeScript conditionals.
 
+Messenger AI follows the same Bitrix-style boundary: AI may classify/summarize context and emit a structured automation event, but business side effects such as creating a request, assigning an employee, notifying an operator, or changing status must be automation robots stored in persisted configuration.
+
 Automation actions must validate process type and configuration before execution. Failures must be recorded without silently corrupting the underlying entity or workflow.
 
 ## Observability-first

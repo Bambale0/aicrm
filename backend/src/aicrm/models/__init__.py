@@ -19,6 +19,7 @@ from .housing import (
     ServiceRequest,
 )
 from .messenger import (
+    OperatorAlert,
     MessengerConversation,
     MessengerInboundEvent,
     MessengerIntegration,
@@ -38,6 +39,7 @@ __all__ = [
     "Incident",
     "ServiceRequest",
     "RequestEvent",
+    "OperatorAlert",
     "MessengerIntegration",
     "MessengerConversation",
     "MessengerMessage",

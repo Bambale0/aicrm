@@ -19,6 +19,21 @@ interface Conversation {
   last_message_at?: string;
 }
 
+interface OperatorAlert {
+  id: number;
+  conversation_id?: number | null;
+  request_id?: number | null;
+  request_number?: string | null;
+  provider?: string | null;
+  external_chat_id?: string | null;
+  kind: string;
+  severity: string;
+  title: string;
+  summary: string;
+  status: string;
+  created_at: string;
+}
+
 interface Message {
   id: number;
   direction: 'inbound' | 'outbound';
@@ -32,6 +47,7 @@ export default function Communications() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [alerts, setAlerts] = useState<OperatorAlert[]>([]);
   const [messageText, setMessageText] = useState('');
   const [filter, setFilter] = useState<'all' | 'attention'>('all');
   const [loading, setLoading] = useState(true);
@@ -42,12 +58,16 @@ export default function Communications() {
   const loadConversations = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/conversations', {
-        params: filter === 'attention' ? { requires_attention: true } : {},
-      });
-      setConversations(response.data);
-      if (!selectedId && response.data.length) {
-        setSelectedId(response.data[0].id);
+      const [conversationResponse, alertResponse] = await Promise.all([
+        api.get('/conversations', {
+          params: filter === 'attention' ? { requires_attention: true } : {},
+        }),
+        api.get('/operator-alerts', { params: { status: 'new', limit: 100 } }),
+      ]);
+      setConversations(conversationResponse.data);
+      setAlerts(alertResponse.data);
+      if (!selectedId && conversationResponse.data.length) {
+        setSelectedId(conversationResponse.data[0].id);
       }
     } finally {
       setLoading(false);
@@ -61,6 +81,10 @@ export default function Communications() {
 
   useEffect(() => {
     loadConversations().catch(() => undefined);
+    const timer = window.setInterval(() => {
+      loadConversations().catch(() => undefined);
+    }, 10000);
+    return () => window.clearInterval(timer);
   }, [filter]);
 
   useEffect(() => {
@@ -90,6 +114,18 @@ export default function Communications() {
       setNotice(error?.response?.data?.detail || 'Не удалось отправить сообщение');
     } finally {
       setSending(false);
+    }
+  };
+
+  const markAlertRead = async (alert: OperatorAlert) => {
+    await api.post('/operator-alerts/' + alert.id + '/read');
+    setAlerts((current) => current.filter((item) => item.id !== alert.id));
+    await loadConversations();
+  };
+
+  const openAlert = (alert: OperatorAlert) => {
+    if (alert.conversation_id) {
+      setSelectedId(alert.conversation_id);
     }
   };
 
@@ -123,6 +159,69 @@ export default function Communications() {
           Обновить
         </button>
       </div>
+
+      {alerts.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-900">
+              Alerts оператора · {alerts.length}
+            </h2>
+            <span className="text-xs text-slate-400">Обновление каждые 10 сек.</span>
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-2">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className={
+                  'rounded-2xl border p-4 shadow-sm ' +
+                  (alert.severity === 'critical'
+                    ? 'border-red-200 bg-red-50'
+                    : alert.severity === 'high'
+                      ? 'border-amber-200 bg-amber-50'
+                      : 'border-blue-100 bg-blue-50')
+                }
+              >
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-bold uppercase text-slate-600">
+                        {alert.severity}
+                      </span>
+                      {alert.provider && (
+                        <span className="text-xs font-medium text-slate-500">
+                          {alert.provider.toUpperCase()}
+                        </span>
+                      )}
+                      {alert.request_number && (
+                        <span className="text-xs font-medium text-slate-500">
+                          {alert.request_number}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 font-semibold text-slate-900">{alert.title}</div>
+                    <div className="mt-1 text-sm leading-6 text-slate-700">{alert.summary}</div>
+                    <div className="mt-2 text-xs text-slate-400">
+                      {new Date(alert.created_at).toLocaleString('ru-RU')}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    {alert.conversation_id && (
+                      <button className="btn-secondary px-3 py-2 text-xs" onClick={() => openAlert(alert)}>
+                        Открыть чат
+                      </button>
+                    )}
+                    <button className="btn-primary px-3 py-2 text-xs" onClick={() => markAlertRead(alert)}>
+                      Принято
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid min-h-[650px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[360px_1fr]">
         <aside className="border-b border-slate-200 lg:border-b-0 lg:border-r">

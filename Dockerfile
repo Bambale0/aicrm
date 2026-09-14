@@ -7,8 +7,10 @@ WORKDIR /app
 
 COPY backend/pyproject.toml /app/backend/pyproject.toml
 COPY backend/src /app/backend/src
+COPY infra/certs/russian-trusted-root-ca.pem /usr/local/share/ca-certificates/russian-trusted-root-ca.crt
 
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN update-ca-certificates && \
+    pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir /app/backend
 
 RUN groupadd --system appuser && useradd --system --gid appuser appuser && \

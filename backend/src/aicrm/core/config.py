@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str
     telegram_api_base_url: str
+    max_api_base_url: str
+    max_ca_bundle: str
+    public_base_url: str
+    messenger_ai_context_messages: int = 20
+    messenger_ai_confidence_threshold: float = 0.65
     ai_api_base_url: str
     ai_api_timeout_seconds: float = 30.0
     automation_max_depth: int = 8

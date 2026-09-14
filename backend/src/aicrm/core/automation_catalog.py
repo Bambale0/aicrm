@@ -167,6 +167,34 @@ AUTOMATION_EVENTS = [
         ],
     },
     {
+        "value": "conversation_problem_detected",
+        "label": "ИИ обнаружил проблему в чате",
+        "entity_types": ["conversation"],
+        "description": "ИИ отделил реальную проблему ЖКХ от обычного разговора жителей.",
+        "event_fields": [
+            {"path": "event.title", "label": "Заголовок", "type": "text"},
+            {"path": "event.summary", "label": "Сводка", "type": "text"},
+            {"path": "event.category", "label": "Категория", "type": "text"},
+            {"path": "event.priority", "label": "Приоритет", "type": "select", "options": REQUEST_PRIORITIES},
+            {"path": "event.confidence", "label": "Уверенность ИИ", "type": "number"},
+            {"path": "event.source_mode", "label": "Режим", "type": "text"},
+        ],
+    },
+    {
+        "value": "resident_request_detected",
+        "label": "ИИ распознал заявку жителя",
+        "entity_types": ["conversation"],
+        "description": "В личном диалоге распознано обращение, которое можно перевести в заявку.",
+        "event_fields": [
+            {"path": "event.title", "label": "Заголовок", "type": "text"},
+            {"path": "event.summary", "label": "Сводка", "type": "text"},
+            {"path": "event.category", "label": "Категория", "type": "text"},
+            {"path": "event.priority", "label": "Приоритет", "type": "select", "options": REQUEST_PRIORITIES},
+            {"path": "event.confidence", "label": "Уверенность ИИ", "type": "number"},
+            {"path": "event.source_mode", "label": "Режим", "type": "text"},
+        ],
+    },
+    {
         "value": "conversation_requires_attention",
         "label": "Диалог требует внимания",
         "entity_types": ["conversation"],
@@ -255,6 +283,20 @@ AUTOMATION_ACTIONS = [
         "config_fields": [
             {"name": "contractor_id", "label": "Подрядчик", "type": "remote_select", "required": True, "source": "contractors"},
         ],
+    },
+    {
+        "value": "create_request_from_conversation",
+        "label": "Создать заявку из диалога",
+        "entity_types": ["conversation"],
+        "description": "Создаёт заявку из сводки ИИ и связывает её с исходным диалогом.",
+        "config_fields": [],
+    },
+    {
+        "value": "notify_operator",
+        "label": "Оповестить оператора",
+        "entity_types": ["conversation"],
+        "description": "Создаёт отдельный alert для диспетчерской с краткой сводкой проблемы.",
+        "config_fields": [],
     },
     {
         "value": "mark_conversation_attention",

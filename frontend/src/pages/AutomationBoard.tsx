@@ -585,7 +585,7 @@ export default function AutomationBoard() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Summary icon={Cog6ToothIcon} label="Активные процессы" value={summary.active_processes || 0} hint={'из ' + (summary.processes || 0)} />
-        <Summary icon={BoltIcon} label="Активные правила" value={summary.active_rules || 0} hint={'из ' + (summary.rules || 0)} />
+        <Summary icon={BoltIcon} label="Активные триггеры" value={summary.active_rules || 0} hint={'из ' + (summary.rules || 0)} />
         <Summary icon={PlayIcon} label="Процессы в работе" value={summary.running_instances || 0} hint="свои процессы" />
         <Summary icon={XCircleIcon} label="Ошибки" value={summary.failed_executions || 0} hint="журнал выполнений" danger />
       </div>
@@ -649,7 +649,7 @@ export default function AutomationBoard() {
                   >
                     <div className="truncate text-sm font-semibold text-slate-900">{process.name}</div>
                     <div className="mt-1 text-xs text-slate-500">
-                      {labelFor(catalog.entity_types, process.entity_type)} · {process.rules_count} правил
+                      {labelFor(catalog.entity_types, process.entity_type)} · {process.rules_count} сценариев
                     </div>
                   </button>
                   <button
@@ -691,7 +691,7 @@ export default function AutomationBoard() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                  <TabButton active={tab === 'rules'} onClick={() => setTab('rules')}>Правила · {rules.length}</TabButton>
+                  <TabButton active={tab === 'rules'} onClick={() => setTab('rules')}>Триггеры и роботы · {rules.length}</TabButton>
                   {selectedProcess.entity_type === 'workflow' && (
                     <>
                       <TabButton active={tab === 'stages'} onClick={() => setTab('stages')}>Этапы · {stages.length}</TabButton>
@@ -708,10 +708,10 @@ export default function AutomationBoard() {
                     <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900">
-                          {editingRuleId ? 'Редактирование правила' : 'Новое правило'}
+                          {editingRuleId ? 'Редактирование сценария' : 'Новый сценарий'}
                         </h3>
                         <p className="mt-1 text-sm text-slate-500">
-                          Соберите правило как обычную фразу: когда → если → тогда.
+                          Как в Битрикс: ТРИГГЕР запускает сценарий, УСЛОВИЯ фильтруют, РОБОТЫ выполняются по порядку.
                         </p>
                       </div>
                       {editingRuleId && (
@@ -734,7 +734,7 @@ export default function AutomationBoard() {
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-slate-700">Название правила</label>
+                        <label className="mb-1 block text-sm font-medium text-slate-700">Название сценария</label>
                         <input
                           className="input-field"
                           placeholder="Например: Аварийные заявки — мастеру"
@@ -754,7 +754,7 @@ export default function AutomationBoard() {
                       </div>
                     </div>
 
-                    <RuleSection badge="КОГДА" tone="blue" title="Что должно произойти">
+                    <RuleSection badge="ТРИГГЕР" tone="blue" title="КОГДА должен запуститься сценарий">
                       <select
                         className="input-field"
                         value={ruleForm.event_type}
@@ -780,7 +780,7 @@ export default function AutomationBoard() {
                       <div className="space-y-2">
                         {ruleForm.conditions.length === 0 && (
                           <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-400">
-                            Без условий — правило сработает всегда при выбранном событии.
+                            Без условий — триггер запускает роботов при каждом таком событии.
                           </div>
                         )}
                         {ruleForm.conditions.map((condition, index) => (
@@ -810,7 +810,7 @@ export default function AutomationBoard() {
                       </div>
                     </RuleSection>
 
-                    <RuleSection badge="ТО" tone="emerald" title="Что нужно сделать">
+                    <RuleSection badge="РОБОТЫ" tone="emerald" title="ТО — что выполнить по порядку">
                       <div className="space-y-3">
                         {ruleForm.actions.map((action, index) => {
                           const spec = actionSpecs.find((item) => item.value === action.type);
@@ -894,12 +894,12 @@ export default function AutomationBoard() {
                             setRuleForm({ ...ruleForm, stop_after_match: event.target.checked })
                           }
                         />
-                        После этого правила не проверять следующие
+                        После этого сценария не запускать следующие совпавшие сценарии
                       </label>
 
                       <button className="btn-primary" type="submit">
                         <CheckCircleIcon className="mr-2 h-4 w-4" />
-                        {editingRuleId ? 'Сохранить изменения' : 'Создать правило'}
+                        {editingRuleId ? 'Сохранить изменения' : 'Создать сценарий'}
                       </button>
                     </div>
                   </form>
@@ -907,7 +907,7 @@ export default function AutomationBoard() {
                   <div className="space-y-3">
                     {rules.length === 0 && (
                       <div className="card border-dashed py-12 text-center text-sm text-slate-400">
-                        Правил ещё нет. Первое правило можно собрать выше без кода.
+                        Сценариев ещё нет. Добавьте триггер и роботов выше — без кода.
                       </div>
                     )}
 
@@ -923,13 +923,13 @@ export default function AutomationBoard() {
                             </div>
 
                             <div className="mt-4 space-y-2 text-sm">
-                              <SentenceRow badge="КОГДА" text={labelFor(eventSpecs, rule.event_type)} />
+                              <SentenceRow badge="ТРИГГЕР" text={labelFor(eventSpecs, rule.event_type)} />
                               <SentenceRow
                                 badge="ЕСЛИ"
                                 text={rule.conditions.length ? describeConditions(rule.conditions, conditionFields, catalog.condition_operators) : 'без дополнительных условий'}
                               />
                               <SentenceRow
-                                badge="ТО"
+                                badge="РОБОТЫ"
                                 text={rule.actions.map((action) => labelFor(actionSpecs, action.type)).join(' → ')}
                               />
                             </div>
@@ -959,7 +959,7 @@ export default function AutomationBoard() {
                   <div className="card">
                     <h3 className="font-semibold text-slate-900">Этапы процесса</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Этапы нужны только собственным процессам. Правила могут автоматически переводить запуск между ними.
+                      Этапы нужны только собственным процессам. Роботы могут автоматически переводить запуск между ними.
                     </p>
                     <form onSubmit={addStage} className="mt-4 flex flex-col gap-3 sm:flex-row">
                       <input

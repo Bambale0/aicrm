@@ -54,3 +54,15 @@ class MessengerInboundEvent(BaseModel):
     status = Column(String(50), default="received", nullable=False, index=True)
     payload = Column(JSON, nullable=False)
     error = Column(Text, nullable=True)
+
+class OperatorAlert(BaseModel):
+    __tablename__ = "operator_alerts"
+
+    conversation_id = Column(Integer, ForeignKey("messenger_conversations.id"), nullable=True, index=True)
+    request_id = Column(Integer, ForeignKey("housing_requests.id"), nullable=True, index=True)
+    kind = Column(String(50), default="problem", nullable=False, index=True)
+    severity = Column(String(30), default="normal", nullable=False, index=True)
+    title = Column(String(500), nullable=False)
+    summary = Column(Text, nullable=False)
+    status = Column(String(30), default="new", nullable=False, index=True)
+    payload = Column(JSON, nullable=True)

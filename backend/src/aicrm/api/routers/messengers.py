@@ -1,8 +1,9 @@
 """Provider-agnostic messenger connection API."""
+import secrets
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -14,9 +15,13 @@ from ...models.messenger import (
     MessengerInboundEvent,
     MessengerIntegration,
     MessengerMessage,
+    OperatorAlert,
 )
 from ...models.user import User
 from ...services.automation_engine import AutomationValidationError, dispatch_event
+from ...services.max_connector import MaxAPIError, register_webhook as max_register_webhook, send_message as max_send_message, verify_bot as max_verify_bot
+from ...services.max_chat_monitor import check_max_chat_permissions_background
+from ...services.messenger_ai import process_message_background
 from ...utils.crypto import decrypt_data, encrypt_data
 from ...utils.logging import get_logger
 
@@ -34,7 +39,7 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "name": "MAX",
         "credential_fields": [{"name": "access_token", "type": "secret", "required": True}],
         "capabilities": ["text", "media", "webhook"],
-        "verification": "adapter_required",
+        "verification": "adapter",
     },
     "vk": {
         "name": "VK",
@@ -69,7 +74,7 @@ class IntegrationPatch(BaseModel):
 
 
 class WebhookRegisterRequest(BaseModel):
-    public_base_url: str
+    public_base_url: Optional[str] = None
     secret_token: Optional[str] = None
 
 
@@ -110,6 +115,7 @@ def _normalize_inbound(provider: str, payload: Dict[str, Any]) -> Dict[str, Any]
 
         text = message.get("text") or message.get("caption") or ""
         return {
+            "event_type": "message_created",
             "external_chat_id": str(chat.get("id") or ""),
             "external_user_id": str(sender.get("id") or ""),
             "external_message_id": str(message.get("message_id") or ""),
@@ -117,9 +123,61 @@ def _normalize_inbound(provider: str, payload: Dict[str, Any]) -> Dict[str, Any]
             "text": text,
             "attachments": attachments,
             "timestamp": message.get("date"),
+            "source_mode": "group_monitor" if str(chat.get("type") or "") in {"group", "supergroup", "channel"} else "private_intake",
+        }
+
+    if provider == "max":
+        update_type = str(payload.get("update_type") or "")
+        message = payload.get("message") if isinstance(payload.get("message"), dict) else {}
+        recipient = message.get("recipient") if isinstance(message.get("recipient"), dict) else {}
+        sender = message.get("sender") if isinstance(message.get("sender"), dict) else {}
+        body = message.get("body") if isinstance(message.get("body"), dict) else {}
+
+        external_chat_id = (
+            payload.get("chat_id")
+            or recipient.get("chat_id")
+            or recipient.get("user_id")
+            or ""
+        )
+        recipient_type = str(
+            recipient.get("chat_type")
+            or recipient.get("type")
+            or payload.get("chat_type")
+            or ""
+        ).lower()
+        source_mode = (
+            "group_monitor"
+            if recipient_type in {"chat", "channel", "group"}
+            else "private_intake"
+        )
+
+        attachments = body.get("attachments")
+        if not isinstance(attachments, list):
+            attachments = []
+        message_type = "text"
+        if attachments:
+            first = attachments[0] if isinstance(attachments[0], dict) else {}
+            message_type = str(first.get("type") or "media")
+
+        return {
+            "event_type": update_type,
+            "external_chat_id": str(external_chat_id),
+            "external_user_id": str(sender.get("user_id") or ""),
+            "external_message_id": str(
+                body.get("mid")
+                or message.get("message_id")
+                or payload.get("message_id")
+                or ""
+            ),
+            "message_type": message_type,
+            "text": str(body.get("text") or ""),
+            "attachments": attachments,
+            "timestamp": message.get("timestamp") or payload.get("timestamp"),
+            "source_mode": source_mode,
         }
 
     return {
+        "event_type": str(payload.get("event_type") or "message_created"),
         "external_chat_id": str(payload.get("external_chat_id") or payload.get("chat_id") or ""),
         "external_user_id": str(payload.get("external_user_id") or payload.get("user_id") or ""),
         "external_message_id": str(payload.get("external_message_id") or payload.get("message_id") or payload.get("id") or ""),
@@ -127,6 +185,7 @@ def _normalize_inbound(provider: str, payload: Dict[str, Any]) -> Dict[str, Any]
         "text": str(payload.get("text") or payload.get("message") or ""),
         "attachments": payload.get("attachments") or [],
         "timestamp": payload.get("timestamp"),
+        "source_mode": str(payload.get("source_mode") or "private_intake"),
     }
 
 
@@ -197,11 +256,18 @@ async def create_integration(
         raise HTTPException(status_code=422, detail={"missing_credentials": missing})
 
     encrypted = encrypt_data(__import__("json").dumps(payload.credentials, ensure_ascii=False))
+    integration_settings = dict(payload.settings or {})
+    if payload.provider == "max":
+        integration_settings.setdefault("ai_monitoring_enabled", True)
+        integration_settings.setdefault("ai_context_messages", settings.messenger_ai_context_messages)
+        integration_settings.setdefault("send_private_ack", True)
+        integration_settings.setdefault("monitor_chat_ids", [])
+
     item = MessengerIntegration(
         provider=payload.provider,
         name=payload.name,
         credentials_encrypted=encrypted,
-        settings=payload.settings,
+        settings=integration_settings,
         status="configured",
         is_active=False,
         created_by=current_user.id,
@@ -280,6 +346,34 @@ async def verify_integration(
             db.commit()
             return {"verified": False, "provider": item.provider, "detail": item.last_error}
 
+    if item.provider == "max":
+        token = credentials.get("access_token")
+        try:
+            result = await max_verify_bot(token)
+            item.external_account_id = str(result.get("user_id") or "")
+            item.status = "verified"
+            item.last_health_at = datetime.utcnow()
+            item.last_error = None
+            db.commit()
+            return {
+                "verified": True,
+                "provider": item.provider,
+                "account": {
+                    "id": result.get("user_id"),
+                    "username": result.get("username"),
+                    "name": result.get("name") or result.get("first_name"),
+                },
+            }
+        except MaxAPIError as exc:
+            item.status = "error"
+            item.last_error = str(exc)
+            db.commit()
+            return {
+                "verified": False,
+                "provider": item.provider,
+                "detail": item.last_error,
+            }
+
     if item.provider == "custom":
         item.status = "verified"
         item.last_health_at = datetime.utcnow()
@@ -306,10 +400,10 @@ async def register_webhook(
     if not item.credentials_encrypted:
         raise HTTPException(status_code=422, detail="Credentials are not configured")
 
-    base_url = payload.public_base_url.rstrip("/")
+    base_url = (payload.public_base_url or settings.public_base_url).rstrip("/")
     webhook_url = f"{base_url}/api/webhooks/messengers/{item.provider}/{item.id}"
     credentials = __import__("json").loads(decrypt_data(item.credentials_encrypted))
-    settings = dict(item.settings or {})
+    integration_settings = dict(item.settings or {})
 
     if item.provider == "telegram":
         import httpx
@@ -318,7 +412,7 @@ async def register_webhook(
         body: Dict[str, Any] = {"url": webhook_url}
         if payload.secret_token:
             body["secret_token"] = payload.secret_token
-            settings["webhook_secret"] = payload.secret_token
+            integration_settings["webhook_secret"] = payload.secret_token
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -340,9 +434,32 @@ async def register_webhook(
             db.commit()
             raise HTTPException(status_code=502, detail=item.last_error)
 
+    elif item.provider == "max":
+        token = credentials.get("access_token")
+        secret = payload.secret_token or secrets.token_urlsafe(24)
+        integration_settings["webhook_secret"] = secret
+        try:
+            await max_register_webhook(
+                token,
+                webhook_url,
+                secret=secret,
+                update_types=[
+                    "message_created",
+                    "message_edited",
+                    "bot_added",
+                    "bot_started",
+                    "bot_removed",
+                ],
+            )
+        except MaxAPIError as exc:
+            item.status = "error"
+            item.last_error = str(exc)
+            db.commit()
+            raise HTTPException(status_code=502, detail=item.last_error) from exc
+
     elif item.provider == "custom":
         if payload.secret_token:
-            settings["webhook_secret"] = payload.secret_token
+            integration_settings["webhook_secret"] = payload.secret_token
     else:
         raise HTTPException(
             status_code=501,
@@ -350,7 +467,7 @@ async def register_webhook(
         )
 
     item.webhook_url = webhook_url
-    item.settings = settings
+    item.settings = integration_settings
     item.status = "verified"
     item.last_error = None
     item.last_health_at = datetime.utcnow()
@@ -504,6 +621,20 @@ async def send_conversation_message(
             raise
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Telegram delivery error: {type(exc).__name__}")
+    elif integration.provider == "max":
+        credentials = __import__("json").loads(decrypt_data(integration.credentials_encrypted))
+        token = credentials.get("access_token")
+        try:
+            data = await max_send_message(
+                token,
+                chat_id=conversation.external_chat_id,
+                text=payload.text,
+            )
+            max_message = data.get("message") if isinstance(data, dict) else None
+            max_body = max_message.get("body") if isinstance(max_message, dict) and isinstance(max_message.get("body"), dict) else {}
+            external_message_id = str(max_body.get("mid") or "") or None
+        except MaxAPIError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
     else:
         raise HTTPException(
             status_code=501,
@@ -583,7 +714,92 @@ async def create_request_from_conversation(
     conversation.requires_attention = False
     db.commit()
     db.refresh(request_item)
+    try:
+        dispatch_event(
+            db,
+            entity_type="request",
+            event_type="request_created",
+            entity_id=request_item.id,
+            event_data={
+                "source_channel": request_item.source_channel,
+                "category": request_item.category,
+                "priority": request_item.priority,
+            },
+        )
+        db.refresh(request_item)
+    except Exception as exc:
+        logger.error(
+            "conversation_request_automation_failed",
+            request_id=request_item.id,
+            error_type=type(exc).__name__,
+        )
     return {"id": request_item.id, "number": request_item.number, "status": request_item.status}
+
+
+@router.get("/operator-alerts")
+async def list_operator_alerts(
+    status: Optional[str] = "new",
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_active_user),
+):
+    query = db.query(OperatorAlert)
+    if status:
+        query = query.filter(OperatorAlert.status == status)
+    items = query.order_by(OperatorAlert.created_at.desc()).limit(min(max(limit, 1), 500)).all()
+
+    result = []
+    for alert in items:
+        conversation = db.get(MessengerConversation, alert.conversation_id) if alert.conversation_id else None
+        integration = db.get(MessengerIntegration, conversation.integration_id) if conversation else None
+        request_item = db.get(ServiceRequest, alert.request_id) if alert.request_id else None
+        result.append({
+            "id": alert.id,
+            "conversation_id": alert.conversation_id,
+            "request_id": alert.request_id,
+            "request_number": request_item.number if request_item else None,
+            "provider": integration.provider if integration else None,
+            "external_chat_id": conversation.external_chat_id if conversation else None,
+            "kind": alert.kind,
+            "severity": alert.severity,
+            "title": alert.title,
+            "summary": alert.summary,
+            "status": alert.status,
+            "payload": alert.payload or {},
+            "created_at": alert.created_at,
+        })
+    return result
+
+
+@router.post("/operator-alerts/{alert_id}/read")
+async def mark_operator_alert_read(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_active_user),
+):
+    alert = db.get(OperatorAlert, alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Operator alert not found")
+
+    alert.status = "read"
+    db.commit()
+
+    if alert.conversation_id:
+        remaining = (
+            db.query(OperatorAlert)
+            .filter(
+                OperatorAlert.conversation_id == alert.conversation_id,
+                OperatorAlert.status == "new",
+            )
+            .first()
+        )
+        if not remaining:
+            conversation = db.get(MessengerConversation, alert.conversation_id)
+            if conversation:
+                conversation.requires_attention = False
+                db.commit()
+
+    return {"id": alert.id, "status": alert.status}
 
 
 @router.post("/webhooks/messengers/{provider}/{integration_id}")
@@ -591,6 +807,7 @@ async def inbound_webhook(
     provider: str,
     integration_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     item = db.get(MessengerIntegration, integration_id)
@@ -603,6 +820,8 @@ async def inbound_webhook(
     if webhook_secret:
         if provider == "telegram":
             supplied_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+        elif provider == "max":
+            supplied_secret = request.headers.get("X-Max-Bot-Api-Secret")
         else:
             supplied_secret = request.headers.get("X-Webhook-Secret")
         if supplied_secret != webhook_secret:
@@ -613,13 +832,29 @@ async def inbound_webhook(
     except Exception:
         payload = {"raw": (await request.body()).decode("utf-8", errors="replace")}
 
-    external_event_id = None
-    if isinstance(payload, dict):
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=422, detail="Webhook payload must be an object")
+
+    normalized = _normalize_inbound(provider, payload)
+    event_type = str(normalized.get("event_type") or "message_created")
+    external_chat_id = str(normalized.get("external_chat_id") or "")
+    external_message_id = str(normalized.get("external_message_id") or "")
+
+    if provider == "max" and external_message_id:
+        # MAX uses the same message id for create/edit updates, so include
+        # update_type to keep edited messages from being discarded as duplicates.
+        external_event_id = f"{event_type}:{external_message_id}"
+    else:
         external_event_id = str(
             payload.get("update_id")
             or payload.get("event_id")
             or payload.get("id")
-            or ""
+            or external_message_id
+            or (
+                f"{event_type}:{normalized.get('timestamp')}:{external_chat_id}"
+                if normalized.get("timestamp") or external_chat_id
+                else ""
+            )
         ) or None
 
     if external_event_id:
@@ -632,12 +867,60 @@ async def inbound_webhook(
             .first()
         )
         if existing:
-            return {"ok": True, "event_id": existing.id, "status": existing.status, "duplicate": True}
+            return {
+                "ok": True,
+                "event_id": existing.id,
+                "status": existing.status,
+                "duplicate": True,
+            }
 
-    normalized = _normalize_inbound(provider, payload if isinstance(payload, dict) else {})
-    external_chat_id = normalized.get("external_chat_id")
+    # MAX lifecycle events are persisted but are not fake chat messages.
+    if provider == "max" and event_type not in {"message_created", "message_edited"}:
+        integration_settings = dict(item.settings or {})
+        if event_type == "bot_added" and external_chat_id:
+            known = {str(value) for value in integration_settings.get("monitor_chat_ids", [])}
+            known.add(external_chat_id)
+            integration_settings["monitor_chat_ids"] = sorted(known)
+            item.settings = integration_settings
+            background_tasks.add_task(
+                check_max_chat_permissions_background,
+                item.id,
+                external_chat_id,
+            )
+
+        event = MessengerInboundEvent(
+            integration_id=item.id,
+            provider=provider,
+            external_event_id=external_event_id,
+            payload=payload,
+            status="processed",
+        )
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+        logger.info(
+            "messenger_lifecycle_event_processed",
+            integration_id=item.id,
+            provider=provider,
+            update_type=event_type,
+            external_chat_id=external_chat_id or None,
+            event_id=event.id,
+        )
+        return {
+            "ok": True,
+            "event_id": event.id,
+            "status": event.status,
+            "update_type": event_type,
+        }
+
     if not external_chat_id:
         raise HTTPException(status_code=422, detail="Could not determine external_chat_id")
+
+    integration_settings = dict(item.settings or {})
+    monitor_chat_ids = {str(value) for value in integration_settings.get("monitor_chat_ids", [])}
+    source_mode = str(normalized.get("source_mode") or "private_intake")
+    if external_chat_id in monitor_chat_ids:
+        source_mode = "group_monitor"
 
     conversation = (
         db.query(MessengerConversation)
@@ -652,7 +935,7 @@ async def inbound_webhook(
             integration_id=item.id,
             external_chat_id=external_chat_id,
             status="open",
-            requires_attention=True,
+            requires_attention=False,
             last_message_at=datetime.utcnow(),
         )
         db.add(conversation)
@@ -660,7 +943,7 @@ async def inbound_webhook(
 
     message = MessengerMessage(
         conversation_id=conversation.id,
-        external_message_id=normalized.get("external_message_id") or None,
+        external_message_id=external_message_id or None,
         direction="inbound",
         message_type=normalized.get("message_type") or "text",
         text=normalized.get("text") or "",
@@ -668,7 +951,6 @@ async def inbound_webhook(
         status="received",
     )
     conversation.last_message_at = datetime.utcnow()
-    conversation.requires_attention = True
 
     event = MessengerInboundEvent(
         integration_id=item.id,
@@ -682,15 +964,19 @@ async def inbound_webhook(
     db.commit()
     db.refresh(event)
     db.refresh(message)
+
     logger.info(
         "messenger_inbound_processed",
         integration_id=item.id,
         provider=provider,
         event_id=event.id,
+        update_type=event_type,
         external_event_id=external_event_id,
         conversation_id=conversation.id,
         message_id=message.id,
+        source_mode=source_mode,
     )
+
     try:
         dispatch_event(
             db,
@@ -699,8 +985,9 @@ async def inbound_webhook(
             entity_id=conversation.id,
             event_data={
                 "provider": provider,
-                "requires_attention": conversation.requires_attention,
                 "message_type": message.message_type,
+                "source_mode": source_mode,
+                "source_message_id": message.id,
             },
         )
         db.refresh(conversation)
@@ -714,10 +1001,19 @@ async def inbound_webhook(
             event_type="message_received",
             error_type=type(exc).__name__,
         )
+
+    if integration_settings.get("ai_monitoring_enabled", True):
+        background_tasks.add_task(
+            process_message_background,
+            message.id,
+            source_mode,
+        )
+
     return {
         "ok": True,
         "event_id": event.id,
         "status": event.status,
         "conversation_id": conversation.id,
         "message_id": message.id,
+        "source_mode": source_mode,
     }

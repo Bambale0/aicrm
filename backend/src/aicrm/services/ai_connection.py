@@ -6,6 +6,7 @@ Neyronych's own AI gateway without changing CRM business logic.
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -202,3 +203,100 @@ async def test_ai_connection(
         "duration_ms": duration_ms,
         "response": content,
     }
+
+def _extract_json_object(content: str) -> Dict[str, Any]:
+    text = (content or "").strip()
+    if not text:
+        raise AIConnectionError("AI returned an empty response")
+
+    try:
+        value = json.loads(text)
+        if isinstance(value, dict):
+            return value
+    except json.JSONDecodeError:
+        pass
+
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            value = json.loads(text[start:end + 1])
+            if isinstance(value, dict):
+                return value
+        except json.JSONDecodeError:
+            pass
+
+    raise AIConnectionError("AI returned invalid JSON")
+
+
+async def complete_chat_json(
+    db: Session,
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    model: str | None = None,
+    max_tokens: int = 700,
+    temperature: float = 0.1,
+) -> Dict[str, Any]:
+    item = get_ai_settings(db)
+    api_key = get_api_key(item)
+    selected_model = (model or item.selected_model or "").strip()
+    if not selected_model:
+        raise AIConnectionError("Select a model first")
+
+    started = time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=settings.ai_api_timeout_seconds) as client:
+            response = await client.post(
+                _base_url() + "/chat/completions",
+                headers={
+                    "Authorization": "Bearer " + api_key,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": selected_model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "stream": False,
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "ai_json_http_error",
+            model=selected_model,
+            status_code=exc.response.status_code,
+            duration_ms=int((time.perf_counter() - started) * 1000),
+        )
+        raise AIConnectionError(
+            "AI API returned HTTP " + str(exc.response.status_code)
+        ) from exc
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning(
+            "ai_json_request_failed",
+            model=selected_model,
+            error_type=type(exc).__name__,
+            duration_ms=int((time.perf_counter() - started) * 1000),
+        )
+        raise AIConnectionError("AI API request failed") from exc
+
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if not isinstance(choices, list) or not choices:
+        raise AIConnectionError("AI API returned no choices")
+
+    first = choices[0] if isinstance(choices[0], dict) else {}
+    message = first.get("message") if isinstance(first, dict) else None
+    content = message.get("content") if isinstance(message, dict) else None
+    result = _extract_json_object(str(content or ""))
+
+    logger.info(
+        "ai_json_completed",
+        model=selected_model,
+        duration_ms=int((time.perf_counter() - started) * 1000),
+    )
+    return result
