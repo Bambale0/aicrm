@@ -1,6 +1,6 @@
 """Active database models for ЖКХ CRM."""
 
-from .ai_connection import AIConnectionSettings
+from .ai_connection import AIConnectionSettings, AIUsageEvent
 from .automation import (
     AutomationExecution,
     AutomationInstance,
@@ -32,6 +32,7 @@ from .user import User
 __all__ = [
     "Base",
     "AIConnectionSettings",
+    "AIUsageEvent",
     "BaseModel",
     "User",
     "Building",
