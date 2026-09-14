@@ -25,6 +25,7 @@ class AIUsageEvent(BaseModel):
     operation = Column(String(100), nullable=False, index=True)
     model = Column(String(255), nullable=False, index=True)
     provider_request_id = Column(String(255), nullable=True, index=True)
+    key_fingerprint = Column(String(64), nullable=False, index=True)
 
     prompt_tokens = Column(Integer, default=0, nullable=False)
     completion_tokens = Column(Integer, default=0, nullable=False)
