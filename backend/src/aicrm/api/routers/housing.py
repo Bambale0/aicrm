@@ -76,6 +76,7 @@ class ResidentIn(BaseModel):
 
 class ResidentOut(ORMModel, ResidentIn):
     id: int
+    address: Optional[str] = None
 
 
 class ContractorIn(BaseModel):
@@ -342,7 +343,36 @@ async def list_residents(
             | (Resident.phone.ilike(like))
             | (Resident.email.ilike(like))
         )
-    return query.order_by(Resident.full_name.asc()).limit(500).all()
+
+    residents = query.order_by(Resident.full_name.asc()).limit(500).all()
+    result: List[Dict[str, Any]] = []
+    for resident in residents:
+        latest_request = (
+            db.query(ServiceRequest)
+            .filter(ServiceRequest.resident_id == resident.id)
+            .order_by(ServiceRequest.created_at.desc())
+            .first()
+        )
+        building = (
+            db.get(Building, latest_request.building_id)
+            if latest_request and latest_request.building_id
+            else None
+        )
+        result.append(
+            {
+                "id": resident.id,
+                "full_name": resident.full_name,
+                "phone": resident.phone,
+                "email": resident.email,
+                "premise_id": resident.premise_id,
+                "preferred_channel": resident.preferred_channel,
+                "external_id": resident.external_id,
+                "notes": resident.notes,
+                "is_active": resident.is_active,
+                "address": building.address if building else None,
+            }
+        )
+    return result
 
 
 @router.post("/residents", response_model=ResidentOut)
