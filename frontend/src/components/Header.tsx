@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   ArrowRightOnRectangleIcon,
   Bars3Icon,
@@ -7,8 +8,6 @@ import {
   UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
-
-const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
 
 interface HeaderProps { onMenuClick?: () => void; }
 
@@ -39,10 +38,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <UserCircleIcon className="h-6 w-6 text-slate-400" />
             <span className="max-w-44 truncate text-sm font-medium text-slate-700">{user?.full_name || user?.email || 'Сотрудник'}</span>
           </div>
-          {AUTH_REQUIRED && (
+          {user ? (
             <button onClick={logout} className="rounded-xl p-2.5 text-slate-500 hover:bg-red-50 hover:text-red-600" title="Выйти" aria-label="Выйти">
               <ArrowRightOnRectangleIcon className="h-5 w-5" />
             </button>
+          ) : (
+            <Link to="/login" className="rounded-xl px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50">
+              Админ
+            </Link>
           )}
         </div>
       </div>
