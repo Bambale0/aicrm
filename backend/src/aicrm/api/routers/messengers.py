@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 
 from ...core.config import settings
 from ...core.dependencies import get_current_active_user, get_current_admin_user, get_db
-from ...core.messenger_catalog import MESSENGER_CHANNEL_PURPOSES, channel_purpose_catalog
+from ...core.messenger_catalog import (
+    MESSENGER_CHANNEL_PURPOSES,
+    channel_purpose_catalog,
+    resident_intake_catalog,
+    resident_intake_defaults,
+)
 from ...models.housing import RequestEvent, ServiceRequest
 from ...models.messenger import (
     MessengerChannel,
@@ -32,6 +37,8 @@ from ...services.max_connector import (
 )
 from ...services.max_chat_monitor import check_max_chat_permissions_background
 from ...services.messenger_ai import process_message_background
+from ...services.messenger_delivery import send_conversation_text_background
+from ...services.messenger_intake import process_private_intake_message
 from ...utils.crypto import decrypt_data, encrypt_data
 from ...utils.logging import get_logger
 
@@ -279,6 +286,36 @@ def _clean_settings(values: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return result
 
 
+def _merge_settings(
+    current: Optional[Dict[str, Any]],
+    patch: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    merged = _clean_settings(current)
+    incoming = _clean_settings(patch)
+
+    if "resident_intake" in incoming:
+        existing_intake = dict(merged.get("resident_intake") or {})
+        incoming_intake = dict(incoming.get("resident_intake") or {})
+
+        for nested_key in ("prompts", "notifications"):
+            if nested_key in incoming_intake:
+                nested = dict(existing_intake.get(nested_key) or {})
+                nested.update(
+                    {
+                        str(key): str(value)
+                        for key, value in dict(incoming_intake.get(nested_key) or {}).items()
+                        if value is not None
+                    }
+                )
+                incoming_intake[nested_key] = nested
+
+        existing_intake.update(incoming_intake)
+        incoming["resident_intake"] = existing_intake
+
+    merged.update(incoming)
+    return merged
+
+
 def _public(item: MessengerIntegration) -> Dict[str, Any]:
     credentials = _load_credentials(item) if item.credentials_encrypted else {}
     fields = PROVIDERS.get(item.provider, {}).get("credential_fields", [])
@@ -336,6 +373,13 @@ async def list_providers(_: User = Depends(get_current_admin_user)):
     return [{"provider": key, **value} for key, value in PROVIDERS.items()]
 
 
+@router.get("/messengers/intake/catalog")
+async def get_resident_intake_catalog(
+    _: User = Depends(get_current_admin_user),
+):
+    return resident_intake_catalog()
+
+
 @router.get("/messengers")
 async def list_integrations(
     db: Session = Depends(get_db),
@@ -369,6 +413,7 @@ async def create_integration(
         integration_settings.setdefault("ai_monitoring_enabled", True)
         integration_settings.setdefault("ai_context_messages", settings.messenger_ai_context_messages)
         integration_settings.setdefault("send_private_ack", True)
+        integration_settings.setdefault("resident_intake", resident_intake_defaults())
 
     item = MessengerIntegration(
         provider=payload.provider,
@@ -418,9 +463,7 @@ async def update_integration(
         item.last_error = None
 
     if settings_patch is not None:
-        merged_settings = _clean_settings(item.settings)
-        merged_settings.update(_clean_settings(settings_patch))
-        item.settings = merged_settings
+        item.settings = _merge_settings(item.settings, settings_patch)
 
     for field, value in data.items():
         setattr(item, field, value)
@@ -1442,6 +1485,44 @@ async def inbound_webhook(
             event_type="message_received",
             error_type=type(exc).__name__,
         )
+
+    if source_mode == "private_intake" and provider == "max":
+        intake_result = process_private_intake_message(
+            db,
+            message_id=message.id,
+            external_user_id=str(normalized.get("external_user_id") or ""),
+        )
+        if intake_result.get("handled"):
+            reply_text = str(intake_result.get("reply_text") or "").strip()
+            if reply_text:
+                background_tasks.add_task(
+                    send_conversation_text_background,
+                    conversation.id,
+                    reply_text,
+                    event_name="resident_intake_reply",
+                )
+            logger.info(
+                "resident_intake_message_handled",
+                integration_id=item.id,
+                provider=provider,
+                conversation_id=conversation.id,
+                message_id=message.id,
+                intake_state=intake_result.get("state"),
+                request_id=intake_result.get("request_id"),
+            )
+            return {
+                "ok": True,
+                "event_id": event.id,
+                "status": event.status,
+                "conversation_id": conversation.id,
+                "message_id": message.id,
+                "source_mode": source_mode,
+                "intake": {
+                    "state": intake_result.get("state"),
+                    "request_id": intake_result.get("request_id"),
+                    "request_number": intake_result.get("request_number"),
+                },
+            }
 
     if (
         integration_settings.get("ai_monitoring_enabled", True)
