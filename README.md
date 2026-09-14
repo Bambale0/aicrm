@@ -73,6 +73,8 @@ MAX chat/channel ID — отдельные сущности CRM, а не зна�
 
 Для ИИ-диспетчера должен быть настроен внешний OpenAI-compatible API в разделе **ИИ API**. Сейчас deployment может быть направлен на DeepSeek для тестирования; позже достаточно заменить AI_API_BASE_URL на собственный AI gateway.
 
+Раздел **ИИ API** также ведёт usage-ledger текущего ключа по фактическому `usage` каждого ответа провайдера: input/prompt, output/completion, total, cache hit/miss и reasoning tokens. События привязываются к необратимому fingerprint ключа, поэтому после ротации расходы разных ключей не смешиваются. `GET /ai/usage` возвращает агрегат для текущего ключа и доступный provider balance. Для официального DeepSeek balance берётся из `/user/balance`; DeepSeek не отдаёт точный remaining-token quota, поэтому CRM показывает денежный остаток и не подменяет его расчётным числом токенов.
+
 ## Мессенджеры
 
 Общие точки интеграции:
