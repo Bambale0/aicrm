@@ -266,3 +266,83 @@ def test_channel_purpose_catalog_is_backend_owned(app_and_session):
     assert response.status_code == 200
     purposes = {item["value"] for item in response.json()}
     assert {"monitor", "operator_alert", "broadcast"} <= purposes
+
+
+
+def test_disabled_monitor_channel_blocks_group_ai_triage(app_and_session, monkeypatch):
+    app, Session, _ = app_and_session
+    client = TestClient(app)
+    integration = _create_max(client)
+    chat_id = "987654321012345679"
+
+    triaged: list[tuple[int, str]] = []
+
+    async def capture_triage(message_id: int, source_mode: str):
+        triaged.append((message_id, source_mode))
+
+    monkeypatch.setattr(
+        messenger_router_module,
+        "process_message_background",
+        capture_triage,
+    )
+
+    db = Session()
+    try:
+        item = db.get(MessengerIntegration, integration["id"])
+        credentials = json.loads(decrypt_data(item.credentials_encrypted))
+        credentials["webhook_secret"] = "webhook-secret-456"
+        from aicrm.utils.crypto import encrypt_data
+
+        item.credentials_encrypted = encrypt_data(json.dumps(credentials))
+        item.is_active = True
+        item.status = "active"
+        db.add(
+            MessengerChannel(
+                integration_id=item.id,
+                external_chat_id=chat_id,
+                purpose="monitor",
+                status="verified",
+                is_active=False,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    def message_event(mid: str) -> dict:
+        return {
+            "update_type": "message_created",
+            "message": {
+                "recipient": {"chat_id": int(chat_id), "chat_type": "chat"},
+                "sender": {"user_id": 42},
+                "body": {"mid": mid, "text": "В подвале течёт труба"},
+                "timestamp": 123456789,
+            },
+        }
+
+    disabled = client.post(
+        f"/webhooks/messengers/max/{integration['id']}",
+        headers={"X-Max-Bot-Api-Secret": "webhook-secret-456"},
+        json=message_event("message-disabled"),
+    )
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["source_mode"] == "unmanaged_group"
+    assert triaged == []
+
+    db = Session()
+    try:
+        channel = db.query(MessengerChannel).one()
+        channel.is_active = True
+        db.commit()
+    finally:
+        db.close()
+
+    enabled = client.post(
+        f"/webhooks/messengers/max/{integration['id']}",
+        headers={"X-Max-Bot-Api-Secret": "webhook-secret-456"},
+        json=message_event("message-enabled"),
+    )
+    assert enabled.status_code == 200, enabled.text
+    assert enabled.json()["source_mode"] == "group_monitor"
+    assert len(triaged) == 1
+    assert triaged[0][1] == "group_monitor"
