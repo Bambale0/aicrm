@@ -254,7 +254,7 @@ async def dashboard(
     total = db.query(func.count(ServiceRequest.id)).scalar() or 0
     in_progress = (
         db.query(func.count(ServiceRequest.id))
-        .filter(ServiceRequest.status.in_(["assigned", "in_progress"]))
+        .filter(ServiceRequest.status.in_(["accepted", "assigned", "in_progress"]))
         .scalar()
         or 0
     )
