@@ -244,6 +244,7 @@ async def analyze_message(
         ),
         max_tokens=700,
         temperature=0.1,
+        operation="messenger_triage",
     )
     result = _normalize_result(raw, source_mode)
 
