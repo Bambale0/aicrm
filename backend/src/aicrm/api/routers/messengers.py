@@ -1,4 +1,5 @@
 """Provider-agnostic messenger connection API."""
+import json
 import secrets
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -8,9 +9,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ...core.config import settings
-from ...core.dependencies import get_current_active_user, get_db
+from ...core.dependencies import get_current_active_user, get_current_admin_user, get_db
+from ...core.messenger_catalog import MESSENGER_CHANNEL_PURPOSES, channel_purpose_catalog
 from ...models.housing import RequestEvent, ServiceRequest
 from ...models.messenger import (
+    MessengerChannel,
     MessengerConversation,
     MessengerInboundEvent,
     MessengerIntegration,
@@ -19,7 +22,14 @@ from ...models.messenger import (
 )
 from ...models.user import User
 from ...services.automation_engine import AutomationValidationError, dispatch_event
-from ...services.max_connector import MaxAPIError, register_webhook as max_register_webhook, send_message as max_send_message, verify_bot as max_verify_bot
+from ...services.max_connector import (
+    MaxAPIError,
+    get_bot_chat_membership,
+    get_chat as max_get_chat,
+    register_webhook as max_register_webhook,
+    send_message as max_send_message,
+    verify_bot as max_verify_bot,
+)
 from ...services.max_chat_monitor import check_max_chat_permissions_background
 from ...services.messenger_ai import process_message_background
 from ...utils.crypto import decrypt_data, encrypt_data
@@ -75,7 +85,26 @@ class IntegrationPatch(BaseModel):
 
 class WebhookRegisterRequest(BaseModel):
     public_base_url: Optional[str] = None
-    secret_token: Optional[str] = None
+    secret_token: Optional[str] = Field(default=None, min_length=8, max_length=256)
+
+
+class MessengerChannelCreate(BaseModel):
+    integration_id: int = Field(gt=0)
+    external_chat_id: str = Field(min_length=1, max_length=255)
+    purpose: str = Field(min_length=1, max_length=50)
+    name: Optional[str] = Field(default=None, max_length=255)
+    is_active: bool = True
+
+
+class MessengerChannelPatch(BaseModel):
+    external_chat_id: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    purpose: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    name: Optional[str] = Field(default=None, max_length=255)
+    is_active: Optional[bool] = None
+
+
+class MessengerChannelTestMessage(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
 
 
 class OutboundMessageCreate(BaseModel):
@@ -205,33 +234,91 @@ def _conversation_public(item: MessengerConversation, provider: Optional[str] = 
     }
 
 
+def _load_credentials(item: MessengerIntegration) -> Dict[str, Any]:
+    if not item.credentials_encrypted:
+        return {}
+    try:
+        payload = json.loads(decrypt_data(item.credentials_encrypted))
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="Stored integration credentials are invalid") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=500, detail="Stored integration credentials are invalid")
+    return payload
+
+
+def _store_credentials(item: MessengerIntegration, credentials: Dict[str, Any]) -> None:
+    item.credentials_encrypted = encrypt_data(json.dumps(credentials, ensure_ascii=False))
+
+
+def _clean_settings(values: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    result = dict(values or {})
+    # Secrets and external chat IDs are first-class managed entities, never JSON settings.
+    for forbidden in ("webhook_secret", "monitor_chat_ids", "monitor_chat_status", "operator_chat_id"):
+        result.pop(forbidden, None)
+    return result
+
+
 def _public(item: MessengerIntegration) -> Dict[str, Any]:
+    credentials = _load_credentials(item) if item.credentials_encrypted else {}
+    fields = PROVIDERS.get(item.provider, {}).get("credential_fields", [])
+    safe_settings = _clean_settings(item.settings)
     return {
         "id": item.id,
         "provider": item.provider,
         "name": item.name,
         "status": item.status,
-        "settings": item.settings or {},
+        "settings": safe_settings,
         "webhook_url": item.webhook_url,
         "external_account_id": item.external_account_id,
         "last_health_at": item.last_health_at,
         "last_error": item.last_error,
         "is_active": item.is_active,
         "has_credentials": bool(item.credentials_encrypted),
+        "credential_status": {
+            str(field.get("name")): bool(credentials.get(str(field.get("name"))))
+            for field in fields
+            if field.get("name")
+        },
+        "webhook_secret_configured": bool(credentials.get("webhook_secret")),
         "created_at": item.created_at,
         "updated_at": item.updated_at,
     }
 
 
+def _channel_public(item: MessengerChannel) -> Dict[str, Any]:
+    return {
+        "id": item.id,
+        "integration_id": item.integration_id,
+        "external_chat_id": item.external_chat_id,
+        "name": item.name,
+        "purpose": item.purpose,
+        "channel_type": item.channel_type,
+        "status": item.status,
+        "provider_data": item.provider_data or {},
+        "last_health_at": item.last_health_at,
+        "last_error": item.last_error,
+        "is_active": item.is_active,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+    }
+
+
+def _validate_channel_purpose(value: str) -> str:
+    purpose = str(value or "").strip()
+    if purpose not in MESSENGER_CHANNEL_PURPOSES:
+        raise HTTPException(status_code=422, detail="Unsupported messenger channel purpose")
+    return purpose
+
+
 @router.get("/messengers/providers")
-async def list_providers(_: User = Depends(get_current_active_user)):
+async def list_providers(_: User = Depends(get_current_admin_user)):
     return [{"provider": key, **value} for key, value in PROVIDERS.items()]
 
 
 @router.get("/messengers")
 async def list_integrations(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    _: User = Depends(get_current_admin_user),
 ):
     items = db.query(MessengerIntegration).order_by(MessengerIntegration.created_at.desc()).all()
     return [_public(item) for item in items]
@@ -241,7 +328,7 @@ async def list_integrations(
 async def create_integration(
     payload: IntegrationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_admin_user),
 ):
     if payload.provider not in PROVIDERS:
         raise HTTPException(status_code=400, detail="Unsupported messenger provider")
@@ -255,13 +342,12 @@ async def create_integration(
     if missing:
         raise HTTPException(status_code=422, detail={"missing_credentials": missing})
 
-    encrypted = encrypt_data(__import__("json").dumps(payload.credentials, ensure_ascii=False))
-    integration_settings = dict(payload.settings or {})
+    encrypted = encrypt_data(json.dumps(payload.credentials, ensure_ascii=False))
+    integration_settings = _clean_settings(payload.settings)
     if payload.provider == "max":
         integration_settings.setdefault("ai_monitoring_enabled", True)
         integration_settings.setdefault("ai_context_messages", settings.messenger_ai_context_messages)
         integration_settings.setdefault("send_private_ack", True)
-        integration_settings.setdefault("monitor_chat_ids", [])
 
     item = MessengerIntegration(
         provider=payload.provider,
@@ -289,21 +375,68 @@ async def update_integration(
     integration_id: int,
     payload: IntegrationPatch,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    _: User = Depends(get_current_admin_user),
 ):
     item = db.get(MessengerIntegration, integration_id)
     if not item:
         raise HTTPException(status_code=404, detail="Messenger integration not found")
     data = payload.model_dump(exclude_unset=True)
-    credentials = data.pop("credentials", None)
-    if credentials is not None:
-        item.credentials_encrypted = encrypt_data(__import__("json").dumps(credentials, ensure_ascii=False))
+    credentials_patch = data.pop("credentials", None)
+    settings_patch = data.pop("settings", None)
+
+    if credentials_patch is not None:
+        credentials = _load_credentials(item)
+        for key, value in credentials_patch.items():
+            if value is None:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            credentials[key] = value.strip() if isinstance(value, str) else value
+        _store_credentials(item, credentials)
         item.status = "configured"
         item.last_error = None
+
+    if settings_patch is not None:
+        merged_settings = _clean_settings(item.settings)
+        merged_settings.update(_clean_settings(settings_patch))
+        item.settings = merged_settings
+
     for field, value in data.items():
         setattr(item, field, value)
     db.commit()
     db.refresh(item)
+    logger.info(
+        "messenger_integration_updated",
+        integration_id=item.id,
+        provider=item.provider,
+        credentials_rotated=credentials_patch is not None,
+    )
+    return _public(item)
+
+
+@router.delete("/messengers/{integration_id}")
+async def archive_integration(
+    integration_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    item = db.get(MessengerIntegration, integration_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Messenger integration not found")
+    item.is_active = False
+    item.status = "archived"
+    (
+        db.query(MessengerChannel)
+        .filter(MessengerChannel.integration_id == item.id)
+        .update({"is_active": False, "status": "archived"}, synchronize_session=False)
+    )
+    db.commit()
+    db.refresh(item)
+    logger.info(
+        "messenger_integration_archived",
+        integration_id=item.id,
+        provider=item.provider,
+    )
     return _public(item)
 
 
@@ -311,7 +444,7 @@ async def update_integration(
 async def verify_integration(
     integration_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    _: User = Depends(get_current_admin_user),
 ):
     item = db.get(MessengerIntegration, integration_id)
     if not item:
@@ -319,7 +452,7 @@ async def verify_integration(
     if not item.credentials_encrypted:
         raise HTTPException(status_code=422, detail="Credentials are not configured")
 
-    credentials = __import__("json").loads(decrypt_data(item.credentials_encrypted))
+    credentials = _load_credentials(item)
 
     if item.provider == "telegram":
         import httpx
@@ -392,7 +525,7 @@ async def register_webhook(
     integration_id: int,
     payload: WebhookRegisterRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    _: User = Depends(get_current_admin_user),
 ):
     item = db.get(MessengerIntegration, integration_id)
     if not item:
@@ -402,17 +535,16 @@ async def register_webhook(
 
     base_url = (payload.public_base_url or settings.public_base_url).rstrip("/")
     webhook_url = f"{base_url}/api/webhooks/messengers/{item.provider}/{item.id}"
-    credentials = __import__("json").loads(decrypt_data(item.credentials_encrypted))
-    integration_settings = dict(item.settings or {})
+    credentials = _load_credentials(item)
+    integration_settings = _clean_settings(item.settings)
 
     if item.provider == "telegram":
         import httpx
 
         token = credentials.get("bot_token")
-        body: Dict[str, Any] = {"url": webhook_url}
-        if payload.secret_token:
-            body["secret_token"] = payload.secret_token
-            integration_settings["webhook_secret"] = payload.secret_token
+        secret = payload.secret_token or secrets.token_urlsafe(24)
+        body: Dict[str, Any] = {"url": webhook_url, "secret_token": secret}
+        credentials["webhook_secret"] = secret
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -437,7 +569,7 @@ async def register_webhook(
     elif item.provider == "max":
         token = credentials.get("access_token")
         secret = payload.secret_token or secrets.token_urlsafe(24)
-        integration_settings["webhook_secret"] = secret
+        credentials["webhook_secret"] = secret
         try:
             await max_register_webhook(
                 token,
@@ -458,14 +590,14 @@ async def register_webhook(
             raise HTTPException(status_code=502, detail=item.last_error) from exc
 
     elif item.provider == "custom":
-        if payload.secret_token:
-            integration_settings["webhook_secret"] = payload.secret_token
+        credentials["webhook_secret"] = payload.secret_token or secrets.token_urlsafe(24)
     else:
         raise HTTPException(
             status_code=501,
             detail=f"Webhook registration adapter for {item.provider} is not implemented yet",
         )
 
+    _store_credentials(item, credentials)
     item.webhook_url = webhook_url
     item.settings = integration_settings
     item.status = "verified"
@@ -473,7 +605,7 @@ async def register_webhook(
     item.last_health_at = datetime.utcnow()
     db.commit()
     db.refresh(item)
-    return {"registered": True, "provider": item.provider, "webhook_url": webhook_url}
+    return {"registered": True, "provider": item.provider, "webhook_url": webhook_url, "webhook_secret_configured": True}
 
 
 @router.post("/messengers/{integration_id}/activate")
