@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..core.config import settings
@@ -161,9 +162,20 @@ def _record_usage(
         key_fingerprint=_key_fingerprint(api_key),
         **usage,
     )
-    db.add(event)
-    db.commit()
-    db.refresh(event)
+    try:
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error(
+            "ai_usage_persist_failed",
+            operation=operation,
+            model=model,
+            provider_request_id=payload.get("id"),
+            error_type=type(exc).__name__,
+        )
+        return usage
 
     logger.info(
         "ai_usage_recorded",
