@@ -1486,7 +1486,11 @@ async def inbound_webhook(
             error_type=type(exc).__name__,
         )
 
-    if source_mode == "private_intake" and provider == "max":
+    if (
+        source_mode == "private_intake"
+        and provider == "max"
+        and event_type == "message_created"
+    ):
         intake_result = process_private_intake_message(
             db,
             message_id=message.id,
@@ -1525,7 +1529,8 @@ async def inbound_webhook(
             }
 
     if (
-        integration_settings.get("ai_monitoring_enabled", True)
+        event_type == "message_created"
+        and integration_settings.get("ai_monitoring_enabled", True)
         and source_mode in {"private_intake", "group_monitor"}
     ):
         background_tasks.add_task(
