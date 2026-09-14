@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from ..core.config import settings
 from ..core.database import SessionLocal
 from ..models.messenger import (
+    MessengerChannel,
     MessengerConversation,
     MessengerIntegration,
     MessengerMessage,
@@ -299,7 +300,21 @@ async def analyze_message(
     )
 
     if integration.provider == "max":
-        operator_chat_id = str(integration_settings.get("operator_chat_id") or "").strip()
+        operator_channel = (
+            db.query(MessengerChannel)
+            .filter(
+                MessengerChannel.integration_id == integration.id,
+                MessengerChannel.purpose == "operator_alert",
+                MessengerChannel.is_active.is_(True),
+            )
+            .order_by(MessengerChannel.id.asc())
+            .first()
+        )
+        operator_chat_id = (
+            str(operator_channel.external_chat_id).strip()
+            if operator_channel is not None
+            else ""
+        )
         if operator_chat_id and alert_result and not alert_result.get("deduplicated"):
             request_number = request_result.get("request_number") if request_result else None
             alert_text = (
