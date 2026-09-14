@@ -651,13 +651,14 @@ async def update_request(
         )
     db.commit()
     db.refresh(item)
+    transitioned_status = item.status
 
     automation_events = [("request_updated", {})] if changes else []
-    if old_status != item.status:
+    if old_status != transitioned_status:
         automation_events.append(
             (
                 "request_status_changed",
-                {"old_status": old_status, "status": item.status},
+                {"old_status": old_status, "status": transitioned_status},
             )
         )
     if old_priority != item.priority:
@@ -688,18 +689,18 @@ async def update_request(
                 error_type=type(exc).__name__,
             )
 
-    if old_status != item.status:
+    if old_status != transitioned_status:
         background_tasks.add_task(
             notify_resident_request_status_background,
             item.id,
-            item.status,
+            transitioned_status,
         )
         logger.info(
             "housing_request_status_changed",
             request_id=item.id,
             request_number=item.number,
             old_status=old_status,
-            status=item.status,
+            status=transitioned_status,
             actor_user_id=current_user.id,
         )
 
