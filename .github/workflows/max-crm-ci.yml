@@ -51,6 +51,12 @@ jobs:
         working-directory: frontend
         run: npm install --no-audit --no-fund
 
+      - name: Frontend tests
+        working-directory: frontend
+        env:
+          CI: "true"
+        run: npm test -- --runInBand
+
       - name: Typecheck frontend
         working-directory: frontend
         run: npm run typecheck
