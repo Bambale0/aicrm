@@ -19,13 +19,14 @@ export default function Residents() {
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <tr><th className="px-5 py-3">ФИО</th><th className="px-5 py-3">Телефон</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Канал</th></tr>
+              <tr><th className="px-5 py-3">ФИО</th><th className="px-5 py-3">Адрес</th><th className="px-5 py-3">Телефон</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Канал</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {items.length === 0 && <tr><td colSpan={4} className="px-5 py-12 text-center text-slate-400">Жители еще не добавлены</td></tr>}
+              {items.length === 0 && <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-400">Жители еще не добавлены</td></tr>}
               {items.map((item) => (
                 <tr key={item.id}>
                   <td className="px-5 py-4 font-medium text-slate-900">{item.full_name}</td>
+                  <td className="px-5 py-4 text-slate-600">{item.address || '—'}</td>
                   <td className="px-5 py-4 text-slate-600">{item.phone || '—'}</td>
                   <td className="px-5 py-4 text-slate-600">{item.email || '—'}</td>
                   <td className="px-5 py-4 text-slate-600">{item.preferred_channel || '—'}</td>
