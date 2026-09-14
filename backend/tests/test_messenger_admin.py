@@ -15,6 +15,7 @@ from aicrm.core.dependencies import get_current_active_user, get_current_admin_u
 from aicrm.models import housing as _housing_models  # noqa: F401
 from aicrm.models.base import Base
 from aicrm.models.housing import Resident, ServiceRequest
+from aicrm.models.housing import RequestEvent
 from aicrm.models.messenger import (
     MessengerChannel,
     MessengerIntegration,
@@ -22,7 +23,8 @@ from aicrm.models.messenger import (
     OperatorAlert,
 )
 from aicrm.models.user import User
-from aicrm.utils.crypto import decrypt_data
+from aicrm.services import request_notifications as request_notifications_module
+from aicrm.utils.crypto import decrypt_data, encrypt_data
 
 
 @pytest.fixture()
@@ -588,3 +590,87 @@ def test_intake_copy_catalog_and_defaults_are_admin_managed(app_and_session):
     item = next(row for row in stored if row["id"] == integration["id"])
     assert item["settings"]["resident_intake"]["enabled"] is True
     assert "accepted" in item["settings"]["resident_intake"]["notifications"]
+
+
+@pytest.mark.asyncio
+async def test_accepted_request_notification_uses_conversation_and_persists_event(
+    app_and_session,
+    monkeypatch,
+):
+    _, Session, admin_id = app_and_session
+    db = Session()
+    try:
+        integration = MessengerIntegration(
+            provider="max",
+            name="MAX",
+            status="active",
+            credentials_encrypted=encrypt_data(json.dumps({"access_token": "secret"})),
+            settings={},
+            is_active=True,
+            created_by=admin_id,
+        )
+        db.add(integration)
+        db.flush()
+
+        from aicrm.models.messenger import MessengerConversation
+
+        conversation = MessengerConversation(
+            integration_id=integration.id,
+            external_chat_id="123456",
+            status="open",
+            requires_attention=False,
+        )
+        db.add(conversation)
+        db.flush()
+
+        request_item = ServiceRequest(
+            number="REQ-NOTIFY-1",
+            source_channel="max",
+            source_conversation_id=str(conversation.id),
+            category="general",
+            priority="normal",
+            status="accepted",
+            title="Течёт труба",
+            description="Течёт труба",
+            created_by=admin_id,
+        )
+        db.add(request_item)
+        db.commit()
+        db.refresh(request_item)
+
+        delivered: list[tuple[int, str]] = []
+
+        async def fake_delivery(db_arg, *, conversation_id: int, text: str):
+            delivered.append((conversation_id, text))
+            class Dummy:
+                id = 1
+            return Dummy()
+
+        monkeypatch.setattr(
+            request_notifications_module,
+            "send_conversation_text",
+            fake_delivery,
+        )
+
+        sent = await request_notifications_module.notify_resident_request_status(
+            db,
+            request_id=request_item.id,
+            status="accepted",
+        )
+        assert sent is True
+        assert delivered
+        assert delivered[0][0] == conversation.id
+        assert "REQ-NOTIFY-1" in delivered[0][1]
+        assert "принята" in delivered[0][1].lower()
+
+        event = (
+            db.query(RequestEvent)
+            .filter(
+                RequestEvent.request_id == request_item.id,
+                RequestEvent.event_type == "resident_notified",
+            )
+            .one()
+        )
+        assert event.payload["status"] == "accepted"
+    finally:
+        db.close()
