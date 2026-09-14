@@ -64,6 +64,47 @@ class MessengerConversation(BaseModel):
     last_message_at = Column(DateTime, nullable=True, index=True)
 
 
+
+class MessengerIntakeSession(BaseModel):
+    """Durable private-chat intake state for resident service requests."""
+
+    __tablename__ = "messenger_intake_sessions"
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id",
+            name="uq_messenger_intake_session_conversation",
+        ),
+    )
+
+    conversation_id = Column(
+        Integer,
+        ForeignKey("messenger_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    external_user_id = Column(String(255), nullable=True, index=True)
+    state = Column(String(50), default="full_name", nullable=False, index=True)
+
+    full_name = Column(String(255), nullable=True)
+    address = Column(String(500), nullable=True)
+    phone = Column(String(50), nullable=True)
+    problem = Column(Text, nullable=True)
+
+    resident_id = Column(
+        Integer,
+        ForeignKey("housing_residents.id"),
+        nullable=True,
+        index=True,
+    )
+    request_id = Column(
+        Integer,
+        ForeignKey("housing_requests.id"),
+        nullable=True,
+        index=True,
+    )
+    completed_at = Column(DateTime, nullable=True)
+
+
 class MessengerMessage(BaseModel):
     __tablename__ = "messenger_messages"
 
