@@ -1347,7 +1347,7 @@ async def inbound_webhook(
         raise HTTPException(status_code=422, detail="Could not determine external_chat_id")
 
     integration_settings = _clean_settings(item.settings)
-    source_mode = str(normalized.get("source_mode") or "private_intake")
+    normalized_source_mode = str(normalized.get("source_mode") or "private_intake")
     monitored_channel = (
         db.query(MessengerChannel)
         .filter(
@@ -1358,8 +1358,10 @@ async def inbound_webhook(
         )
         .first()
     )
-    if monitored_channel is not None:
-        source_mode = "group_monitor"
+    if normalized_source_mode == "group_monitor":
+        source_mode = "group_monitor" if monitored_channel is not None else "unmanaged_group"
+    else:
+        source_mode = "private_intake"
 
     conversation = (
         db.query(MessengerConversation)
@@ -1441,7 +1443,10 @@ async def inbound_webhook(
             error_type=type(exc).__name__,
         )
 
-    if integration_settings.get("ai_monitoring_enabled", True):
+    if (
+        integration_settings.get("ai_monitoring_enabled", True)
+        and source_mode in {"private_intake", "group_monitor"}
+    ):
         background_tasks.add_task(
             process_message_background,
             message.id,
