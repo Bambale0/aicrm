@@ -612,7 +612,7 @@ async def register_webhook(
 async def activate_integration(
     integration_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    _: User = Depends(get_current_admin_user),
 ):
     item = db.get(MessengerIntegration, integration_id)
     if not item:
@@ -630,7 +630,7 @@ async def activate_integration(
 async def deactivate_integration(
     integration_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    _: User = Depends(get_current_admin_user),
 ):
     item = db.get(MessengerIntegration, integration_id)
     if not item:
@@ -646,7 +646,7 @@ async def deactivate_integration(
 async def integration_health(
     integration_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_active_user),
+    _: User = Depends(get_current_admin_user),
 ):
     item = db.get(MessengerIntegration, integration_id)
     if not item:
@@ -659,6 +659,259 @@ async def integration_health(
         "last_health_at": item.last_health_at,
         "last_error": item.last_error,
     }
+
+
+
+@router.get("/messenger-channels/catalog")
+async def messenger_channel_catalog(
+    _: User = Depends(get_current_admin_user),
+):
+    return channel_purpose_catalog()
+
+
+@router.get("/messenger-channels")
+async def list_messenger_channels(
+    integration_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    query = db.query(MessengerChannel)
+    if integration_id is not None:
+        query = query.filter(MessengerChannel.integration_id == integration_id)
+    items = query.order_by(MessengerChannel.created_at.desc()).all()
+    return [_channel_public(item) for item in items]
+
+
+@router.post("/messenger-channels")
+async def create_messenger_channel(
+    payload: MessengerChannelCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    integration = db.get(MessengerIntegration, payload.integration_id)
+    if not integration:
+        raise HTTPException(status_code=404, detail="Messenger integration not found")
+
+    purpose = _validate_channel_purpose(payload.purpose)
+    external_chat_id = payload.external_chat_id.strip()
+    duplicate = (
+        db.query(MessengerChannel)
+        .filter(
+            MessengerChannel.integration_id == integration.id,
+            MessengerChannel.external_chat_id == external_chat_id,
+            MessengerChannel.purpose == purpose,
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="This channel is already configured for that purpose")
+
+    item = MessengerChannel(
+        integration_id=integration.id,
+        external_chat_id=external_chat_id,
+        purpose=purpose,
+        name=(payload.name or "").strip() or None,
+        status="configured",
+        is_active=payload.is_active,
+        created_by=current_user.id,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    logger.info(
+        "messenger_channel_created",
+        channel_id=item.id,
+        integration_id=item.integration_id,
+        provider=integration.provider,
+        purpose=item.purpose,
+        external_chat_id=item.external_chat_id,
+    )
+    return _channel_public(item)
+
+
+@router.patch("/messenger-channels/{channel_id}")
+async def update_messenger_channel(
+    channel_id: int,
+    payload: MessengerChannelPatch,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    item = db.get(MessengerChannel, channel_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Messenger channel not found")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "purpose" in data:
+        data["purpose"] = _validate_channel_purpose(data["purpose"])
+    if "external_chat_id" in data:
+        data["external_chat_id"] = str(data["external_chat_id"]).strip()
+    if "name" in data:
+        data["name"] = (data["name"] or "").strip() or None
+
+    target_chat_id = data.get("external_chat_id", item.external_chat_id)
+    target_purpose = data.get("purpose", item.purpose)
+    duplicate = (
+        db.query(MessengerChannel)
+        .filter(
+            MessengerChannel.integration_id == item.integration_id,
+            MessengerChannel.external_chat_id == target_chat_id,
+            MessengerChannel.purpose == target_purpose,
+            MessengerChannel.id != item.id,
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=409, detail="This channel is already configured for that purpose")
+
+    for field, value in data.items():
+        setattr(item, field, value)
+    if "external_chat_id" in data or "purpose" in data:
+        item.status = "configured"
+        item.last_error = None
+    db.commit()
+    db.refresh(item)
+    logger.info(
+        "messenger_channel_updated",
+        channel_id=item.id,
+        integration_id=item.integration_id,
+        purpose=item.purpose,
+    )
+    return _channel_public(item)
+
+
+@router.delete("/messenger-channels/{channel_id}")
+async def delete_messenger_channel(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    item = db.get(MessengerChannel, channel_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Messenger channel not found")
+    integration_id = item.integration_id
+    external_chat_id = item.external_chat_id
+    purpose = item.purpose
+    db.delete(item)
+    db.commit()
+    logger.info(
+        "messenger_channel_deleted",
+        channel_id=channel_id,
+        integration_id=integration_id,
+        purpose=purpose,
+        external_chat_id=external_chat_id,
+    )
+    return {"deleted": True, "id": channel_id}
+
+
+@router.post("/messenger-channels/{channel_id}/verify")
+async def verify_messenger_channel(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    item = db.get(MessengerChannel, channel_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Messenger channel not found")
+    integration = db.get(MessengerIntegration, item.integration_id)
+    if not integration:
+        raise HTTPException(status_code=404, detail="Messenger integration not found")
+    if integration.provider != "max":
+        raise HTTPException(status_code=501, detail="Channel verification is currently implemented for MAX")
+    credentials = _load_credentials(integration)
+    token = credentials.get("access_token")
+    if not token:
+        raise HTTPException(status_code=422, detail="MAX access token is not configured")
+
+    try:
+        chat = await max_get_chat(token, chat_id=item.external_chat_id)
+        membership = await get_bot_chat_membership(token, chat_id=item.external_chat_id)
+    except MaxAPIError as exc:
+        item.status = "error"
+        item.last_error = str(exc)
+        item.last_health_at = datetime.utcnow()
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    permissions = membership.get("permissions")
+    if not isinstance(permissions, list):
+        permissions = []
+    is_admin = bool(membership.get("is_admin"))
+    can_read_all = "read_all_messages" in permissions
+    purpose_ready = (
+        is_admin and can_read_all
+        if item.purpose == "monitor"
+        else bool(membership)
+    )
+
+    item.name = str(chat.get("title") or item.name or "") or None
+    item.channel_type = str(chat.get("type") or "") or None
+    item.provider_data = {
+        "is_admin": is_admin,
+        "read_all_messages": can_read_all,
+        "permissions": permissions,
+        "link": chat.get("link"),
+        "is_public": chat.get("is_public"),
+    }
+    item.status = "verified" if purpose_ready else "limited"
+    item.last_health_at = datetime.utcnow()
+    item.last_error = None if purpose_ready else "Bot permissions are insufficient for channel purpose"
+    db.commit()
+    db.refresh(item)
+    logger.info(
+        "messenger_channel_verified",
+        channel_id=item.id,
+        integration_id=item.integration_id,
+        purpose=item.purpose,
+        status=item.status,
+        is_admin=is_admin,
+        read_all_messages=can_read_all,
+    )
+    return _channel_public(item)
+
+
+@router.post("/messenger-channels/{channel_id}/test")
+async def test_messenger_channel(
+    channel_id: int,
+    payload: MessengerChannelTestMessage,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin_user),
+):
+    item = db.get(MessengerChannel, channel_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Messenger channel not found")
+    integration = db.get(MessengerIntegration, item.integration_id)
+    if not integration:
+        raise HTTPException(status_code=404, detail="Messenger integration not found")
+    if integration.provider != "max":
+        raise HTTPException(status_code=501, detail="Channel test is currently implemented for MAX")
+    if not item.is_active:
+        raise HTTPException(status_code=409, detail="Messenger channel is disabled")
+
+    credentials = _load_credentials(integration)
+    token = credentials.get("access_token")
+    if not token:
+        raise HTTPException(status_code=422, detail="MAX access token is not configured")
+    try:
+        result = await max_send_message(
+            token,
+            chat_id=item.external_chat_id,
+            text=payload.text.strip(),
+        )
+    except MaxAPIError as exc:
+        item.last_error = str(exc)
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    item.last_health_at = datetime.utcnow()
+    item.last_error = None
+    db.commit()
+    logger.info(
+        "messenger_channel_test_succeeded",
+        channel_id=item.id,
+        integration_id=item.integration_id,
+        purpose=item.purpose,
+    )
+    return {"ok": True, "channel": _channel_public(item), "provider_response": bool(result)}
 
 
 @router.get("/conversations")
