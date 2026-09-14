@@ -18,6 +18,7 @@ from ..models.messenger import (
     MessengerMessage,
     OperatorAlert,
 )
+from ..services.automation_engine import AutomationValidationError, dispatch_event
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -239,6 +240,30 @@ def _create_request_from_session(
 
     db.commit()
     db.refresh(request_item)
+
+    try:
+        dispatch_event(
+            db,
+            entity_type="request",
+            event_type="request_created",
+            entity_id=request_item.id,
+            event_data={
+                "status": request_item.status,
+                "priority": request_item.priority,
+                "category": request_item.category,
+                "building_id": request_item.building_id,
+                "source_channel": request_item.source_channel,
+            },
+        )
+        db.refresh(request_item)
+    except AutomationValidationError:
+        pass
+    except Exception as exc:
+        logger.error(
+            "resident_intake_request_automation_failed",
+            request_id=request_item.id,
+            error_type=type(exc).__name__,
+        )
 
     logger.info(
         "resident_intake_request_created",
