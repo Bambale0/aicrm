@@ -990,7 +990,7 @@ async def send_conversation_message(
     if integration.provider == "telegram":
         import httpx
 
-        credentials = __import__("json").loads(decrypt_data(integration.credentials_encrypted))
+        credentials = _load_credentials(integration)
         token = credentials.get("bot_token")
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
@@ -1007,7 +1007,7 @@ async def send_conversation_message(
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Telegram delivery error: {type(exc).__name__}")
     elif integration.provider == "max":
-        credentials = __import__("json").loads(decrypt_data(integration.credentials_encrypted))
+        credentials = _load_credentials(integration)
         token = credentials.get("access_token")
         try:
             data = await max_send_message(
