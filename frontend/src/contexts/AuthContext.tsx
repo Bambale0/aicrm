@@ -1,5 +1,8 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import api, { AUTH_TOKEN_STORAGE_KEY } from '../services/api';
+import api, {
+  AUTH_SESSION_EXPIRED_EVENT,
+  AUTH_TOKEN_STORAGE_KEY,
+} from '../services/api';
 
 interface User {
   id: number;
@@ -20,6 +23,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  sessionExpired: boolean;
 }
 
 const AUTH_REQUIRED = process.env.REACT_APP_AUTH_REQUIRED !== 'false';
@@ -36,6 +40,20 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null);
+      setSessionExpired(true);
+      setIsLoading(false);
+    };
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired);
+    };
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -48,9 +66,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const response = await api.get('/auth/me');
         setUser(response.data);
+        setSessionExpired(false);
       } catch {
         localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
         setUser(null);
+        setSessionExpired(true);
       } finally {
         setIsLoading(false);
       }
@@ -64,6 +84,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, response.data.access_token);
     const userResponse = await api.get('/auth/me');
     setUser(userResponse.data);
+    setSessionExpired(false);
   };
 
   const register = async (fullName: string, password: string, email: string, companyName?: string) => {
@@ -86,6 +107,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
     setUser(null);
+    setSessionExpired(false);
   };
 
   const isAdmin =
@@ -102,6 +124,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isLoading,
         isAuthenticated: !AUTH_REQUIRED || Boolean(user),
         isAdmin,
+        sessionExpired,
       }}
     >
       {children}
