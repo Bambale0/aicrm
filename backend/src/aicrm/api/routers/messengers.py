@@ -1201,7 +1201,8 @@ async def inbound_webhook(
     if not item.is_active:
         raise HTTPException(status_code=409, detail="Messenger integration is inactive")
 
-    webhook_secret = (item.settings or {}).get("webhook_secret")
+    credentials = _load_credentials(item)
+    webhook_secret = str(credentials.get("webhook_secret") or "")
     if webhook_secret:
         if provider == "telegram":
             supplied_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
@@ -1209,7 +1210,7 @@ async def inbound_webhook(
             supplied_secret = request.headers.get("X-Max-Bot-Api-Secret")
         else:
             supplied_secret = request.headers.get("X-Webhook-Secret")
-        if supplied_secret != webhook_secret:
+        if not supplied_secret or not secrets.compare_digest(str(supplied_secret), webhook_secret):
             raise HTTPException(status_code=401, detail="Invalid webhook secret")
 
     try:
@@ -1261,16 +1262,48 @@ async def inbound_webhook(
 
     # MAX lifecycle events are persisted but are not fake chat messages.
     if provider == "max" and event_type not in {"message_created", "message_edited"}:
-        integration_settings = dict(item.settings or {})
-        if event_type == "bot_added" and external_chat_id:
-            known = {str(value) for value in integration_settings.get("monitor_chat_ids", [])}
-            known.add(external_chat_id)
-            integration_settings["monitor_chat_ids"] = sorted(known)
-            item.settings = integration_settings
+        if external_chat_id and event_type == "bot_added":
+            channel = (
+                db.query(MessengerChannel)
+                .filter(
+                    MessengerChannel.integration_id == item.id,
+                    MessengerChannel.external_chat_id == external_chat_id,
+                    MessengerChannel.purpose == "monitor",
+                )
+                .first()
+            )
+            if channel is None:
+                channel = MessengerChannel(
+                    integration_id=item.id,
+                    external_chat_id=external_chat_id,
+                    purpose="monitor",
+                    status="discovered",
+                    is_active=True,
+                )
+                db.add(channel)
+                db.flush()
+            else:
+                channel.is_active = True
+                channel.status = "discovered"
+                channel.last_error = None
+
             background_tasks.add_task(
                 check_max_chat_permissions_background,
                 item.id,
                 external_chat_id,
+            )
+
+        if external_chat_id and event_type == "bot_removed":
+            (
+                db.query(MessengerChannel)
+                .filter(
+                    MessengerChannel.integration_id == item.id,
+                    MessengerChannel.external_chat_id == external_chat_id,
+                )
+                .update(
+                    {"is_active": False, "status": "removed"},
+                    synchronize_session=False,
+                )
             )
 
         event = MessengerInboundEvent(
@@ -1301,10 +1334,19 @@ async def inbound_webhook(
     if not external_chat_id:
         raise HTTPException(status_code=422, detail="Could not determine external_chat_id")
 
-    integration_settings = dict(item.settings or {})
-    monitor_chat_ids = {str(value) for value in integration_settings.get("monitor_chat_ids", [])}
+    integration_settings = _clean_settings(item.settings)
     source_mode = str(normalized.get("source_mode") or "private_intake")
-    if external_chat_id in monitor_chat_ids:
+    monitored_channel = (
+        db.query(MessengerChannel)
+        .filter(
+            MessengerChannel.integration_id == item.id,
+            MessengerChannel.external_chat_id == external_chat_id,
+            MessengerChannel.purpose == "monitor",
+            MessengerChannel.is_active.is_(True),
+        )
+        .first()
+    )
+    if monitored_channel is not None:
         source_mode = "group_monitor"
 
     conversation = (
