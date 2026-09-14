@@ -16,7 +16,9 @@ const Login: React.FC = () => {
   const { login, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const returnTo = (location.state as any)?.from?.pathname || '/dashboard';
+  const routeState = location.state as any;
+  const returnTo = routeState?.from?.pathname || '/dashboard';
+  const authReason = routeState?.reason;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -56,6 +58,13 @@ const Login: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="card space-y-5 p-6 sm:p-8">
+            {authReason && (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                {authReason === 'expired'
+                  ? 'Сессия администратора истекла. Войдите снова — после входа вы вернётесь на нужную страницу.'
+                  : 'Войдите как администратор, чтобы открыть настройки CRM.'}
+              </div>
+            )}
             <div>
               <h2 className="text-xl font-semibold text-slate-900">{isLogin ? 'Вход в систему' : 'Регистрация'}</h2>
               <p className="mt-1 text-sm text-slate-500">Введите данные учетной записи сотрудника</p>
