@@ -52,3 +52,48 @@ def resident_intake_defaults() -> dict:
         "prompts": dict(RESIDENT_INTAKE_DEFAULTS["prompts"]),
         "notifications": dict(RESIDENT_INTAKE_DEFAULTS["notifications"]),
     }
+
+
+RESIDENT_INTAKE_PROMPT_FIELDS = [
+    {"key": "full_name", "label": "Запрос ФИО"},
+    {"key": "address", "label": "Запрос адреса"},
+    {"key": "phone", "label": "Запрос телефона"},
+    {"key": "problem", "label": "Запрос описания проблемы"},
+    {"key": "submitted", "label": "Опрос завершён"},
+    {"key": "invalid_full_name", "label": "Ошибка ФИО"},
+    {"key": "invalid_address", "label": "Ошибка адреса"},
+    {"key": "invalid_phone", "label": "Ошибка телефона"},
+    {"key": "invalid_problem", "label": "Ошибка описания проблемы"},
+]
+
+RESIDENT_NOTIFICATION_FIELDS = [
+    {"key": "accepted", "label": "Заявка принята"},
+    {"key": "in_progress", "label": "Работы начались"},
+    {"key": "cancelled", "label": "Заявка отменена"},
+    {"key": "done", "label": "Заявка выполнена"},
+]
+
+
+def resident_intake_catalog() -> dict:
+    defaults = resident_intake_defaults()
+    return {
+        "enabled_default": defaults["enabled"],
+        "prompt_fields": [
+            {
+                **item,
+                "default": defaults["prompts"][item["key"]],
+            }
+            for item in RESIDENT_INTAKE_PROMPT_FIELDS
+        ],
+        "notification_fields": [
+            {
+                **item,
+                "default": defaults["notifications"][item["key"]],
+            }
+            for item in RESIDENT_NOTIFICATION_FIELDS
+        ],
+        "template_variables": [
+            {"value": "{number}", "label": "Номер заявки"},
+            {"value": "{title}", "label": "Заголовок заявки"},
+        ],
+    }
