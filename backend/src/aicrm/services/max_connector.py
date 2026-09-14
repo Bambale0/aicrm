@@ -147,6 +147,32 @@ async def get_recent_messages(
     messages = data.get("messages") if isinstance(data, dict) else None
     return messages if isinstance(messages, list) else []
 
+async def get_chat(
+    access_token: str,
+    *,
+    chat_id: str,
+) -> Dict[str, Any]:
+    try:
+        numeric_chat_id = int(chat_id)
+    except (TypeError, ValueError) as exc:
+        raise MaxAPIError("Invalid MAX chat_id") from exc
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, verify=_ssl_context()) as client:
+            response = await client.get(
+                _base_url() + f"/chats/{numeric_chat_id}",
+                headers=_headers(access_token),
+            )
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        raise MaxAPIError(
+            "MAX chat request returned HTTP " + str(exc.response.status_code)
+        ) from exc
+    except (httpx.HTTPError, ValueError) as exc:
+        raise MaxAPIError("MAX chat request failed") from exc
+
+
 async def get_bot_chat_membership(
     access_token: str,
     *,
