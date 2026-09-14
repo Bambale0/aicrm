@@ -366,12 +366,11 @@ def process_private_intake_message(
         )
         if session.state == "problem":
             reply_text = (
-                f"Ваши данные уже сохранены:\n"
-                f"{session.full_name}\n"
-                f"{session.address}\n"
-                f"{session.phone}\n\n"
-                f"{prompts['problem']}\n"
-                f"Если данные изменились, отправьте /profile."
+                prompts["known_profile"]
+                .replace("{full_name}", session.full_name or "")
+                .replace("{address}", session.address or "")
+                .replace("{phone}", session.phone or "")
+                .replace("{problem_prompt}", prompts["problem"])
             )
         else:
             reply_text = prompts["full_name"]
