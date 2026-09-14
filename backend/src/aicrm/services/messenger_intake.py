@@ -82,8 +82,10 @@ def _identity_key(
 def _start_session(
     db: Session,
     *,
+    integration: MessengerIntegration,
     conversation: MessengerConversation,
     external_user_id: str,
+    force_profile_refresh: bool = False,
 ) -> MessengerIntakeSession:
     session = (
         db.query(MessengerIntakeSession)
@@ -97,16 +99,53 @@ def _start_session(
             state="full_name",
         )
         db.add(session)
-    else:
-        session.external_user_id = external_user_id or session.external_user_id
-        session.state = "full_name"
-        session.full_name = None
-        session.address = None
-        session.phone = None
-        session.problem = None
-        session.resident_id = None
-        session.request_id = None
-        session.completed_at = None
+
+    session.external_user_id = external_user_id or session.external_user_id
+    session.state = "full_name"
+    session.full_name = None
+    session.address = None
+    session.phone = None
+    session.problem = None
+    session.resident_id = None
+    session.request_id = None
+    session.completed_at = None
+
+    if not force_profile_refresh:
+        identity = _identity_key(
+            integration,
+            session.external_user_id or "",
+            conversation,
+        )
+        resident = (
+            db.query(Resident)
+            .filter(
+                Resident.external_id == identity,
+                Resident.is_active.is_(True),
+            )
+            .first()
+        )
+        if resident and resident.full_name and resident.phone:
+            latest_request = (
+                db.query(ServiceRequest)
+                .filter(
+                    ServiceRequest.resident_id == resident.id,
+                    ServiceRequest.building_id.isnot(None),
+                )
+                .order_by(ServiceRequest.created_at.desc())
+                .first()
+            )
+            building = (
+                db.get(Building, latest_request.building_id)
+                if latest_request and latest_request.building_id
+                else None
+            )
+            if building and building.address:
+                session.full_name = resident.full_name
+                session.phone = resident.phone
+                session.address = building.address
+                session.resident_id = resident.id
+                session.state = "problem"
+
     db.commit()
     db.refresh(session)
     return session
@@ -306,27 +345,44 @@ def process_private_intake_message(
         .first()
     )
 
-    if session is None or session.state not in INTAKE_STATES:
+    value = str(message.text or "").strip()
+    force_profile_refresh = value.lower() == "/profile"
+
+    if session is None or session.state not in INTAKE_STATES or force_profile_refresh:
         session = _start_session(
             db,
+            integration=integration,
             conversation=conversation,
             external_user_id=external_user_id,
+            force_profile_refresh=force_profile_refresh,
         )
         logger.info(
             "resident_intake_started",
             integration_id=integration.id,
             conversation_id=conversation.id,
             intake_session_id=session.id,
+            known_resident=bool(session.resident_id),
+            force_profile_refresh=force_profile_refresh,
         )
+        if session.state == "problem":
+            reply_text = (
+                f"Ваши данные уже сохранены:\n"
+                f"{session.full_name}\n"
+                f"{session.address}\n"
+                f"{session.phone}\n\n"
+                f"{prompts['problem']}\n"
+                f"Если данные изменились, отправьте /profile."
+            )
+        else:
+            reply_text = prompts["full_name"]
         return {
             "handled": True,
             "state": session.state,
-            "reply_text": prompts["full_name"],
+            "reply_text": reply_text,
             "request_id": None,
         }
 
     session.external_user_id = external_user_id or session.external_user_id
-    value = str(message.text or "").strip()
 
     if session.state == "full_name":
         if len(value) < 2 or len(value) > 255:
